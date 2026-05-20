@@ -1,17 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { ContratoData } from "@/lib/documents/types";
 
-const SMARTER_DEFAULT = {
-  razaoSocial: "Smarter Estagios Agente de Integracao Ltda.",
-  cnpj: "XX.XXX.XXX/0001-XX",
-  endereco: "Rua das Palmeiras, 200",
-  cidade: "Sao Paulo",
-  estado: "SP",
-  telefone: "(11) 99000-0000",
-  email: "contato@smarter.com.br",
-  responsavel: "Diretor Executivo",
-};
-
 export async function buildContratoData(contractId: string): Promise<ContratoData | null> {
   const contract = await prisma.contract.findUnique({
     where: { id: contractId },
@@ -27,17 +16,63 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
 
   const { student, company, institution, franchise } = contract;
 
-  const dias = ["Segunda-feira","Terca-feira","Quarta-feira","Quinta-feira","Sexta-feira"];
-  const horarios = dias.map(dia => ({
-    dia,
-    inicio: contract.horarioInicio ?? "—",
-    fim: contract.horarioFim ?? "—",
+  // Build 7-day schedule from diasSemana string
+  const ALL_DAYS = [
+    "Segunda-feira","Terca-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sabado","Domingo"
+  ];
+  const DISP_DAYS = [
+    "Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado","Domingo"
+  ];
+  const diasStr = (contract.diasSemana || "Segunda a Sexta").toLowerCase();
+
+  // Detect active days from the string
+  const dayTerms: Record<string, string> = {
+    "Segunda-feira": "segunda", "Terca-feira": "terca",
+    "Quarta-feira": "quarta", "Quinta-feira": "quinta",
+    "Sexta-feira": "sexta", "Sabado": "sab", "Domingo": "dom",
+  };
+
+  // Handle range "X a Y": find start and end day indices and mark all between active
+  const rangeMatch = diasStr.match(/(\w+)\s+a\s+(\w+)/);
+  let activeDays = new Set<number>();
+  if (rangeMatch) {
+    const startTerm = rangeMatch[1];
+    const endTerm = rangeMatch[2];
+    const startIdx = ALL_DAYS.findIndex(d => dayTerms[d] && startTerm.startsWith(dayTerms[d]));
+    const endIdx = ALL_DAYS.findIndex(d => dayTerms[d] && endTerm.startsWith(dayTerms[d]));
+    if (startIdx !== -1 && endIdx !== -1) {
+      for (let i = startIdx; i <= endIdx; i++) activeDays.add(i);
+    }
+  }
+  // Also check individual mentions
+  ALL_DAYS.forEach((d, i) => {
+    if (dayTerms[d] && diasStr.includes(dayTerms[d])) activeDays.add(i);
+  });
+  // Fallback: Mon-Fri if nothing detected
+  if (activeDays.size === 0) { for (let i = 0; i < 5; i++) activeDays.add(i); }
+
+  const horarios = ALL_DAYS.map((dia, i) => ({
+    dia: DISP_DAYS[i],
+    inicio: activeDays.has(i) ? (contract.horarioInicio ?? "—") : "—",
+    fim: activeDays.has(i) ? (contract.horarioFim ?? "—") : "—",
+    ativo: activeDays.has(i),
   }));
+
+  const smarter = {
+    razaoSocial: franchise?.razaoSocial || franchise?.name || "Smarter Estagios Agente de Integracao Ltda.",
+    cnpj: franchise?.cnpj || "XX.XXX.XXX/0001-XX",
+    endereco: franchise?.endereco || "—",
+    cidade: franchise?.cidade || "São Paulo",
+    estado: franchise?.uf || "SP",
+    telefone: franchise?.telefone || "—",
+    email: franchise?.email || "contato@smarter.com.br",
+    responsavel: franchise?.responsavel || "Diretor Executivo",
+  };
 
   return {
     numero: contract.numero || contract.id.slice(0, 8).toUpperCase(),
     dataAssinatura: new Date(contract.dataInicio).toLocaleDateString("pt-BR"),
-    cidadeAssinatura: (contract as any).cidade || company.cidade || "Sao Paulo",
+    cidadeAssinatura: (contract as any).cidade || company.cidade || "São Paulo",
     tipoEstagio: contract.tipoEstagio ?? "Não Obrigatório",
     estudante: {
       nome: student.name,
@@ -47,7 +82,7 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       telefone: student.telefone || "—",
       celular: student.celular || "—",
       email: student.email,
-      endereco: student.endereco || "—",
+      endereco: [student.endereco, student.bairro].filter(Boolean).join(" — ") || "—",
       bairro: student.bairro || "—",
       cidade: student.cidade || "—",
       estado: student.uf || "—",
@@ -59,7 +94,7 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       nomeFan: company.name,
       razaoSocial: company.razaoSocial,
       cnpj: company.cnpj,
-      endereco: company.endereco || "—",
+      endereco: [company.endereco, company.bairro].filter(Boolean).join(" — ") || "—",
       bairro: company.bairro || "—",
       cidade: company.cidade,
       estado: company.uf,
@@ -87,7 +122,7 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       orientador: contract.coordNome || institution?.coordenador || "—",
       cargoOrientador: contract.coordCargo || institution?.cargoCoord || "—",
     },
-    smarter: SMARTER_DEFAULT,
+    smarter,
     estagio: {
       dataInicio: new Date(contract.dataInicio).toLocaleDateString("pt-BR"),
       dataFim: new Date(contract.dataFim).toLocaleDateString("pt-BR"),
@@ -99,10 +134,10 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       chSemanal: contract.chSemanal ?? 0,
       intervalo: contract.intervalo ?? 0,
       atividades: contract.atividades || "—",
-      localEstagio: contract.localEstagio || company.cidade + "/" + company.uf,
+      localEstagio: contract.localEstagio || (company.cidade + "/" + company.uf),
       horarios,
-      apoliceSeguro: contract.apoliceSeguro || "—",
-      seguradora: contract.seguradora || "—",
+      apoliceSeguro: contract.apoliceSeguro || "A ser informada pelo Agente",
+      seguradora: contract.seguradora || "A ser contratada pelo Agente de Integração",
     },
   };
 }
