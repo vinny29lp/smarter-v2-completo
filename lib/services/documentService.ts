@@ -30,15 +30,15 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
   const dias = ["Segunda-feira","Terca-feira","Quarta-feira","Quinta-feira","Sexta-feira"];
   const horarios = dias.map(dia => ({
     dia,
-    inicio: contract.horarioInicio,
-    fim: contract.horarioFim,
+    inicio: contract.horarioInicio ?? "—",
+    fim: contract.horarioFim ?? "—",
   }));
 
   return {
     numero: contract.numero || contract.id.slice(0, 8).toUpperCase(),
     dataAssinatura: new Date(contract.dataInicio).toLocaleDateString("pt-BR"),
-    cidadeAssinatura: contract.cidade || company.cidade || "Sao Paulo",
-    tipoEstagio: contract.tipoEstagio,
+    cidadeAssinatura: (contract as any).cidade || company.cidade || "Sao Paulo",
+    tipoEstagio: contract.tipoEstagio ?? "Não Obrigatório",
     estudante: {
       nome: student.name,
       cpf: student.cpf || "—",
@@ -91,13 +91,13 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
     estagio: {
       dataInicio: new Date(contract.dataInicio).toLocaleDateString("pt-BR"),
       dataFim: new Date(contract.dataFim).toLocaleDateString("pt-BR"),
-      valorBolsa: contract.bolsa,
+      valorBolsa: contract.bolsa ?? 0,
       valorBolsaExtenso: "—",
-      auxilioTransporte: contract.auxTransporte || 0,
-      beneficios: contract.beneficios || "—",
-      chDiaria: contract.chDiaria,
-      chSemanal: contract.chSemanal,
-      intervalo: contract.intervalo,
+      auxilioTransporte: contract.auxTransporte ?? 0,
+      beneficios: contract.beneficios ?? "—",
+      chDiaria: contract.chDiaria ?? 0,
+      chSemanal: contract.chSemanal ?? 0,
+      intervalo: contract.intervalo ?? 0,
       atividades: contract.atividades || "—",
       localEstagio: contract.localEstagio || company.cidade + "/" + company.uf,
       horarios,

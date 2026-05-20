@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
 
 // Buscar config (qualquer role autenticado pode ler — login usa sem autenticação)
 export async function GET() {

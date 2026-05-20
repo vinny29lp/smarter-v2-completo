@@ -27,6 +27,7 @@ export interface ContratoData {
     razaoSocial: string; cnpj: string;
     endereco: string; cidade: string; estado: string;
     telefone: string; email: string; responsavel: string;
+    logoDocUrl?: string; watermarkText?: string;
   };
   estagio: {
     dataInicio: string; dataFim: string;

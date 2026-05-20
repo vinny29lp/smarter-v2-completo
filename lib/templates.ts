@@ -1,5 +1,5 @@
-import type { ContratoData } from "./types";
-import { valorExtenso, dataExtenso } from "./utils";
+import type { ContratoData } from "./documents/types";
+import { valorExtenso, dataExtenso } from "./documents/utils";
 
 // ── CSS A4 compartilhado ──────────────────────────────────────
 export const DOC_CSS = `
