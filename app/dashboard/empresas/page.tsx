@@ -32,9 +32,7 @@ export default async function EmpresasPage({
     e.cidade.toLowerCase().includes(searchParams.cidade!.toLowerCase())
   );
 
-  const linkAutoCadastro = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/cadastro/empresa${
-    session?.user?.franchiseId ? `?ref=${session.user.franchiseId}` : ""
-  }`;
+  const franchiseRef = session?.user?.franchiseId || undefined;
 
   return (
     <div>
@@ -54,8 +52,8 @@ export default async function EmpresasPage({
         </Link>
       </div>
 
-      {/* EmpresasFilters é Client Component — recebe linkAutoCadastro e renderiza o botão interativo */}
-      <EmpresasFilters linkAutoCadastro={linkAutoCadastro} />
+      {/* EmpresasFilters é Client Component — renderiza o botão de link e filtros */}
+      <EmpresasFilters franchiseRef={franchiseRef} />
 
       <Card>
         <table className="w-full">

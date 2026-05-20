@@ -31,7 +31,7 @@ export default async function EstudantesPage({ searchParams }: {
   if (searchParams.disc) estudantes = estudantes.filter(e => e.discResult === searchParams.disc);
   if (searchParams.curso) estudantes = estudantes.filter(e => (e.curso||"").toLowerCase().includes(searchParams.curso!.toLowerCase()));
 
-  const linkAutoCadastro = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/cadastro/estudante${session?.user?.franchiseId ? `?ref=${session.user.franchiseId}` : ""}`;
+  const franchiseRef = session?.user?.franchiseId || undefined;
 
   return (
     <div>
@@ -48,7 +48,7 @@ export default async function EstudantesPage({ searchParams }: {
         </div>
       </div>
 
-      <EstudantesFilters linkAutoCadastro={linkAutoCadastro} />
+      <EstudantesFilters franchiseRef={franchiseRef} />
 
       <Card>
         <table className="w-full">

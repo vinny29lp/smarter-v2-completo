@@ -122,7 +122,7 @@ export default function ProcessosPage() {
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
   ${box("Candidato", `${fld("Nome",selected.student?.name||"—")}${fld("E-mail",selected.student?.user?.email||"—")}${fld("Curso",`${selected.student?.curso||"—"} · ${selected.student?.periodo||"—"}° Período`)}${fld("Instituição",selected.student?.institution?.name||"—")}`)}
-  ${box("Vaga", `${fld("Título",selected.vacancy?.titulo||"—")}${fld("Empresa",selected.vacancy?.company?.name||"—")}${fld("Bolsa","R$ "+(selected.vacancy?.bolsa?.toLocaleString("pt-BR")||"—")+"/mês")}${fld("Match",`${selected.matching||60}%`)}${selected.entrevistaAt?fld("Entrevista",new Date(selected.entrevistaAt).toLocaleString("pt-BR")+" — "+(selected.entrevistaLocal||selected.entrevistaLink||"—")):"")}`)}
+  ${box("Vaga", `${fld("Título",selected.vacancy?.titulo||"—")}${fld("Empresa",selected.vacancy?.company?.name||"—")}${fld("Bolsa","R$ "+(selected.vacancy?.bolsa?.toLocaleString("pt-BR")||"—")+"/mês")}${fld("Match",`${selected.matching||60}%`)}${selected.entrevistaAt?fld("Entrevista",new Date(selected.entrevistaAt).toLocaleString("pt-BR")+" — "+(selected.entrevistaLocal||selected.entrevistaLink||"—")):""}`)}
 </div>
 
 ${anotacao||parecerTecnico ? `

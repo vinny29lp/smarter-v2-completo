@@ -4,11 +4,17 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 
-export function EstudantesFilters({ linkAutoCadastro }: { linkAutoCadastro: string }) {
+export function EstudantesFilters({ franchiseRef }: { franchiseRef?: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const [linkModal, setLinkModal] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Build URL client-side using window.location.origin so it works in production
+  const getLinkAutoCadastro = () => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    return `${base}/cadastro/estudante${franchiseRef ? `?ref=${franchiseRef}` : ""}`;
+  };
 
   const update = (k: string, v: string) => {
     const p = new URLSearchParams(params.toString());
@@ -16,7 +22,12 @@ export function EstudantesFilters({ linkAutoCadastro }: { linkAutoCadastro: stri
     router.push("?" + p.toString());
   };
 
-  const copy = () => { navigator.clipboard.writeText(linkAutoCadastro); setCopied(true); setTimeout(()=>setCopied(false),2000); };
+  const copy = () => {
+    const link = getLinkAutoCadastro();
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <>
@@ -45,10 +56,12 @@ export function EstudantesFilters({ linkAutoCadastro }: { linkAutoCadastro: stri
       </div>
       <Modal open={linkModal} onClose={()=>setLinkModal(false)} title="Link de Auto Cadastro — Estudante">
         <p className="text-sm text-slate-500 mb-3">Envie este link para estudantes que queiram se cadastrar na plataforma.</p>
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-mono break-all mb-4 select-all">{linkAutoCadastro}</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-mono break-all mb-4 select-all">
+          {getLinkAutoCadastro()}
+        </div>
         <div className="flex gap-2">
           <Button onClick={copy} className="flex-1 justify-center">{copied?"✓ Copiado!":"📋 Copiar Link"}</Button>
-          <Button variant="secondary" onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent("Cadastre-se no portal de estágios: "+linkAutoCadastro)}`)}>📱 WhatsApp</Button>
+          <Button variant="secondary" onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent("Cadastre-se no portal de estágios: "+getLinkAutoCadastro())}`)}>📱 WhatsApp</Button>
         </div>
       </Modal>
     </>

@@ -5,14 +5,20 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 
 interface Props {
-  linkAutoCadastro: string;
+  franchiseRef?: string;
 }
 
-export function EmpresasFilters({ linkAutoCadastro }: Props) {
+export function EmpresasFilters({ franchiseRef }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [linkModal, setLinkModal] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Build URL client-side using window.location.origin so it works in production
+  const getLinkAutoCadastro = () => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    return `${base}/cadastro/empresa${franchiseRef ? `?ref=${franchiseRef}` : ""}`;
+  };
 
   const update = (k: string, v: string) => {
     const p = new URLSearchParams(params.toString());
@@ -21,14 +27,14 @@ export function EmpresasFilters({ linkAutoCadastro }: Props) {
   };
 
   const copy = () => {
-    navigator.clipboard.writeText(linkAutoCadastro);
+    navigator.clipboard.writeText(getLinkAutoCadastro());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const shareWhatsApp = () => {
     const text = encodeURIComponent(
-      "Olá! Cadastre sua empresa no sistema Smarter Estágios: " + linkAutoCadastro
+      "Olá! Cadastre sua empresa no sistema Smarter Estágios: " + getLinkAutoCadastro()
     );
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };
@@ -58,7 +64,6 @@ export function EmpresasFilters({ linkAutoCadastro }: Props) {
           defaultValue={params.get("cidade") || ""}
           onChange={e => update("cidade", e.target.value)}
         />
-        {/* Botão interativo fica aqui no Client Component */}
         <button
           onClick={() => setLinkModal(true)}
           className="px-3 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold hover:border-blue-400 transition-colors text-slate-600"
@@ -73,7 +78,7 @@ export function EmpresasFilters({ linkAutoCadastro }: Props) {
           <strong>leads pendentes</strong> para aprovação.
         </p>
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-mono break-all mb-4 select-all">
-          {linkAutoCadastro}
+          {getLinkAutoCadastro()}
         </div>
         <div className="flex gap-2">
           <Button onClick={copy} className="flex-1 justify-center">

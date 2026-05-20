@@ -46,12 +46,22 @@ export default function FinanceiroPage() {
   const pendentes = lancamentos.filter(l => l.status==="PENDENTE").reduce((a,b)=>a+b.valor,0);
 
   const salvarConfig = async () => {
-    const res = await fetch("/api/app/config-pagamento", {
-      method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(configForm),
-    });
-    const data = await res.json();
-    setConfig(data.config);
-    setConfigModal(false);
+    try {
+      const res = await fetch("/api/app/config-pagamento", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(configForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erro ao salvar configuração de pagamento");
+        return;
+      }
+      setConfig(data.config);
+      setConfigModal(false);
+    } catch (err) {
+      alert("Erro de conexão ao salvar configuração");
+    }
   };
 
   const criar = async () => {
