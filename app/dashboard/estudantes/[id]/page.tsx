@@ -65,6 +65,7 @@ export default function EstudanteDetailPage() {
           <Badge variant={student.status==="EM_ESTAGIO"?"green":student.status==="DISPONIVEL"?"yellow":"gray"}>{student.status}</Badge>
         </div>
         <div className="flex gap-2">
+          <Button variant="secondary" onClick={()=>{ const a=document.createElement("a"); a.href=`/api/app/estudantes/${student.id}/curriculo`; a.download=`curriculo-${student.name?.replace(/\s+/g,"-").toLowerCase()}.html`; a.click(); }}>📄 Baixar Currículo + DISC</Button>
           <Button onClick={()=>setProcessoModal(true)}>+ Enviar para Vaga</Button>
         </div>
       </div>

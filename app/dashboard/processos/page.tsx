@@ -78,42 +78,99 @@ export default function ProcessosPage() {
     if (selected?.id===id) setSelected((s:any)=>({...s,etapa}));
   };
 
+  const DISC_INFO: Record<string, any> = {
+    D:{titulo:"Dominante",cor:"#dc2626",descricao:"Orientado a resultados, direto e assertivo. Age com rapidez e gosta de desafios.",pontosFortes:["Liderança e tomada de decisão","Foco em resultados","Determinação e persistência","Motivação de equipes","Ação rápida"],pontosMelhoria:["Desenvolver escuta ativa","Considerar sentimentos da equipe","Aprender a delegar","Moderar impulsividade","Praticar empatia"],vagasIdeais:["Gerente de vendas","Líder de projetos","Diretor comercial","Coordenador de operações"],comunicacao:"Seja direto, objetivo e focado em resultados. Evite detalhes desnecessários."},
+    I:{titulo:"Influente",cor:"#f59e0b",descricao:"Entusiasta, comunicativo e inspirador. Destaca-se pela energia positiva e persuasão.",pontosFortes:["Comunicação e persuasão","Criação de relacionamentos","Motivação de equipes","Criatividade e inovação","Alta energia"],pontosMelhoria:["Desenvolver organização","Melhorar gestão do tempo","Aprofundar análise","Manter foco","Cumprir prazos"],vagasIdeais:["Vendas e relacionamento","Marketing","RH e T&D","Relações públicas","Atendimento"],comunicacao:"Use entusiasmo, reconheça suas ideias e crie conexão pessoal."},
+    S:{titulo:"Estável",cor:"#16a34a",descricao:"Colaborativo, paciente e confiável. Valoriza harmonia e relações duradouras.",pontosFortes:["Confiabilidade","Trabalho em equipe","Paciência e escuta","Lealdade","Estabilidade emocional"],pontosMelhoria:["Desenvolver assertividade","Lidar com mudanças","Comunicar discordâncias","Decidir com agilidade","Sair da zona de conforto"],vagasIdeais:["Analista administrativo","Assistente de RH","Suporte ao cliente","Educação","Saúde"],comunicacao:"Crie ambiente de confiança, seja paciente e demonstre estabilidade."},
+    C:{titulo:"Consciente",cor:"#2563eb",descricao:"Analítico, meticuloso e preciso. Toma decisões baseadas em dados e prima pela qualidade.",pontosFortes:["Análise e pensamento crítico","Atenção a detalhes","Planejamento e organização","Rigor técnico","Soluções bem estruturadas"],pontosMelhoria:["Desenvolver flexibilidade","Comunicação interpessoal","Equilibrar perfeição e prazos","Agir na incerteza","Delegar"],vagasIdeais:["Analista de dados","Contabilidade","TI e desenvolvimento","Engenharia","Jurídico"],comunicacao:"Forneça dados e documentação. Dê tempo para análise."},
+  };
+
   const gerarParecer = () => {
     if (!selected) return;
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-      body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;color:#1a1a1a}
-      h1{color:#0f2a5e;border-bottom:2px solid #0f2a5e;padding-bottom:8px}
-      h3{color:#374151;margin-top:20px}
-      .label{font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:2px}
-      .val{font-size:14px;margin-bottom:12px}
-      .disc{display:inline-block;padding:4px 12px;border-radius:20px;font-weight:bold;font-size:12px}
-      .match{display:inline-block;padding:4px 12px;border-radius:20px;background:#e0f2fe;color:#0369a1;font-weight:bold}
-      .rec{padding:12px;border-radius:8px;font-weight:bold;text-align:center;font-size:16px}
-      .aprovado{background:#d1fae5;color:#065f46}
-      .reprovado{background:#fee2e2;color:#991b1b}
-      .em_analise{background:#fef3c7;color:#92400e}
-    </style></head><body>
-    <h1>Parecer Técnico — Processo Seletivo</h1>
-    <p style="color:#6b7280;font-size:12px">Gerado em ${new Date().toLocaleString("pt-BR")}</p>
-    <h3>Candidato</h3>
-    <div class="label">Nome</div><div class="val">${selected.student?.name}</div>
-    <div class="label">E-mail</div><div class="val">${selected.student?.user?.email||"—"}</div>
-    <div class="label">Curso</div><div class="val">${selected.student?.curso||"—"} ${selected.student?.periodo ? `— ${selected.student.periodo}º período` : ""}</div>
-    <div class="label">Instituição</div><div class="val">${selected.student?.institution?.name||"—"}</div>
-    <div class="label">Perfil DISC</div><div class="val"><span class="disc" style="background:#dbeafe;color:#1e40af">${selected.student?.discResult||"Não informado"}</span></div>
-    <h3>Vaga</h3>
-    <div class="label">Título</div><div class="val">${selected.vacancy?.titulo}</div>
-    <div class="label">Empresa</div><div class="val">${selected.vacancy?.company?.name}</div>
-    <div class="label">Bolsa</div><div class="val">R$ ${selected.vacancy?.bolsa?.toLocaleString("pt-BR")}/mês</div>
-    <div class="label">Match</div><div class="val"><span class="match">${selected.matching||60}%</span></div>
-    ${selected.entrevistaAt ? `<h3>Entrevista Agendada</h3><div class="val">${new Date(selected.entrevistaAt).toLocaleString("pt-BR")} — ${selected.entrevistaLocal||selected.entrevistaLink||"—"}</div>` : ""}
-    <h3>Anotações do Processo</h3>
-    <p style="background:#f9fafb;border-left:3px solid #0f2a5e;padding:12px;border-radius:4px">${selected.anotacao||"Sem anotações."}</p>
-    <h3>Avaliação Técnica</h3>
-    <p style="background:#f9fafb;border-left:3px solid #0f2a5e;padding:12px;border-radius:4px">${parecerTecnico||"Sem avaliação."}</p>
-    ${recomendacao ? `<h3>Recomendação Final</h3><div class="rec ${recomendacao}">${recomendacao.toUpperCase().replace("_"," ")}</div>` : ""}
-    <p style="margin-top:40px;font-size:11px;color:#9ca3af">Smarter Estágios — Sistema de Gestão de Estágios</p>
-    </body></html>`;
+    const discKey = selected.student?.discResult?.charAt(0)?.toUpperCase() as string;
+    const disc = DISC_INFO[discKey] || null;
+    const scores = selected.student?.discData || {};
+    const maxScore = Math.max(...Object.values(scores).map(Number as any), 1);
+    const ul = (items: string[]) => items.map((i: string) => `<li style="font-size:11px;color:#475569;margin-bottom:4px">${i}</li>`).join("");
+    const tag = (t: string, cor: string) => `<span style="display:inline-block;background:${cor}22;color:${cor};font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:12px;margin:2px">${t}</span>`;
+    const box = (title: string, body: string, cor = "#0f2a5e") => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:10px"><div style="font-size:9.5px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:${cor};border-bottom:1px solid ${cor}22;padding-bottom:4px;margin-bottom:7px">${title}</div>${body}</div>`;
+    const fld = (l: string, v: string) => `<div style="margin-bottom:6px"><div style="font-size:8.5px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:1px">${l}</div><div style="font-size:11px;color:#1f2937">${v||"—"}</div></div>`;
+    const barras = disc ? Object.entries(DISC_INFO).map(([k, v]: [string, any]) => {
+      const val = Number(scores[k] || 0); const pct = Math.round((val / maxScore) * 100);
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:16px;font-weight:900;font-size:12px;color:${v.cor}">${k}</div><div style="flex:1;background:#f1f5f9;border-radius:4px;overflow:hidden;height:16px"><div style="height:16px;background:${v.cor};border-radius:4px;width:${pct}%;padding-left:5px;display:flex;align-items:center">${pct>15?`<span style="font-size:9px;color:white;font-weight:700">${val}</span>`:""}</div></div><span style="width:26px;font-size:10px;color:#64748b">${val}</span>${k===discKey?`<span style="font-size:9px;font-weight:900;color:${v.cor}">✓</span>`:""}</div>`;
+    }).join("") : "";
+    const recLabel: Record<string,string> = {aprovado:"✅ APROVADO",reprovado:"❌ REPROVADO",em_analise:"⏳ EM ANÁLISE"};
+    const recColor: Record<string,string> = {aprovado:"#16a34a",reprovado:"#dc2626",em_analise:"#d97706"};
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Parecer — ${selected.student?.name}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#e5e7eb;font-family:Arial,Helvetica,sans-serif}.doc{width:210mm;min-height:297mm;margin:0 auto;padding:12mm 14mm 20mm;background:white;font-size:11px;color:#1a1a1a;line-height:1.55;position:relative}.dh{background:linear-gradient(135deg,#0f2a5e,#1a3d8f);border-radius:6px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}.dh-logo{color:#f5c400;font-weight:900;font-size:22px}.dh-logo span{font-size:9px;display:block;font-weight:400;color:rgba(255,255,255,.7)}.dh-center{flex:1;text-align:center;padding:0 16px}.dh-name{color:white;font-size:14px;font-weight:900}.dh-sub{color:rgba(255,255,255,.7);font-size:9.5px;margin-top:2px}.dh-right{text-align:right}.dh-badge{display:inline-block;background:#22c55e;color:white;font-size:8px;font-weight:900;padding:2px 8px;border-radius:20px;letter-spacing:.5px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sec-head{display:flex;align-items:center;gap:6px;margin-bottom:5px;padding-bottom:3px;border-bottom:2px solid #0f2a5e;margin-top:10px}.sec-n{background:#0f2a5e;color:white;font-size:9px;font-weight:900;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}.sec-t{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:#0f2a5e}.footer{border-top:1px solid #e2e8f0;padding-top:4px;margin-top:16px;display:flex;justify-content:space-between;font-size:8px;color:#9ca3af}@media print{body{background:white}.doc{margin:0}}</style>
+</head><body><div class="doc">
+
+<div class="dh">
+  <div class="dh-logo">S<span>Smarter Estágios</span></div>
+  <div class="dh-center">
+    <div style="color:rgba(255,255,255,.7);font-size:9px;text-transform:uppercase;letter-spacing:.5px">Parecer Técnico — Processo Seletivo</div>
+    <div class="dh-name">${selected.student?.name}</div>
+    <div class="dh-sub">${selected.vacancy?.titulo} · ${selected.vacancy?.company?.name}</div>
+  </div>
+  <div class="dh-right">
+    <div class="dh-badge">PARECER</div>
+    <div style="font-size:9px;color:rgba(255,255,255,.7);margin-top:4px">${new Date().toLocaleDateString("pt-BR")}</div>
+    ${disc ? `<div style="font-size:9px;color:${disc.cor};font-weight:900;background:${disc.cor}33;padding:2px 8px;border-radius:12px;margin-top:3px">DISC: ${discKey} · ${disc.titulo}</div>` : ""}
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  ${box("Candidato", `${fld("Nome",selected.student?.name||"—")}${fld("E-mail",selected.student?.user?.email||"—")}${fld("Curso",`${selected.student?.curso||"—"} · ${selected.student?.periodo||"—"}° Período`)}${fld("Instituição",selected.student?.institution?.name||"—")}`)}
+  ${box("Vaga", `${fld("Título",selected.vacancy?.titulo||"—")}${fld("Empresa",selected.vacancy?.company?.name||"—")}${fld("Bolsa","R$ "+(selected.vacancy?.bolsa?.toLocaleString("pt-BR")||"—")+"/mês")}${fld("Match",`${selected.matching||60}%`)}${selected.entrevistaAt?fld("Entrevista",new Date(selected.entrevistaAt).toLocaleString("pt-BR")+" — "+(selected.entrevistaLocal||selected.entrevistaLink||"—")):"")}`)}
+</div>
+
+${anotacao||parecerTecnico ? `
+<div>
+  <div class="sec-head"><div class="sec-n">A</div><div class="sec-t">Avaliação do Processo</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    ${anotacao ? box("📝 Anotações do Processo", `<p style="font-size:11px;color:#374151;line-height:1.6">${anotacao}</p>`) : ""}
+    ${parecerTecnico ? box("📋 Avaliação Técnica", `<p style="font-size:11px;color:#374151;line-height:1.6">${parecerTecnico}</p>`) : ""}
+  </div>
+</div>` : ""}
+
+${recomendacao ? `
+<div style="margin:12px 0">
+  <div class="sec-head"><div class="sec-n">R</div><div class="sec-t">Recomendação Final</div></div>
+  <div style="padding:12px;border-radius:6px;text-align:center;font-size:15px;font-weight:900;color:${recColor[recomendacao]||"#374151"};background:${recColor[recomendacao]||"#374151"}22;border:1px solid ${recColor[recomendacao]||"#374151"}44">
+    ${recLabel[recomendacao]||recomendacao.toUpperCase()}
+  </div>
+</div>` : ""}
+
+${disc ? `
+<div style="page-break-before:always;padding-top:8mm">
+  <div style="background:linear-gradient(135deg,${disc.cor}cc,${disc.cor}99);border-radius:6px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+    <div style="color:#f5c400;font-weight:900;font-size:20px">S<span style="font-size:9px;display:block;font-weight:400;color:rgba(255,255,255,.7)">Smarter Estágios</span></div>
+    <div style="text-align:center;flex:1;padding:0 16px">
+      <div style="color:rgba(255,255,255,.8);font-size:9px;text-transform:uppercase;letter-spacing:.5px">Relatório DISC Comportamental</div>
+      <div style="color:white;font-size:14px;font-weight:900;margin-top:2px">${selected.student?.name}</div>
+      <div style="color:rgba(255,255,255,.7);font-size:9.5px;margin-top:1px">Perfil ${discKey} — ${disc.titulo}</div>
+    </div>
+    <div style="text-align:right"><div style="display:inline-block;background:${disc.cor};color:white;font-size:8px;font-weight:900;padding:2px 8px;border-radius:20px">Perfil ${disc.titulo}</div></div>
+  </div>
+
+  ${box(`Perfil Predominante — ${discKey} · ${disc.titulo}`, `<p style="font-size:11px;color:#374151;line-height:1.6">${disc.descricao}</p>`, disc.cor)}
+  ${box("Distribuição DISC — Pontuação", `${barras}<p style="font-size:9px;color:#9ca3af;margin-top:4px">D=Dominante · I=Influente · S=Estável · C=Consciente</p>`, disc.cor)}
+  <div class="grid2">
+    ${box("✅ Pontos Fortes", `<ul style="padding-left:16px;margin:0">${ul(disc.pontosFortes)}</ul>`, "#16a34a")}
+    ${box("📈 Pontos de Desenvolvimento", `<ul style="padding-left:16px;margin:0">${ul(disc.pontosMelhoria)}</ul>`, "#dc2626")}
+  </div>
+  <div class="grid2">
+    ${box("💬 Como se Comunicar", `<p style="font-size:11px;color:#374151;line-height:1.5">${disc.comunicacao}</p>`, disc.cor)}
+    ${box("💼 Vagas e Funções Compatíveis", `<div>${disc.vagasIdeais.map((v: string) => tag(v, disc.cor)).join("")}</div>`, disc.cor)}
+  </div>
+</div>` : ""}
+
+<div class="footer">
+  <span>Parecer Técnico + DISC · ${selected.student?.name} · ${selected.vacancy?.titulo}</span>
+  <span>Gerado pela plataforma Smarter Estágios · ${new Date().toLocaleDateString("pt-BR")}</span>
+</div>
+</div></body></html>`;
     const blob = new Blob([html],{type:"text/html"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
