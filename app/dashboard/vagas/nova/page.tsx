@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { AIButton } from "@/components/ai/AIButton";
 import Link from "next/link";
 
 const AREAS = ["Administrativo","Comercial","Contabilidade","Design","Engenharia","Financeiro","Jurídico","Logística","Marketing","Recursos Humanos","Tecnologia","Saúde","Outro"];
@@ -45,6 +46,23 @@ export default function NovaVagaPage() {
     router.refresh();
   };
 
+  // Payloads para IA
+  const selectedCompany = companies.find(c => c.id === form.companyId);
+  const aiDescricaoPayload = {
+    titulo: form.titulo, funcao: form.funcao, area: form.area,
+    bolsa: form.bolsa, horario: form.horario, modalidade: form.modalidade,
+    requisitos: form.requisitos, empresa: selectedCompany?.name || "",
+    cidade: form.cidade, uf: form.uf,
+  };
+  const aiTestesPayload = {
+    titulo: form.titulo, area: form.area,
+    requisitos: form.requisitos, descricao: form.descricao,
+  };
+  const aiDiscPayload = {
+    titulo: form.titulo, area: form.area,
+    descricao: form.descricao, requisitos: form.requisitos, modalidade: form.modalidade,
+  };
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
@@ -81,19 +99,58 @@ export default function NovaVagaPage() {
                 {["Presencial","Híbrido","Remoto"].map(m=><option key={m}>{m}</option>)}
               </select>
             </div>
+
+            {/* Módulo 5 — Perfil DISC Ideal */}
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Perfil DISC desejado</label>
-              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.discDesejado} onChange={e=>set("discDesejado",e.target.value)}>
-                <option value="">Qualquer perfil</option>
-                {[["D","Dominância"],["I","Influência"],["S","Estabilidade"],["C","Conformidade"]].map(([v,l])=><option key={v} value={v}>{v} — {l}</option>)}
-              </select>
+              <div className="flex gap-2 items-center">
+                <select className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.discDesejado} onChange={e=>set("discDesejado",e.target.value)}>
+                  <option value="">Qualquer perfil</option>
+                  {[["D","Dominância"],["I","Influência"],["S","Estabilidade"],["C","Conformidade"]].map(([v,l])=><option key={v} value={v}>{v} — {l}</option>)}
+                </select>
+                <AIButton
+                  label="DISC Ideal"
+                  endpoint="/api/app/ai/disc-perfil"
+                  payload={aiDiscPayload}
+                  resultLabel="Perfil DISC Recomendado"
+                  disabled={!form.titulo}
+                  onResult={(text) => {
+                    const match = text.match(/\bperfil\s+([DISC])\b/i) || text.match(/^([DISC])\b/);
+                    if (match) set("discDesejado", match[1].toUpperCase());
+                  }}
+                />
+              </div>
             </div>
+
+            {/* Módulo 1 — Gerar Descrição com IA */}
             <div className="col-span-2">
-              <label className="text-xs font-bold text-slate-600 block mb-1">Descrição da Vaga</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-600">Descrição da Vaga</label>
+                <AIButton
+                  label="Gerar descrição com IA"
+                  endpoint="/api/app/ai/vaga-descricao"
+                  payload={aiDescricaoPayload}
+                  resultLabel="Descrição gerada pela IA"
+                  disabled={!form.titulo}
+                  onResult={(text) => set("descricao", text)}
+                />
+              </div>
               <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-20 resize-none" value={form.descricao} onChange={e=>set("descricao",e.target.value)} placeholder="Atividades que o estagiário irá desenvolver..."/>
             </div>
+
+            {/* Módulo 4 — Sugestão de Testes */}
             <div className="col-span-2">
-              <label className="text-xs font-bold text-slate-600 block mb-1">Requisitos</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-600">Requisitos</label>
+                <AIButton
+                  label="Sugerir testes seletivos"
+                  endpoint="/api/app/ai/sugestao-testes"
+                  payload={aiTestesPayload}
+                  resultLabel="Testes sugeridos pela IA"
+                  disabled={!form.titulo}
+                  onResult={(text) => set("requisitos", form.requisitos ? form.requisitos + "\n\n" + text : text)}
+                />
+              </div>
               <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-16 resize-none" value={form.requisitos} onChange={e=>set("requisitos",e.target.value)} placeholder="Cursando Administração ou áreas correlatas..."/>
             </div>
           </div>

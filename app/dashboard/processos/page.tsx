@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import Link from "next/link";
+import { AIButton } from "@/components/ai/AIButton";
 
 const ETAPAS = [
   {key:"inscritos",  label:"Inscritos",   color:"bg-slate-100 border-slate-300"},
@@ -340,7 +341,24 @@ ${disc ? `
               {activeTab==="parecer" && (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-600 block mb-1">Avaliação Técnica completa</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-600">Avaliação Técnica completa</label>
+                      <AIButton
+                        label="Melhorar parecer com IA"
+                        endpoint="/api/app/ai/parecer"
+                        payload={{
+                          parecerAtual: parecerTecnico,
+                          candidato: selected?.student?.name || "",
+                          vaga: selected?.vacancy?.titulo || "",
+                          empresa: selected?.vacancy?.company?.name || "",
+                          etapa: selected?.etapa || "",
+                          anotacao: anotacao,
+                        }}
+                        resultLabel="Parecer aprimorado pela IA"
+                        disabled={!parecerTecnico && !anotacao}
+                        onResult={(text) => setParecerTecnico(text)}
+                      />
+                    </div>
                     <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-40 resize-none" value={parecerTecnico} onChange={e=>setParecerTecnico(e.target.value)} placeholder="Descreva a avaliação técnica do candidato, pontos fortes, pontos de melhoria, adequação à vaga..."/>
                   </div>
                 </div>

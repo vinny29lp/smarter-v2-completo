@@ -5,6 +5,7 @@ import { createContract } from "@/lib/actions/contracts";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { AIButton } from "@/components/ai/AIButton";
 
 interface Props { franchiseId:string; students:any[]; companies:any[]; institutions:any[]; }
 
@@ -28,6 +29,18 @@ export function ContratoForm({ franchiseId, students, companies, institutions }:
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
 
   const chTotal = parseInt(form.chDiaria||"0") * (form.diasSemana.includes("Sábado")?6:5);
+
+  // Módulo 2 — Payload para IA de atividades TCE
+  const aiAtividadesPayload = {
+    curso: students.find(s => s.id === form.studentId)?.curso || "",
+    area: "",
+    empresa: companies.find(c => c.id === form.companyId)?.name || "",
+    bolsa: form.bolsa,
+    cargaHoraria: String(chTotal),
+    chDiaria: form.chDiaria,
+    diasSemana: form.diasSemana,
+    tipoEstagio: form.tipoEstagio,
+  };
 
   const handleSubmit = async () => {
     if (!form.studentId||!form.companyId||!form.bolsa||!form.dataInicio||!form.dataFim) {
@@ -139,7 +152,17 @@ export function ContratoForm({ franchiseId, students, companies, institutions }:
             <Input label="Vencimento (dia do mês)" type="number" value={form.vencimento} onChange={e=>set("vencimento",e.target.value)} placeholder="5"/>
             <Input label="Cidade do Estágio" value={form.cidade} onChange={e=>set("cidade",e.target.value)} placeholder="São Paulo"/>
             <div className="col-span-2">
-              <label className="text-xs font-bold text-slate-600 block mb-1">Atividades do Estágio *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-600">Atividades do Estágio *</label>
+                <AIButton
+                  label="Gerar atividades conforme Lei 11.788/08"
+                  endpoint="/api/app/ai/tce-atividades"
+                  payload={aiAtividadesPayload}
+                  resultLabel="Atividades geradas pela IA"
+                  disabled={!form.studentId && !form.companyId}
+                  onResult={(text) => set("atividades", text)}
+                />
+              </div>
               <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-24 resize-none" value={form.atividades} onChange={e=>set("atividades",e.target.value)} placeholder="Descreva as atividades que o estagiário irá desenvolver..."/>
             </div>
             <div className="col-span-2"><Input label="Local do Estágio" value={form.localEstagio} onChange={e=>set("localEstagio",e.target.value)} placeholder="Av. Paulista, 1000 — São Paulo/SP"/></div>
