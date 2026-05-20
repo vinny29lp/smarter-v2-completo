@@ -20,7 +20,6 @@ export async function POST(
 
   let html = "";
 
-  // Validate TCE before generating
   if (doc.tipo === "tce" || doc.tipo === "pe") {
     const erros = validateTCE(contratoData);
     if (erros.length > 0) {
@@ -55,7 +54,7 @@ export async function POST(
       html = gerarContratoPrestacao(contratoData, body.valorMensal || 200);
       break;
     default:
-      return NextResponse.json({ error: `Tipo de documento '${doc.tipo}' não implementado` }, { status: 400 });
+      return NextResponse.json({ error: `Tipo '${doc.tipo}' não implementado` }, { status: 400 });
   }
 
   const updated = await saveDocumentHtml(params.docId, html);
@@ -67,11 +66,69 @@ export async function PATCH(
   { params }: { params: { id: string; docId: string } }
 ) {
   const body = await req.json();
-  const doc = await prisma.internshipDocument.update({
+  const doc = await prisma.internshipDocument.findUnique({ where: { id: params.docId } });
+  if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // ─── Assinatura parcial para TCE e PE — Empresa → Instituição → Estudante ───
+  if (body.assinarComo && (doc.tipo === "tce" || doc.tipo === "pe")) {
+    const ORDEM = ["empresa", "instituicao", "estudante"] as const;
+    type Signatario = typeof ORDEM[number];
+    const quem: Signatario = body.assinarComo;
+    if (!ORDEM.includes(quem)) return NextResponse.json({ error: "Signatário inválido" }, { status: 400 });
+
+    const signers: Record<string, any> = (doc.signers as any) || {};
+
+    // Enforce order
+    const idx = ORDEM.indexOf(quem);
+    for (let i = 0; i < idx; i++) {
+      if (!signers[ORDEM[i]]?.assinado) {
+        const labels: Record<string,string> = { empresa:"Empresa", instituicao:"Instituição", estudante:"Estudante" };
+        return NextResponse.json({ error: `A ${labels[ORDEM[i]]} precisa assinar primeiro.` }, { status: 422 });
+      }
+    }
+
+    signers[quem] = { assinado: true, assinadoAt: new Date().toISOString(), nome: body.nome || quem };
+
+    const todosAssinaram = ORDEM.every(s => signers[s]?.assinado);
+    const novoStatus = todosAssinaram ? "ASSINADO" : "AGUARDANDO_ASSINATURA";
+
+    const updated = await prisma.internshipDocument.update({
+      where: { id: params.docId },
+      data: {
+        signers,
+        status: novoStatus as any,
+        signedAt: todosAssinaram ? new Date() : undefined,
+      },
+    });
+
+    // Auto-ativar contrato quando TCE 100% assinado
+    if (todosAssinaram && doc.tipo === "tce") {
+      await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO" as any } });
+    }
+
+    return NextResponse.json({ document: updated, todosAssinaram, novoStatus });
+  }
+
+  // ─── Update simples ───
+  const updated = await prisma.internshipDocument.update({
     where: { id: params.docId },
-    data: { status: body.status as any, metaData: body.metaData },
+    data: {
+      status: body.status as any,
+      metaData: body.metaData,
+      signedAt: body.status === "ASSINADO" ? new Date() : undefined,
+    },
   });
-  return NextResponse.json({ document: doc });
+
+  // Auto-inativar contrato quando Rescisão (TR) é assinada
+  if (body.status === "ASSINADO" && doc.tipo === "tr") {
+    await prisma.contract.update({ where: { id: params.id }, data: { status: "INATIVO" as any } });
+  }
+  // Auto-ativar contrato quando TCE é marcado assinado diretamente
+  if (body.status === "ASSINADO" && doc.tipo === "tce") {
+    await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO" as any } });
+  }
+
+  return NextResponse.json({ document: updated });
 }
 
 export async function GET(

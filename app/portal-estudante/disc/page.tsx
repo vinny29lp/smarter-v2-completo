@@ -70,9 +70,19 @@ export default function DiscTestPage() {
             <p className="text-xs font-bold text-slate-500 uppercase mb-1">Seus pontos fortes</p>
             <p className="text-sm text-slate-700">{info.pontos}</p>
           </div>
-          <Button className="w-full justify-center" onClick={()=>router.push("/portal-estudante")}>
-            Voltar ao Portal →
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              className="w-full justify-center"
+              onClick={() => {
+                window.open("/api/portal/estudante/disc-relatorio", "_blank");
+              }}
+            >
+              📊 Ver Relatório Completo
+            </Button>
+            <Button variant="secondary" className="w-full justify-center" onClick={()=>router.push("/portal-estudante")}>
+              Voltar ao Portal
+            </Button>
+          </div>
         </Card>
       </div>
     );

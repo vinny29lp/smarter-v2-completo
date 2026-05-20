@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
@@ -17,7 +16,6 @@ const STATUS_LABEL: Record<string,string> = {
   ASSINADO:"Assinado ✓",CANCELADO:"Cancelado",
 };
 
-// Extra fields per document type
 const EXTRA_FIELDS: Record<string, {label:string;key:string;type?:string;options?:string[]}[]> = {
   rpb: [{ label:"Mês de Referência", key:"mesRef", type:"text" }],
   tr: [
@@ -47,116 +45,131 @@ const EXTRA_FIELDS: Record<string, {label:string;key:string;type?:string;options
   cps: [{ label:"Valor Mensal por Estagiário (R$)", key:"valorMensal", type:"number" }],
 };
 
-export default function DocumentoPage({
-  params,
-}: {
-  params: { id: string; docId: string };
-}) {
-  const router = useRouter();
+const SIGNATARIOS = ["empresa","instituicao","estudante"] as const;
+const SIGNATARIO_LABELS: Record<string,string> = {
+  empresa:"🏢 Empresa", instituicao:"🏫 Instituição", estudante:"🎓 Estudante"
+};
+const SIGNATARIO_INFO: Record<string,string> = {
+  empresa: "Representante legal da empresa concedente.",
+  instituicao: "Coordenador responsável pela instituição de ensino.",
+  estudante: "O estagiário confirma ciência das condições do estágio.",
+};
+
+export default function DocumentoPage({ params }: { params: { id: string; docId: string } }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [doc, setDoc] = useState<any>(null);
-  const [html, setHtml] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [doc, setDoc]               = useState<any>(null);
+  const [html, setHtml]             = useState<string>("");
+  const [loading, setLoading]       = useState(false);
   const [extraModal, setExtraModal] = useState(false);
   const [assinaturaModal, setAssinaturaModal] = useState(false);
-  const [extraFields, setExtraFields] = useState<Record<string,string>>({});
-  const [alertas, setAlertas] = useState<string[]>([]);
+  const [assinarModal, setAssinarModal]       = useState<string|null>(null);
+  const [extraFields, setExtraFields]         = useState<Record<string,string>>({});
+  const [alertas, setAlertas]       = useState<string[]>([]);
+  const [assinarLoading, setAssinarLoading] = useState(false);
+
+  const isTCEouPE = doc?.tipo === "tce" || doc?.tipo === "pe";
+  const signers: Record<string,any> = (doc?.signers as any) || {};
 
   useEffect(() => {
     fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`)
       .then(r => r.json())
-      .then(d => { setDoc(d.document); if (d.document?.htmlContent) setHtml(d.document.htmlContent); })
-      .catch(() => {});
+      .then(d => { setDoc(d.document); if (d.document?.htmlContent) setHtml(d.document.htmlContent); });
   }, [params.id, params.docId]);
 
-  const extraDefs = doc ? (EXTRA_FIELDS[doc.tipo] || []) : [];
-  const needsExtra = extraDefs.length > 0;
+  const extraDefs   = doc ? (EXTRA_FIELDS[doc.tipo] || []) : [];
+  const needsExtra  = extraDefs.length > 0;
+  const gerado      = doc && doc.status !== "NAO_GERADO" && doc.status !== "RASCUNHO";
+  const proximoSignatario = isTCEouPE
+    ? SIGNATARIOS.find(s => !signers[s]?.assinado) || null
+    : null;
+  const assinandoParcial = isTCEouPE && gerado && doc?.status !== "ASSINADO";
 
   const gerarDoc = async (extraData?: Record<string,any>) => {
-    setLoading(true);
-    const res = await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    setLoading(true); setAlertas([]);
+    const res  = await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify(extraData || extraFields),
     });
     const data = await res.json();
     if (data.error) { setAlertas([data.error]); setLoading(false); return; }
-    setDoc(data.document);
-    setHtml(data.html);
-    setExtraModal(false);
-    setLoading(false);
-  };
-
-  const handleGerar = () => {
-    if (needsExtra) { setExtraModal(true); }
-    else { gerarDoc(); }
+    setDoc(data.document); setHtml(data.html); setExtraModal(false); setLoading(false);
   };
 
   const downloadHTML = () => {
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${doc?.titulo?.replace(/\s+/g,"-") || "documento"}.html`;
-    a.click();
+    const blob = new Blob([html], { type:"text/html" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = `${doc?.titulo?.replace(/\s+/g,"-")||"documento"}.html`; a.click();
     URL.revokeObjectURL(url);
   };
 
-  const printDoc = () => {
-    if (iframeRef.current) {
-      iframeRef.current.contentWindow?.print();
+  const printDoc = () => iframeRef.current?.contentWindow?.print();
+
+  const assinarComo = async (signatario: string) => {
+    setAssinarLoading(true); setAlertas([]);
+    const res  = await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
+      method:"PATCH", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ assinarComo: signatario }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      setAlertas([data.error]);
+    } else {
+      setDoc(data.document);
+      if (data.todosAssinaram) setAlertas(["✅ Todos assinaram! Contrato ativado automaticamente."]);
     }
+    setAssinarModal(null); setAssinarLoading(false);
   };
 
   const enviarAssinatura = async () => {
     await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "AGUARDANDO_ASSINATURA" }),
+      method:"PATCH", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ status:"AGUARDANDO_ASSINATURA" }),
     });
-    setDoc((p:any) => ({ ...p, status: "AGUARDANDO_ASSINATURA" }));
+    setDoc((p:any) => ({ ...p, status:"AGUARDANDO_ASSINATURA" }));
     setAssinaturaModal(false);
   };
 
   const marcarAssinado = async () => {
-    await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "ASSINADO" }),
+    const res  = await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
+      method:"PATCH", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ status:"ASSINADO" }),
     });
-    setDoc((p:any) => ({ ...p, status: "ASSINADO" }));
+    const data = await res.json();
+    setDoc(data.document);
+    if (doc?.tipo === "tr") setAlertas(["⚠️ Rescisão assinada — contrato marcado como INATIVO."]);
   };
-
-  const gerado = doc && doc.status !== "NAO_GERADO" && doc.status !== "RASCUNHO";
 
   return (
     <div className="flex flex-col h-full">
       {/* Top bar */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <Link href={`/dashboard/contratos/${params.id}`} className="text-slate-400 hover:text-slate-600 text-sm">
-            ← Contrato
-          </Link>
+          <Link href={`/dashboard/contratos/${params.id}`} className="text-slate-400 hover:text-slate-600 text-sm">← Contrato</Link>
           <span className="text-slate-300">/</span>
           <h1 className="text-lg font-black text-slate-800">{doc?.titulo || "Carregando..."}</h1>
-          {doc && <Badge variant={(STATUS_BADGE[doc.status] || "gray") as any}>{STATUS_LABEL[doc.status] || doc.status}</Badge>}
+          {doc && <Badge variant={(STATUS_BADGE[doc.status]||"gray") as any}>{STATUS_LABEL[doc.status]||doc.status}</Badge>}
         </div>
-
         <div className="flex gap-2">
-          <Button onClick={handleGerar} disabled={loading}>
+          <Button onClick={() => needsExtra ? setExtraModal(true) : gerarDoc()} disabled={loading}>
             {loading ? "Gerando..." : gerado ? "🔄 Regerar" : "📄 Gerar"}
           </Button>
           {gerado && (
             <>
-              <Button variant="secondary" onClick={downloadHTML}><span>⬇</span> Baixar HTML</Button>
+              <Button variant="secondary" onClick={downloadHTML}>⬇ HTML</Button>
               <Button variant="secondary" onClick={printDoc}>🖨 Imprimir/PDF</Button>
             </>
           )}
-          {gerado && doc.status === "GERADO" && (
+          {assinandoParcial && proximoSignatario && (
+            <Button variant="secondary" onClick={() => setAssinarModal(proximoSignatario)}>
+              ✍️ Assinar: {SIGNATARIO_LABELS[proximoSignatario]}
+            </Button>
+          )}
+          {!isTCEouPE && gerado && doc.status === "GERADO" && (
             <Button variant="secondary" onClick={() => setAssinaturaModal(true)}>✉️ Enviar Assinatura</Button>
           )}
-          {doc?.status === "AGUARDANDO_ASSINATURA" && (
-            <Button variant="yellow" onClick={marcarAssinado}>✓ Marcar Assinado</Button>
+          {!isTCEouPE && doc?.status === "AGUARDANDO_ASSINATURA" && (
+            <Button onClick={marcarAssinado}>✓ Marcar Assinado</Button>
           )}
         </div>
       </div>
@@ -164,23 +177,54 @@ export default function DocumentoPage({
       {/* Alertas */}
       {alertas.length > 0 && (
         <div className="mb-4 space-y-2 flex-shrink-0">
-          {alertas.map((a, i) => (
-            <div key={i} className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-              ⚠️ {a}
-            </div>
+          {alertas.map((a,i) => (
+            <div key={i} className={`p-3 border rounded-xl text-sm ${
+              a.startsWith("✅") ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : "bg-amber-50 border-amber-200 text-amber-800"
+            }`}>{a}</div>
           ))}
+        </div>
+      )}
+
+      {/* Progresso assinaturas TCE/PE */}
+      {isTCEouPE && gerado && (
+        <div className="mb-4 flex-shrink-0">
+          <div className="bg-white border border-slate-200 rounded-xl p-4">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Ordem de Assinatura</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {SIGNATARIOS.map((s,i) => {
+                const assinado  = signers[s]?.assinado;
+                const isProximo = !assinado && SIGNATARIOS.slice(0,i).every(prev => signers[prev]?.assinado);
+                return (
+                  <div key={s} className="flex items-center gap-2">
+                    {i > 0 && <div className={`h-px w-6 ${assinado?"bg-emerald-400":"bg-slate-200"}`}/>}
+                    <div
+                      onClick={() => isProximo ? setAssinarModal(s) : undefined}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
+                        assinado   ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                        : isProximo ? "border-blue-400 bg-blue-50 text-blue-700 shadow-sm cursor-pointer"
+                        : "border-slate-200 bg-slate-50 text-slate-400"
+                      }`}
+                    >
+                      {assinado ? "✓" : isProximo ? "→" : "○"} {SIGNATARIO_LABELS[s]}
+                      {assinado && signers[s]?.assinadoAt && (
+                        <span className="text-xs font-normal ml-1">
+                          {new Date(signers[s].assinadoAt).toLocaleDateString("pt-BR")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Preview */}
       {html ? (
         <div className="flex-1 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200">
-          <iframe
-            ref={iframeRef}
-            srcDoc={html}
-            className="w-full h-full min-h-[700px]"
-            title="Preview do documento"
-          />
+          <iframe ref={iframeRef} srcDoc={html} className="w-full h-full min-h-[700px]" title="Preview"/>
         </div>
       ) : (
         <div className="flex-1 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center">
@@ -199,39 +243,48 @@ export default function DocumentoPage({
             <div key={field.key}>
               <label className="text-xs font-bold text-slate-600 block mb-1">{field.label}</label>
               {field.type === "select" ? (
-                <select
-                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
-                  value={extraFields[field.key] || ""}
-                  onChange={e => setExtraFields(p => ({ ...p, [field.key]: e.target.value }))}
-                >
+                <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+                  value={extraFields[field.key]||""} onChange={e => setExtraFields(p => ({...p,[field.key]:e.target.value}))}>
                   <option value="">Selecione...</option>
                   {field.options?.map(o => <option key={o}>{o}</option>)}
                 </select>
               ) : (
-                <input
-                  type={field.type || "text"}
-                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
-                  value={extraFields[field.key] || ""}
-                  onChange={e => setExtraFields(p => ({ ...p, [field.key]: e.target.value }))}
-                />
+                <input type={field.type||"text"} className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+                  value={extraFields[field.key]||""} onChange={e => setExtraFields(p => ({...p,[field.key]:e.target.value}))}/>
               )}
             </div>
           ))}
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" onClick={() => setExtraModal(false)}>Cancelar</Button>
-            <Button onClick={() => gerarDoc(extraFields)} disabled={loading}>
-              {loading ? "Gerando..." : "Gerar Documento"}
+            <Button onClick={() => gerarDoc(extraFields)} disabled={loading}>{loading?"Gerando...":"Gerar Documento"}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal assinar como signatário */}
+      <Modal open={assinarModal !== null} onClose={() => setAssinarModal(null)} title={`Assinar — ${assinarModal ? SIGNATARIO_LABELS[assinarModal] : ""}`}>
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Confirma a assinatura como <strong>{assinarModal ? SIGNATARIO_LABELS[assinarModal] : ""}</strong>?
+          </p>
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+            {assinarModal && SIGNATARIO_INFO[assinarModal]}
+          </div>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setAssinarModal(null)}>Cancelar</Button>
+            <Button onClick={() => assinarModal && assinarComo(assinarModal)} disabled={assinarLoading}>
+              {assinarLoading ? "Registrando..." : "✍️ Confirmar Assinatura"}
             </Button>
           </div>
         </div>
       </Modal>
 
-      {/* Modal envio assinatura */}
+      {/* Modal envio assinatura genérico */}
       <Modal open={assinaturaModal} onClose={() => setAssinaturaModal(false)} title="Enviar para Assinatura Digital">
         <div className="space-y-4">
           <p className="text-sm text-slate-500">Confirma o envio de <strong>{doc?.titulo}</strong> para assinatura digital?</p>
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
-            🔐 O envio real será feito via <strong>Authentique</strong>. Configure a API em Configurações → Assinaturas para ativar.
+            🔐 O envio real será feito via <strong>Authentique</strong>. Configure a API em Configurações → Assinaturas.
           </div>
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setAssinaturaModal(false)}>Cancelar</Button>

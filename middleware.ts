@@ -18,7 +18,7 @@ export async function middleware(req: NextRequest) {
   if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
     if (role === "EMPRESA")   return NextResponse.redirect(new URL("/portal-empresa",   req.url));
     if (role === "ESTUDANTE") return NextResponse.redirect(new URL("/portal-estudante", req.url));
-    return NextResponse.next(); // FRANQUEADO / FRANQUEADORA: ok
+    return NextResponse.next(); // FRANQUEADO / FRANQUEADORA / FUNCIONARIO: ok
   }
 
   // ── /portal-empresa (raiz e sub-rotas) ───────────────────────────────

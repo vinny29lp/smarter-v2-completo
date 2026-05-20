@@ -23,6 +23,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/crm",label:"CRM",icon:Phone},
     {href:"/dashboard/seguros",label:"Seguros",icon:Shield},
     {href:"/dashboard/gamificacao",label:"Gamificação",icon:Star},
+    {href:"/dashboard/equipe",label:"Equipe",icon:Users},
     {href:"/dashboard/configuracoes",label:"Configurações",icon:Settings},
   ]],
   EMPRESA: [[]], // Nunca deve aparecer - middleware redireciona para /portal-empresa
@@ -40,6 +41,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/financeiro",label:"Financeiro",icon:DollarSign},
     {href:"/dashboard/crm",label:"CRM",icon:Phone},
     {href:"/dashboard/gamificacao",label:"Gamificação",icon:Star},
+    {href:"/dashboard/equipe",label:"Equipe",icon:Users},
   ]],
 };
 
