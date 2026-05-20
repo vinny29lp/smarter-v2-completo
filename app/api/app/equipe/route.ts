@@ -10,7 +10,7 @@ export async function GET() {
 
   const employees = await prisma.employee.findMany({
     where: { franchiseId: session.user.franchiseId },
-    include: { user: { select: { id: true, name: true, email: true, active: true, role: true } } },
+    include: { user: { select: { id: true, name: true, email: true, active: true, role: true, createdAt: true } } },
     orderBy: { createdAt: "desc" },
   });
 
@@ -22,15 +22,15 @@ export async function POST(req: Request) {
   if (!session?.user?.franchiseId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, email, cargo, permissoes = [] } = body;
+  const { name, email, cargo, permissoes = [], senha } = body;
 
   if (!name || !email) return NextResponse.json({ error: "Nome e e-mail são obrigatórios" }, { status: 400 });
+  if (!senha || senha.length < 6) return NextResponse.json({ error: "Senha deve ter pelo menos 6 caracteres" }, { status: 400 });
 
   const exists = await prisma.user.findUnique({ where: { email } });
-  if (exists) return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 409 });
+  if (exists) return NextResponse.json({ error: "E-mail já cadastrado no sistema" }, { status: 409 });
 
-  const senha = Math.random().toString(36).slice(-8);
-  const hash  = await bcrypt.hash(senha, 10);
+  const hash = await bcrypt.hash(senha, 10);
 
   const user = await prisma.user.create({
     data: {
@@ -50,8 +50,8 @@ export async function POST(req: Request) {
       cargo: cargo || "Colaborador",
       permissoes,
     },
-    include: { user: { select: { id: true, name: true, email: true, active: true, role: true } } },
+    include: { user: { select: { id: true, name: true, email: true, active: true, role: true, createdAt: true } } },
   });
 
-  return NextResponse.json({ employee, senhaGerada: senha }, { status: 201 });
+  return NextResponse.json({ employee }, { status: 201 });
 }
