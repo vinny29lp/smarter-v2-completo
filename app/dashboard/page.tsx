@@ -37,25 +37,56 @@ async function getFinanceiro(franchiseId?: string) {
   return { pago: pago._sum.valor || 0, pendente: pendente._sum.valor || 0 };
 }
 
-async function getAlertas(franchiseId?: string) {
-  const hoje   = new Date();
-  const amanha = new Date(hoje); amanha.setDate(amanha.getDate() + 1);
+async function getProximos5Dias(franchiseId?: string) {
+  const hoje  = new Date();
+  const fim5d = new Date(hoje); fim5d.setDate(fim5d.getDate() + 5);
   const w = franchiseId ? { franchiseId } : {};
-  const [entrevistas, retornosCrm] = await Promise.all([
+
+  const [entrevistas, retornosCrm, reunioesCrm, contratosVencendo, cobrancasVencendo] = await Promise.all([
+    // Entrevistas agendadas nos próximos 5 dias
     prisma.application.findMany({
-      where: { vacancy: franchiseId ? { franchiseId } : {}, entrevistaAt: { gte: hoje, lte: amanha } },
-      include: { student: { select: { name: true } }, vacancy: { include: { company: { select: { name: true } } } } },
+      where: {
+        vacancy: franchiseId ? { franchiseId } : {},
+        entrevistaAt: { gte: hoje, lte: fim5d },
+      },
+      include: {
+        student: { select: { name: true } },
+        vacancy: { select: { titulo: true, company: { select: { name: true } } } },
+      },
       orderBy: { entrevistaAt: "asc" },
+      take: 10,
+    }),
+    // Retornos CRM vencidos ou nos próximos 5 dias
+    prisma.crmLead.findMany({
+      where: { ...w, situacao: "ativo", retornoAt: { lte: fim5d } },
+      select: { id: true, empresa: true, retornoAt: true, proximaAcao: true, prioridade: true },
+      orderBy: { retornoAt: "asc" },
+      take: 8,
+    }),
+    // Reuniões CRM nos próximos 5 dias
+    prisma.crmLead.findMany({
+      where: { ...w, situacao: "ativo", reuniaoAt: { gte: hoje, lte: fim5d } },
+      select: { id: true, empresa: true, reuniaoAt: true, linkReuniao: true, enderecoReuniao: true },
+      orderBy: { reuniaoAt: "asc" },
       take: 6,
     }),
-    prisma.crmLead.findMany({
-      where: { ...w, situacao: "ativo", retornoAt: { lte: amanha } },
-      select: { id: true, empresa: true, retornoAt: true, proximaAcao: true },
-      orderBy: { retornoAt: "asc" },
+    // Contratos vencendo em 30 dias
+    prisma.contract.findMany({
+      where: { ...w, status: "ATIVO", dataFim: { gte: hoje, lte: new Date(hoje.getTime() + 30*24*60*60*1000) } },
+      include: { student: { select: { name: true } }, company: { select: { name: true } } },
+      orderBy: { dataFim: "asc" },
+      take: 5,
+    }),
+    // Cobranças vencendo nos próximos 5 dias
+    prisma.financial.findMany({
+      where: { ...w, status: "PENDENTE", cancelado: false, tipo: "entrada", vencimentoAt: { gte: hoje, lte: fim5d } },
+      include: { company: { select: { name: true } } },
+      orderBy: { vencimentoAt: "asc" },
       take: 6,
     }),
   ]);
-  return { entrevistas, retornosCrm };
+
+  return { entrevistas, retornosCrm, reunioesCrm, contratosVencendo, cobrancasVencendo };
 }
 
 async function getRanking() {
@@ -95,21 +126,20 @@ export default async function DashboardPage() {
   const session    = await getServerSession(authOptions);
   const role       = session!.user.role;
   const isMaster   = role === "FRANQUEADORA";
-
-  // ⚠️ REGRA CRÍTICA: FRANQUEADORA passa undefined → vê TODA A REDE
-  //                   FRANQUEADO   passa franchiseId → vê só sua unidade
   const filtro: string | undefined = isMaster ? undefined : (session!.user.franchiseId ?? undefined);
 
-  const kpis       = await getKpis(filtro);
-  const fin        = await getFinanceiro(filtro);
-  const alertas    = await getAlertas(filtro);
-  const recentes   = await getContratacoesRecentes(filtro);
-  const ranking    = await getRanking();
-  const franquias  = isMaster ? await getFranquias()         : null;
+  const kpis        = await getKpis(filtro);
+  const fin         = await getFinanceiro(filtro);
+  const agenda      = await getProximos5Dias(filtro);
+  const recentes    = await getContratacoesRecentes(filtro);
+  const ranking     = await getRanking();
+  const franquias   = isMaster ? await getFranquias()         : null;
   const franqueados = isMaster ? await getFranqueadosResumo() : [];
 
   const fmt  = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
   const hoje = new Date();
+
+  const totalAgenda = agenda.entrevistas.length + agenda.retornosCrm.length + agenda.reunioesCrm.length + agenda.cobrancasVencendo.length;
 
   return (
     <div>
@@ -144,42 +174,159 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* ── Alertas do dia ── */}
-      {(alertas.entrevistas.length > 0 || alertas.retornosCrm.length > 0) && (
-        <div className="grid grid-cols-2 gap-4 mb-5">
-          {alertas.entrevistas.length > 0 && (
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-              <p className="text-sm font-bold text-amber-800 mb-2">⏰ Entrevistas hoje ({alertas.entrevistas.length})</p>
-              <div className="space-y-1">
-                {alertas.entrevistas.map(e => (
-                  <div key={e.id} className="text-xs text-amber-700 flex items-center gap-2">
-                    <span className="font-bold">
-                      {new Date(e.entrevistaAt!).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
-                    </span>
-                    <span>{e.student.name} → {e.vacancy.titulo}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {alertas.retornosCrm.length > 0 && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-              <p className="text-sm font-bold text-blue-800 mb-2">📊 Retornos CRM ({alertas.retornosCrm.length})</p>
-              <div className="space-y-1">
-                {alertas.retornosCrm.map(l => (
-                  <div key={l.id} className="text-xs flex items-center gap-2">
-                    <span className={`font-bold ${new Date(l.retornoAt!) < hoje ? "text-red-600" : "text-blue-700"}`}>
-                      {new Date(l.retornoAt!) < hoje
-                        ? "⚠️ Vencido"
-                        : new Date(l.retornoAt!).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
-                    </span>
-                    <Link href={`/dashboard/crm/${l.id}`} className="text-blue-600 hover:underline">{l.empresa}</Link>
-                    {l.proximaAcao && <span className="text-slate-400 truncate">— {l.proximaAcao}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+      {/* ── PRÓXIMOS 5 DIAS ── */}
+      {totalAgenda > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-black text-slate-700">📅 Próximos 5 Dias</h2>
+            <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{totalAgenda} itens</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Entrevistas */}
+            {agenda.entrevistas.length > 0 && (
+              <Card className="p-4">
+                <p className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+                  🎤 ENTREVISTAS <span className="bg-blue-100 text-blue-600 px-1.5 rounded-full text-[10px]">{agenda.entrevistas.length}</span>
+                </p>
+                <div className="space-y-2">
+                  {agenda.entrevistas.map(e => {
+                    const dt = new Date(e.entrevistaAt!);
+                    const isHoje = dt.toDateString() === hoje.toDateString();
+                    return (
+                      <div key={e.id} className={`flex items-start gap-2 p-2 rounded-lg ${isHoje ? "bg-amber-50 border border-amber-100" : "bg-slate-50"}`}>
+                        <div className={`text-[10px] font-black px-1.5 py-0.5 rounded flex-shrink-0 ${isHoje ? "bg-amber-200 text-amber-800" : "bg-slate-200 text-slate-600"}`}>
+                          {isHoje ? "HOJE" : dt.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold truncate">{e.student.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{e.vacancy.titulo} — {e.vacancy.company.name}</p>
+                          <p className="text-[10px] text-blue-600 font-bold">{dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+
+            {/* Retornos CRM */}
+            {agenda.retornosCrm.length > 0 && (
+              <Card className="p-4">
+                <p className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+                  📊 FOLLOW-UPS CRM <span className="bg-purple-100 text-purple-600 px-1.5 rounded-full text-[10px]">{agenda.retornosCrm.length}</span>
+                </p>
+                <div className="space-y-2">
+                  {agenda.retornosCrm.map(l => {
+                    const dt = new Date(l.retornoAt!);
+                    const vencido = dt < hoje;
+                    const isHoje = dt.toDateString() === hoje.toDateString();
+                    return (
+                      <Link key={l.id} href={`/dashboard/crm/${l.id}`}>
+                        <div className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer hover:opacity-80 ${vencido ? "bg-red-50 border border-red-100" : isHoje ? "bg-amber-50 border border-amber-100" : "bg-slate-50"}`}>
+                          <div className={`text-[10px] font-black px-1.5 py-0.5 rounded flex-shrink-0 ${vencido ? "bg-red-200 text-red-800" : isHoje ? "bg-amber-200 text-amber-800" : "bg-slate-200 text-slate-600"}`}>
+                            {vencido ? "ATRAS." : isHoje ? "HOJE" : dt.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold truncate">{l.empresa}</p>
+                            {l.proximaAcao && <p className="text-[10px] text-slate-400 truncate">{l.proximaAcao}</p>}
+                          </div>
+                          <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${l.prioridade==="alta"?"bg-red-400":l.prioridade==="media"?"bg-amber-400":"bg-slate-300"}`}/>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+
+            {/* Reuniões */}
+            {agenda.reunioesCrm.length > 0 && (
+              <Card className="p-4">
+                <p className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+                  📅 REUNIÕES <span className="bg-green-100 text-green-600 px-1.5 rounded-full text-[10px]">{agenda.reunioesCrm.length}</span>
+                </p>
+                <div className="space-y-2">
+                  {agenda.reunioesCrm.map(l => {
+                    const dt = new Date(l.reuniaoAt!);
+                    const isHoje = dt.toDateString() === hoje.toDateString();
+                    return (
+                      <Link key={l.id} href={`/dashboard/crm/${l.id}`}>
+                        <div className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer hover:opacity-80 ${isHoje ? "bg-green-50 border border-green-100" : "bg-slate-50"}`}>
+                          <div className={`text-[10px] font-black px-1.5 py-0.5 rounded flex-shrink-0 ${isHoje ? "bg-green-200 text-green-800" : "bg-slate-200 text-slate-600"}`}>
+                            {isHoje ? "HOJE" : dt.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold truncate">{l.empresa}</p>
+                            <p className="text-[10px] text-slate-400">{dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p>
+                            {l.enderecoReuniao && <p className="text-[10px] text-slate-400 truncate">📍 {l.enderecoReuniao}</p>}
+                            {l.linkReuniao && <a href={l.linkReuniao} target="_blank" className="text-[10px] text-blue-500">🔗 Link</a>}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+
+            {/* Cobranças vencendo */}
+            {agenda.cobrancasVencendo.length > 0 && (
+              <Card className="p-4">
+                <p className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+                  💰 COBRANÇAS VENCENDO <span className="bg-amber-100 text-amber-600 px-1.5 rounded-full text-[10px]">{agenda.cobrancasVencendo.length}</span>
+                </p>
+                <div className="space-y-2">
+                  {agenda.cobrancasVencendo.map(f => {
+                    const dt = new Date(f.vencimentoAt!);
+                    const isHoje = dt.toDateString() === hoje.toDateString();
+                    return (
+                      <Link key={f.id} href="/dashboard/financeiro">
+                        <div className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:opacity-80 ${isHoje ? "bg-amber-50 border border-amber-100" : "bg-slate-50"}`}>
+                          <div className={`text-[10px] font-black px-1.5 py-0.5 rounded flex-shrink-0 ${isHoje ? "bg-amber-200 text-amber-800" : "bg-slate-200 text-slate-600"}`}>
+                            {isHoje ? "HOJE" : dt.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold truncate">{f.company?.name || "—"}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{f.descricao}</p>
+                          </div>
+                          <span className="text-xs font-black text-amber-700 flex-shrink-0">
+                            R$ {f.valor.toLocaleString("pt-BR",{minimumFractionDigits:0})}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+
+            {/* Contratos vencendo */}
+            {agenda.contratosVencendo.length > 0 && (
+              <Card className="p-4">
+                <p className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+                  📄 CONTRATOS VENCENDO (30d) <span className="bg-red-100 text-red-600 px-1.5 rounded-full text-[10px]">{agenda.contratosVencendo.length}</span>
+                </p>
+                <div className="space-y-2">
+                  {agenda.contratosVencendo.map(c => {
+                    const dias = Math.ceil((new Date(c.dataFim).getTime() - hoje.getTime()) / (1000*60*60*24));
+                    return (
+                      <Link key={c.id} href={`/dashboard/contratos/${c.id}`}>
+                        <div className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:opacity-80 ${dias <= 7 ? "bg-red-50 border border-red-100" : "bg-slate-50"}`}>
+                          <div className={`text-[10px] font-black px-1.5 py-0.5 rounded flex-shrink-0 ${dias <= 7 ? "bg-red-200 text-red-800" : "bg-slate-200 text-slate-600"}`}>
+                            {dias}d
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold truncate">{c.student.name}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{c.company.name}</p>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
       )}
 

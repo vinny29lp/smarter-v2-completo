@@ -1,8 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createStudent } from "@/lib/actions/students";
-import { createUser } from "@/lib/actions/auth";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -27,20 +25,42 @@ export function EstudanteForm({ franchiseId, institutions }: Props) {
     if (!form.nome||!form.email||!form.curso) { setError("Preencha: Nome, E-mail e Curso."); return; }
     setLoading(true); setError("");
     try {
-      const senha = form.senha || Math.random().toString(36).slice(-8);
-      const user = await createUser({ name:form.nome, email:form.email, password:senha, role:"ESTUDANTE", franchiseId });
-      await createStudent({
-        userId: user.id, name:form.nome, cpf:form.cpf||null, rg:form.rg||null,
-        dataNasc: form.dataNasc ? new Date(form.dataNasc) : null,
-        sexo:form.sexo, email:form.email, celular:form.celular, telefone:form.telefone,
-        endereco:form.endereco, bairro:form.bairro, cidade:form.cidade, uf:form.uf, cep:form.cep,
-        curso:form.curso, periodo:form.periodo, previsaoConclusao:form.previsaoConclusao,
-        institutionId:form.institutionId||null, franchiseId, observacoes:form.observacoes,
-        habilidades:[], status:"DISPONIVEL",
+      const res = await fetch("/api/app/estudantes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: form.nome,
+          email: form.email,
+          cpf: form.cpf || null,
+          rg: form.rg || null,
+          dataNasc: form.dataNasc || null,
+          sexo: form.sexo,
+          celular: form.celular || null,
+          telefone: form.telefone || null,
+          endereco: form.endereco || null,
+          bairro: form.bairro || null,
+          cidade: form.cidade || null,
+          uf: form.uf || null,
+          cep: form.cep || null,
+          curso: form.curso,
+          periodo: form.periodo || null,
+          previsaoConclusao: form.previsaoConclusao || null,
+          institutionId: form.institutionId || null,
+          franchiseId: franchiseId || null,
+          observacoes: form.observacoes || null,
+          senha: form.senha || undefined,
+        }),
       });
-      router.push("/dashboard/estudantes"); router.refresh();
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Erro ao salvar estudante.");
+        setLoading(false);
+        return;
+      }
+      router.push("/dashboard/estudantes");
+      router.refresh();
     } catch(e:any) {
-      setError(e.message?.includes("email")||e.message?.includes("cpf") ? "E-mail ou CPF já cadastrado." : "Erro ao salvar.");
+      setError("Erro de conexão. Tente novamente.");
     }
     setLoading(false);
   };

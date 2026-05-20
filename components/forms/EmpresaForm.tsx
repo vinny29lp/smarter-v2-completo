@@ -33,6 +33,7 @@ export function EmpresaForm({ franchiseId, empresa, onSuccess }: Props) {
     uf:               empresa?.uf               || "",
     cep:              empresa?.cep              || "",
     site:             empresa?.site             || "",
+    emailFinanceiro:  empresa?.emailFinanceiro  || "",
   });
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -80,6 +81,7 @@ export function EmpresaForm({ franchiseId, empresa, onSuccess }: Props) {
           </div>
           <Input label="E-mail *" type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="rh@empresa.com.br"/>
           <Input label="Telefone" value={form.telefone} onChange={e=>set("telefone",e.target.value)} placeholder="(11) 99999-0000"/>
+          <Input label="E-mail Financeiro" type="email" value={form.emailFinanceiro} onChange={e=>set("emailFinanceiro",e.target.value)} placeholder="financeiro@empresa.com"/>
           <Input label="Site" value={form.site} onChange={e=>set("site",e.target.value)} placeholder="www.empresa.com.br"/>
         </div>
       </div>
