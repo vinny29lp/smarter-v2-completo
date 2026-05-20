@@ -6,6 +6,18 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  env: {
+    // Garante que NEXTAUTH_URL seja correto em produção no Vercel
+    // Se a variável de ambiente já estiver definida corretamente, mantém o valor.
+    // Se for o placeholder ou estiver ausente, usa a URL de produção.
+    NEXTAUTH_URL:
+      process.env.NEXTAUTH_URL &&
+      process.env.NEXTAUTH_URL !== "https://SEU-PROJETO.vercel.app"
+        ? process.env.NEXTAUTH_URL
+        : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.NEXTAUTH_URL || "http://localhost:3000",
+  },
 };
 
 export default nextConfig;
