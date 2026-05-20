@@ -199,14 +199,14 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                   <div key={s} className="flex items-center gap-2">
                     {i > 0 && <div className={`h-px w-6 ${assinado?"bg-emerald-400":"bg-slate-200"}`}/>}
                     <div
-                      onClick={() => isProximo ? setAssinarModal(s) : undefined}
+                      onClick={() => !assinado ? setAssinarModal(s) : undefined}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
-                        assinado   ? "border-emerald-400 bg-emerald-50 text-emerald-700"
-                        : isProximo ? "border-blue-400 bg-blue-50 text-blue-700 shadow-sm cursor-pointer"
-                        : "border-slate-200 bg-slate-50 text-slate-400"
+                        assinado
+                          ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                          : "border-blue-400 bg-blue-50 text-blue-700 shadow-sm cursor-pointer"
                       }`}
                     >
-                      {assinado ? "✓" : isProximo ? "→" : "○"} {SIGNATARIO_LABELS[s]}
+                      {assinado ? "✓" : "○"} {SIGNATARIO_LABELS[s]}
                       {assinado && signers[s]?.assinadoAt && (
                         <span className="text-xs font-normal ml-1">
                           {new Date(signers[s].assinadoAt).toLocaleDateString("pt-BR")}

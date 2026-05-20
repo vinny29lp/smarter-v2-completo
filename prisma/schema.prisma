@@ -46,6 +46,9 @@ model Franchise {
   mensalidade          Float?               @default(200)
   plano                String?              @default("completo")
   pontuacao            Int?                 @default(0)
+  chavePix             String?
+  linkPagamento        String?
+  instrucaoPagamento   String?
   createdAt            DateTime?            @default(now()) @db.Timestamptz(6)
   updatedAt            DateTime?            @default(now()) @updatedAt @db.Timestamptz(6)
   companies            Company[]

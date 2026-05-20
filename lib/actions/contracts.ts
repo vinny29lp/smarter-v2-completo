@@ -10,11 +10,13 @@ async function gerarNumeroContrato(franchiseId: string): Promise<string> {
   return `${String(count + 1).padStart(3,"0")}/${ano}`;
 }
 
-export async function getContracts(franchiseId?: string, companyId?: string) {
+export async function getContracts(franchiseId?: string, companyId?: string, hideInativo?: boolean) {
   return prisma.contract.findMany({
     where: {
       ...(franchiseId ? { franchiseId } : {}),
       ...(companyId ? { companyId } : {}),
+      // FRANQUEADO não vê contratos INATIVO — só FRANQUEADORA pode
+      ...(hideInativo ? { status: { not: "INATIVO" as any } } : {}),
     },
     include: {
       student: { include: { user: true } },

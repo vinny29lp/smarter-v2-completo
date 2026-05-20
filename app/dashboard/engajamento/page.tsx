@@ -26,6 +26,12 @@ export default async function EngajamentoPage({
   const franqueados = await prisma.franchise.findMany({
     include: {
       _count: { select: { contracts: true, crmLeads: true, vacancies: true } },
+      users: {
+        where: { role: { in: ["FRANQUEADO", "FRANQUEADORA"] as any[] } },
+        select: { lastLoginAt: true, name: true, email: true },
+        orderBy: { lastLoginAt: "desc" },
+        take: 1,
+      },
     },
   });
 
@@ -124,6 +130,13 @@ export default async function EngajamentoPage({
                       <span>📄 {f._count.contracts} contratos</span>
                       <span>💼 {f._count.vacancies} vagas</span>
                       <span>📊 {f._count.crmLeads} leads</span>
+                      {f.users[0]?.lastLoginAt ? (
+                        <span className="text-slate-400">
+                          🕐 Último login: {new Date(f.users[0].lastLoginAt).toLocaleDateString("pt-BR")} às {new Date(f.users[0].lastLoginAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">🕐 Nunca acessou</span>
+                      )}
                     </div>
                     {alertas.length > 0 && (
                       <div className="flex gap-2 flex-wrap">

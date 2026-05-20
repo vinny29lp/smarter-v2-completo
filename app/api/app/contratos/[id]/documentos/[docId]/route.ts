@@ -58,6 +58,12 @@ export async function POST(
   }
 
   const updated = await saveDocumentHtml(params.docId, html);
+
+  // Quando TR (Rescisão) é gerado → contrato vira INATIVO imediatamente
+  if (doc.tipo === "tr") {
+    await prisma.contract.update({ where: { id: params.id }, data: { status: "INATIVO" as any } });
+  }
+
   return NextResponse.json({ document: updated, html });
 }
 
@@ -69,27 +75,17 @@ export async function PATCH(
   const doc = await prisma.internshipDocument.findUnique({ where: { id: params.docId } });
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // ─── Assinatura parcial para TCE e PE — Empresa → Instituição → Estudante ───
+  // ─── Assinatura parcial para TCE/PE — qualquer parte pode assinar a qualquer momento ───
   if (body.assinarComo && (doc.tipo === "tce" || doc.tipo === "pe")) {
-    const ORDEM = ["empresa", "instituicao", "estudante"] as const;
-    type Signatario = typeof ORDEM[number];
+    const SIGNATARIOS = ["empresa", "instituicao", "estudante"] as const;
+    type Signatario = typeof SIGNATARIOS[number];
     const quem: Signatario = body.assinarComo;
-    if (!ORDEM.includes(quem)) return NextResponse.json({ error: "Signatário inválido" }, { status: 400 });
+    if (!SIGNATARIOS.includes(quem)) return NextResponse.json({ error: "Signatário inválido" }, { status: 400 });
 
     const signers: Record<string, any> = (doc.signers as any) || {};
-
-    // Enforce order
-    const idx = ORDEM.indexOf(quem);
-    for (let i = 0; i < idx; i++) {
-      if (!signers[ORDEM[i]]?.assinado) {
-        const labels: Record<string,string> = { empresa:"Empresa", instituicao:"Instituição", estudante:"Estudante" };
-        return NextResponse.json({ error: `A ${labels[ORDEM[i]]} precisa assinar primeiro.` }, { status: 422 });
-      }
-    }
-
     signers[quem] = { assinado: true, assinadoAt: new Date().toISOString(), nome: body.nome || quem };
 
-    const todosAssinaram = ORDEM.every(s => signers[s]?.assinado);
+    const todosAssinaram = SIGNATARIOS.every(s => signers[s]?.assinado);
     const novoStatus = todosAssinaram ? "ASSINADO" : "AGUARDANDO_ASSINATURA";
 
     const updated = await prisma.internshipDocument.update({
@@ -101,7 +97,7 @@ export async function PATCH(
       },
     });
 
-    // Auto-ativar contrato quando TCE 100% assinado
+    // Auto-ativar contrato quando TCE 100% assinado pelos 3
     if (todosAssinaram && doc.tipo === "tce") {
       await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO" as any } });
     }
@@ -109,7 +105,7 @@ export async function PATCH(
     return NextResponse.json({ document: updated, todosAssinaram, novoStatus });
   }
 
-  // ─── Update simples ───
+  // ─── Update simples de status ───
   const updated = await prisma.internshipDocument.update({
     where: { id: params.docId },
     data: {
@@ -119,11 +115,11 @@ export async function PATCH(
     },
   });
 
-  // Auto-inativar contrato quando Rescisão (TR) é assinada
-  if (body.status === "ASSINADO" && doc.tipo === "tr") {
+  // Quando TR (Rescisão) é GERADO → contrato vira INATIVO imediatamente
+  if (body.status === "GERADO" && doc.tipo === "tr") {
     await prisma.contract.update({ where: { id: params.id }, data: { status: "INATIVO" as any } });
   }
-  // Auto-ativar contrato quando TCE é marcado assinado diretamente
+  // Auto-ativar contrato quando TCE marcado como ASSINADO diretamente
   if (body.status === "ASSINADO" && doc.tipo === "tce") {
     await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO" as any } });
   }

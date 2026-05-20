@@ -12,18 +12,17 @@ const STATUS_V: Record<string,"green"|"yellow"|"red"> = {
 const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits:2 });
 
 export default function FinanceiroPage() {
-  const [lancamentos, setLancamentos]   = useState<any[]>([]);
-  const [filtroStatus, setFiltroStatus] = useState("TODOS");
-  const [novoModal, setNovoModal]       = useState(false);
-  const [editModal, setEditModal]       = useState<any>(null);
-  const [pagModal, setPagModal]         = useState<any>(null);
-  const [cobrModal, setCobrModal]       = useState<any>(null);   // modal enviar cobrança
-  const [histModal, setHistModal]       = useState<any>(null);   // modal histórico
-  const [histLogs, setHistLogs]         = useState<any[]>([]);
-  const [loading, setLoading]           = useState(false);
-  const [cobrEmail, setCobrEmail]       = useState("");
-  const [cobrMsg, setCobrMsg]           = useState("");
-  const [cobrLoading, setCobrLoading]   = useState(false);
+  const [lancamentos, setLancamentos] = useState<any[]>([]);
+  const [config, setConfig]           = useState<any>(null);
+  const [configModal, setConfigModal] = useState(false);
+  const [configForm, setConfigForm]   = useState({ chavePix:"", linkPagamento:"", instrucaoPagamento:"" });
+  const [novoModal, setNovoModal]     = useState(false);
+  const [editModal, setEditModal]     = useState<any>(null);
+  const [cobrModal, setCobrModal]     = useState<any>(null);
+  const [histModal, setHistModal]     = useState<any>(null);
+  const [histLogs, setHistLogs]       = useState<any[]>([]);
+  const [filtro, setFiltro]           = useState("TODOS");
+  const [loading, setLoading]         = useState(false);
   const [form, setForm] = useState({
     descricao:"", tipo:"entrada", valor:"", categoria:"Empresa",
     status:"PENDENTE", recorrente:false, diaVencimento:"", vencimentoAt:"",
@@ -32,15 +31,28 @@ export default function FinanceiroPage() {
 
   const load = () =>
     fetch("/api/app/financeiro").then(r => r.json()).then(d => setLancamentos(d.lancamentos || []));
-  useEffect(() => { load(); }, []);
 
-  const lancamentosFiltrados = filtroStatus === "TODOS"
-    ? lancamentos
-    : lancamentos.filter(l => l.status === filtroStatus);
+  const loadConfig = () =>
+    fetch("/api/app/config-pagamento").then(r => r.json()).then(d => {
+      setConfig(d.config);
+      if (d.config) setConfigForm({ chavePix: d.config.chavePix || "", linkPagamento: d.config.linkPagamento || "", instrucaoPagamento: d.config.instrucaoPagamento || "" });
+    });
 
-  const entradas  = lancamentos.filter(l => l.tipo==="entrada" && l.status==="PAGO").reduce((a,b) => a+b.valor, 0);
-  const saidas    = lancamentos.filter(l => l.tipo==="saida"   && l.status==="PAGO").reduce((a,b) => a+b.valor, 0);
-  const pendentes = lancamentos.filter(l => l.status==="PENDENTE").reduce((a,b) => a+b.valor, 0);
+  useEffect(() => { load(); loadConfig(); }, []);
+
+  const filtrados = filtro === "TODOS" ? lancamentos : lancamentos.filter(l => l.status === filtro);
+  const entradas  = lancamentos.filter(l => l.tipo==="entrada" && l.status==="PAGO").reduce((a,b)=>a+b.valor,0);
+  const saidas    = lancamentos.filter(l => l.tipo==="saida"   && l.status==="PAGO").reduce((a,b)=>a+b.valor,0);
+  const pendentes = lancamentos.filter(l => l.status==="PENDENTE").reduce((a,b)=>a+b.valor,0);
+
+  const salvarConfig = async () => {
+    const res = await fetch("/api/app/config-pagamento", {
+      method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(configForm),
+    });
+    const data = await res.json();
+    setConfig(data.config);
+    setConfigModal(false);
+  };
 
   const criar = async () => {
     if (!form.descricao || !form.valor) return;
@@ -78,59 +90,47 @@ export default function FinanceiroPage() {
     setEditModal(null); load();
   };
 
-  const salvarPagamento = async () => {
-    if (!pagModal) return;
-    await fetch(`/api/app/financeiro/${pagModal.id}`, {
-      method:"PATCH", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        chavePix:           pagModal.chavePix || null,
-        linkPagamento:      pagModal.linkPagamento || null,
-        instrucaoPagamento: pagModal.instrucaoPagamento || null,
-      }),
-    });
-    setPagModal(null); load();
-  };
-
-  const abrirCobranca = (l: any) => {
-    setCobrModal(l);
-    setCobrEmail(l.company?.emailFinanceiro || l.company?.email || "");
-    setCobrMsg("");
-  };
-
   const enviarCobranca = async () => {
     if (!cobrModal) return;
-    setCobrLoading(true);
-    const res = await fetch(`/api/app/financeiro/${cobrModal.id}/enviar-cobranca`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emailDestino: cobrEmail, mensagemPersonalizada: cobrMsg }),
+    setLoading(true);
+    // Usa config global se não tiver dados específicos no lançamento
+    const payload = {
+      email: cobrModal.emailDestino || cobrModal.company?.emailFinanceiro || cobrModal.company?.email || "",
+      mensagem: cobrModal.mensagemPersonalizada || "",
+      chavePix: cobrModal.chavePix || config?.chavePix || "",
+      linkPagamento: cobrModal.linkPagamento || config?.linkPagamento || "",
+      instrucaoPagamento: cobrModal.instrucaoPagamento || config?.instrucaoPagamento || "",
+    };
+    await fetch(`/api/app/financeiro/${cobrModal.id}/enviar-cobranca`, {
+      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload),
     });
-    const data = await res.json();
-    setCobrLoading(false);
-    if (data.ok) {
-      alert(`✅ Cobrança enviada para ${data.emailEnviado}!`);
-      setCobrModal(null);
-    } else {
-      alert(`❌ Erro: ${data.error}`);
-    }
-  };
-
-  const abrirHistorico = async (l: any) => {
-    setHistModal(l);
-    const res = await fetch(`/api/app/financeiro/${l.id}/enviar-cobranca`);
-    const data = await res.json();
-    setHistLogs(data.logs || []);
+    setCobrModal(null); setLoading(false); load();
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-black text-slate-800">Financeiro</h1>
-        <Button onClick={() => setNovoModal(true)}>+ Novo Lançamento</Button>
+        <div className="flex gap-2">
+          {/* Config de pagamento global — canto superior */}
+          <button
+            onClick={() => setConfigModal(true)}
+            className={`flex items-center gap-2 text-xs px-4 py-2 rounded-xl border-2 font-semibold transition-all ${
+              config?.chavePix || config?.linkPagamento
+                ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                : "border-amber-400 bg-amber-50 text-amber-700"
+            }`}
+          >
+            {config?.chavePix || config?.linkPagamento ? "✓ PIX/Boleto configurado" : "⚠️ Configurar PIX/Boleto"}
+            {config?.chavePix && <span className="font-mono text-[10px] opacity-60 max-w-[120px] truncate">{config.chavePix}</span>}
+          </button>
+          <Button onClick={() => setNovoModal(true)}>+ Novo Lançamento</Button>
+        </div>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-4 mb-5">
         <Card className="p-5 border-l-4 border-emerald-400">
           <p className="text-xs text-slate-500">↑ Entradas Recebidas</p>
           <p className="text-2xl font-black text-emerald-600 mt-1">{fmt(entradas)}</p>
@@ -140,48 +140,42 @@ export default function FinanceiroPage() {
           <p className="text-2xl font-black text-red-600 mt-1">{fmt(saidas)}</p>
         </Card>
         <Card className="p-5 border-l-4 border-amber-400">
-          <p className="text-xs text-slate-500">⏳ A Receber (pendente)</p>
+          <p className="text-xs text-slate-500">⏳ A Receber (pendentes)</p>
           <p className="text-2xl font-black text-amber-600 mt-1">{fmt(pendentes)}</p>
         </Card>
       </div>
 
-      {/* Filtros de Status */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {["TODOS","PENDENTE","PAGO","VENCIDO","CANCELADO"].map(s => (
-          <button key={s} onClick={() => setFiltroStatus(s)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              filtroStatus === s
-                ? "bg-[#0f2a5e] text-white"
-                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-            }`}>
-            {s === "TODOS" ? `Todos (${lancamentos.length})` : `${s} (${lancamentos.filter(l=>l.status===s).length})`}
+      {/* Filtros */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-4 w-fit">
+        {[["TODOS","Todos"],["PENDENTE","Pendentes"],["PAGO","Pagos"],["VENCIDO","Vencidos"],["CANCELADO","Cancelados"]].map(([k,l]) => (
+          <button key={k} onClick={() => setFiltro(k)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filtro === k ? "bg-[#0f2a5e] text-white shadow-sm" : "text-slate-500 hover:bg-white"}`}>
+            {l}
+            {k !== "TODOS" && <span className="ml-1 opacity-60">({lancamentos.filter(l => l.status === k).length})</span>}
           </button>
         ))}
       </div>
 
+      {/* Tabela */}
       <Card>
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100">
-              {["Descrição","Empresa","Tipo","Valor","Vencimento","Status","Ações"].map(h => (
+              {["Descrição","Tipo","Valor","Vencimento","Status","Ações"].map(h => (
                 <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wide px-4 py-3">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {lancamentosFiltrados.length === 0
-              ? <tr><td colSpan={7} className="text-center py-12 text-slate-400">Nenhum lançamento.</td></tr>
-              : lancamentosFiltrados.map(l => {
+            {filtrados.length === 0
+              ? <tr><td colSpan={6} className="text-center py-12 text-slate-400">Nenhum lançamento.</td></tr>
+              : filtrados.map(l => {
                 const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
-                const temPag  = l.chavePix || l.linkPagamento;
                 return (
                   <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado?"opacity-40":""}`}>
-                    <td className="px-4 py-2.5 text-sm font-medium max-w-[160px] truncate">{l.descricao}</td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">{l.company?.name || "—"}</td>
+                    <td className="px-4 py-2.5 text-sm font-medium">{l.descricao}</td>
                     <td className="px-4 py-2.5">
-                      <Badge variant={l.tipo==="entrada"?"green":"red"}>
-                        {l.tipo==="entrada"?"↑ Entrada":"↓ Saída"}
-                      </Badge>
+                      <Badge variant={l.tipo==="entrada"?"green":"red"}>{l.tipo==="entrada"?"↑ Entrada":"↓ Saída"}</Badge>
                     </td>
                     <td className="px-4 py-2.5 text-sm font-bold">
                       <span className={l.tipo==="entrada"?"text-emerald-600":"text-red-600"}>
@@ -196,27 +190,14 @@ export default function FinanceiroPage() {
                       <Badge variant={STATUS_V[l.status] || "gray"}>{l.status}</Badge>
                     </td>
                     <td className="px-4 py-2.5">
-                      <div className="flex gap-1 flex-wrap">
-                        {/* Enviar cobrança */}
-                        {l.tipo === "entrada" && l.status !== "PAGO" && !l.cancelado && (
-                          <button onClick={() => abrirCobranca(l)}
-                            className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-lg hover:bg-amber-100 font-semibold whitespace-nowrap">
-                            📧 Cobrar
-                          </button>
-                        )}
-                        {/* Histórico */}
-                        <button onClick={() => abrirHistorico(l)}
-                          className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded-lg hover:bg-slate-100">
-                          📋
-                        </button>
-                        {/* PIX/Boleto */}
-                        {!temPag
-                          ? <button onClick={() => setPagModal({...l})} className="text-xs text-blue-500 hover:underline px-1">+ PIX</button>
-                          : <span className="text-xs text-emerald-600 font-semibold px-1">✓ PIX</span>
-                        }
-                        {/* Baixa */}
+                      <div className="flex gap-1">
                         {l.status==="PENDENTE" && !l.cancelado && (
-                          <Button size="sm" variant="secondary" onClick={() => darBaixa(l.id)}>✓</Button>
+                          <>
+                            <Button size="sm" variant="secondary" onClick={() => darBaixa(l.id)}>✓ Baixa</Button>
+                            {l.tipo==="entrada" && (
+                              <Button size="sm" variant="secondary" onClick={() => setCobrModal({...l, emailDestino:"", mensagemPersonalizada:""})}>📧 Cobrar</Button>
+                            )}
+                          </>
                         )}
                         {l.status==="PAGO" && (
                           <Button size="sm" variant="ghost" onClick={() => reverter(l.id)}>↩</Button>
@@ -233,6 +214,32 @@ export default function FinanceiroPage() {
           </tbody>
         </table>
       </Card>
+
+      {/* ── Modal Configuração Global PIX/Boleto ── */}
+      <Modal open={configModal} onClose={() => setConfigModal(false)} title="⚙️ Configuração de Pagamento">
+        <div className="space-y-3">
+          <p className="text-sm text-slate-500">
+            Configure uma vez e os dados serão usados em todas as cobranças automaticamente.
+          </p>
+          <Input label="Chave PIX" value={configForm.chavePix}
+            onChange={e => setConfigForm(p => ({...p, chavePix: e.target.value}))}
+            placeholder="CNPJ, CPF, e-mail ou chave aleatória"/>
+          <Input label="Link do Boleto (opcional)" value={configForm.linkPagamento}
+            onChange={e => setConfigForm(p => ({...p, linkPagamento: e.target.value}))}
+            placeholder="https://banco.com/boleto/..."/>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Instruções de Pagamento</label>
+            <textarea className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-20 resize-none outline-none focus:border-[#0f2a5e]"
+              value={configForm.instrucaoPagamento}
+              onChange={e => setConfigForm(p => ({...p, instrucaoPagamento: e.target.value}))}
+              placeholder="Ex: Transferência Banco Itaú, Ag 0001, CC 12345-6"/>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setConfigModal(false)}>Cancelar</Button>
+            <Button onClick={salvarConfig}>Salvar Configuração</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal Novo Lançamento */}
       <Modal open={novoModal} onClose={() => setNovoModal(false)} title="Novo Lançamento">
@@ -295,96 +302,37 @@ export default function FinanceiroPage() {
         )}
       </Modal>
 
-      {/* Modal PIX/Boleto */}
-      <Modal open={pagModal !== null} onClose={() => setPagModal(null)} title="Dados de Pagamento">
-        {pagModal && (
-          <div className="space-y-3">
-            <p className="text-sm text-slate-500">Configure os dados de pagamento para esta cobrança.</p>
-            <Input label="Chave PIX" value={pagModal.chavePix || ""} onChange={e => setPagModal((p:any) => ({...p, chavePix: e.target.value}))} placeholder="CNPJ, CPF, e-mail ou chave aleatória"/>
-            <Input label="Link do Boleto" value={pagModal.linkPagamento || ""} onChange={e => setPagModal((p:any) => ({...p, linkPagamento: e.target.value}))} placeholder="https://banco.com/boleto/..."/>
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Instruções de pagamento</label>
-              <textarea className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-20 resize-none outline-none focus:border-[#0f2a5e]" value={pagModal.instrucaoPagamento || ""} onChange={e => setPagModal((p:any) => ({...p, instrucaoPagamento: e.target.value}))} placeholder="Ex: Banco Itaú, Ag 0001, CC 12345-6"/>
-            </div>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setPagModal(null)}>Cancelar</Button>
-              <Button onClick={salvarPagamento}>Salvar</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Modal Enviar Cobrança */}
-      <Modal open={cobrModal !== null} onClose={() => setCobrModal(null)} title="📧 Enviar Cobrança por Email">
+      {/* Modal Cobrar */}
+      <Modal open={cobrModal !== null} onClose={() => setCobrModal(null)} title="📧 Enviar Cobrança">
         {cobrModal && (
           <div className="space-y-3">
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-              <p className="text-xs font-bold text-amber-800">Cobrança</p>
-              <p className="text-sm font-semibold">{cobrModal.descricao}</p>
-              <p className="text-lg font-black text-amber-700">{fmt(cobrModal.valor)}</p>
-              {cobrModal.vencimentoAt && (
-                <p className="text-xs text-amber-600">Vence em: {new Date(cobrModal.vencimentoAt).toLocaleDateString("pt-BR")}</p>
-              )}
-            </div>
-            {(cobrModal.chavePix || cobrModal.linkPagamento) ? (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700">
-                ✅ Dados PIX/Boleto configurados — serão incluídos no email
-              </div>
-            ) : (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500">
-                ⚠️ Nenhum dado de PIX/Boleto configurado. O email será enviado sem dados de pagamento.
-              </div>
-            )}
-            <Input
-              label="Email de destino *"
-              type="email"
-              value={cobrEmail}
-              onChange={e => setCobrEmail(e.target.value)}
-              placeholder="financeiro@empresa.com"
-            />
+            <p className="text-sm text-slate-500">Enviando cobrança: <strong>{cobrModal.descricao}</strong> — {fmt(cobrModal.valor)}</p>
+            <Input label="E-mail de destino"
+              value={cobrModal.emailDestino || ""}
+              onChange={e => setCobrModal((p:any) => ({...p, emailDestino: e.target.value}))}
+              placeholder="financeiro@empresa.com"/>
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Mensagem personalizada (opcional)</label>
-              <textarea
-                className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-16 resize-none outline-none focus:border-[#0f2a5e]"
-                value={cobrMsg}
-                onChange={e => setCobrMsg(e.target.value)}
-                placeholder="Ex: Conforme combinado, segue cobrança referente a Maio..."
-              />
+              <textarea className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-16 resize-none outline-none focus:border-[#0f2a5e]"
+                value={cobrModal.mensagemPersonalizada || ""}
+                onChange={e => setCobrModal((p:any) => ({...p, mensagemPersonalizada: e.target.value}))}
+                placeholder="Mensagem adicional para o e-mail..."/>
             </div>
-            <div className="flex gap-3 pt-1">
-              <Button variant="secondary" onClick={() => setCobrModal(null)}>Cancelar</Button>
-              <Button onClick={enviarCobranca} disabled={cobrLoading || !cobrEmail}>
-                {cobrLoading ? "Enviando..." : "📧 Enviar Cobrança"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Modal Histórico de Envios */}
-      <Modal open={histModal !== null} onClose={() => setHistModal(null)} title="📋 Histórico de Envios">
-        {histModal && (
-          <div>
-            <p className="text-sm text-slate-600 mb-3"><strong>{histModal.descricao}</strong> — {fmt(histModal.valor)}</p>
-            {histLogs.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4 text-center">Nenhum envio registrado.</p>
-            ) : (
-              <div className="space-y-2">
-                {histLogs.map((log: any) => (
-                  <div key={log.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
-                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${log.status==="enviado"?"bg-emerald-400":"bg-red-400"}`}/>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate">{log.emailEnviado}</p>
-                      <p className="text-xs text-slate-400">{new Date(log.enviadoAt).toLocaleString("pt-BR")}</p>
-                      {log.enviadoPor && <p className="text-xs text-slate-400">Por: {log.enviadoPor}</p>}
-                    </div>
-                    <Badge variant={log.status==="enviado"?"green":"red"}>{log.status}</Badge>
-                  </div>
-                ))}
+            {(config?.chavePix || config?.linkPagamento) && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 space-y-1">
+                <p className="font-bold">✓ Dados de pagamento configurados:</p>
+                {config.chavePix && <p>PIX: {config.chavePix}</p>}
+                {config.linkPagamento && <p>Boleto: {config.linkPagamento}</p>}
               </div>
             )}
-            <div className="mt-4">
-              <Button variant="secondary" onClick={() => setHistModal(null)}>Fechar</Button>
+            {!config?.chavePix && !config?.linkPagamento && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                ⚠️ Nenhum dado de pagamento configurado. <button onClick={() => { setCobrModal(null); setConfigModal(true); }} className="underline font-semibold">Configurar agora</button>
+              </div>
+            )}
+            <div className="flex gap-3 pt-2">
+              <Button variant="secondary" onClick={() => setCobrModal(null)}>Cancelar</Button>
+              <Button onClick={enviarCobranca} disabled={loading || !cobrModal.emailDestino}>{loading ? "Enviando..." : "📧 Enviar"}</Button>
             </div>
           </div>
         )}
