@@ -66,6 +66,10 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
   const [extraFields, setExtraFields]         = useState<Record<string,string>>({});
   const [alertas, setAlertas]       = useState<string[]>([]);
   const [assinarLoading, setAssinarLoading] = useState(false);
+  const [autentiqueModal, setAutentiqueModal] = useState(false);
+  const [autentiqueEmails, setAutentiqueEmails] = useState<string[]>([""]);
+  const [autentiqueLoading, setAutentiqueLoading] = useState(false);
+  const [autentiqueSuccess, setAutentiqueSuccess] = useState<string|null>(null);
 
   const isTCEouPE = doc?.tipo === "tce" || doc?.tipo === "pe";
   const signers: Record<string,any> = (doc?.signers as any) || {};
@@ -130,6 +134,30 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
     setAssinaturaModal(false);
   };
 
+  const enviarParaAutentique = async () => {
+    setAutentiqueLoading(true); setAlertas([]); setAutentiqueSuccess(null);
+    const emailsValidos = autentiqueEmails.map(e => e.trim()).filter(e => e.length > 0);
+    if (emailsValidos.length === 0) { setAutentiqueLoading(false); return; }
+    try {
+      const res = await fetch(
+        `/api/app/contratos/${params.id}/documentos/${params.docId}/autentique`,
+        { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ emails: emailsValidos }) }
+      );
+      const data = await res.json();
+      if (data.error) {
+        setAlertas([data.error]);
+      } else {
+        setAutentiqueSuccess(data.message || "Enviado com sucesso!");
+        setDoc((p: any) => ({ ...p, status: "ENVIADO_ASSINATURA" }));
+        setTimeout(() => { setAutentiqueModal(false); setAutentiqueSuccess(null); }, 2500);
+      }
+    } catch {
+      setAlertas(["Erro ao conectar com a API Autentique."]);
+    }
+    setAutentiqueLoading(false);
+  };
+
   const marcarAssinado = async () => {
     const res  = await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
       method:"PATCH", headers:{"Content-Type":"application/json"},
@@ -166,7 +194,9 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
             </Button>
           )}
           {!isTCEouPE && gerado && doc.status === "GERADO" && (
-            <Button variant="secondary" onClick={() => setAssinaturaModal(true)}>✉️ Enviar Assinatura</Button>
+            <Button variant="secondary" onClick={() => { setAutentiqueModal(true); setAutentiqueEmails([""]); }}>
+              ✍️ Enviar para Assinatura
+            </Button>
           )}
           {!isTCEouPE && doc?.status === "AGUARDANDO_ASSINATURA" && (
             <Button onClick={marcarAssinado}>✓ Marcar Assinado</Button>
@@ -279,17 +309,63 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
         </div>
       </Modal>
 
-      {/* Modal envio assinatura genérico */}
-      <Modal open={assinaturaModal} onClose={() => setAssinaturaModal(false)} title="Enviar para Assinatura Digital">
+      {/* Modal Autentique — envio para assinatura digital */}
+      <Modal open={autentiqueModal} onClose={() => setAutentiqueModal(false)} title="Enviar para Assinatura via Autentique">
         <div className="space-y-4">
-          <p className="text-sm text-slate-500">Confirma o envio de <strong>{doc?.titulo}</strong> para assinatura digital?</p>
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
-            🔐 O envio real será feito via <strong>Authentique</strong>. Configure a API em Configurações → Assinaturas.
-          </div>
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => setAssinaturaModal(false)}>Cancelar</Button>
-            <Button onClick={enviarAssinatura}>Confirmar Envio ✉️</Button>
-          </div>
+          <p className="text-sm text-slate-500">
+            Informe os e-mails dos signatários para <strong>{doc?.titulo}</strong>.
+          </p>
+
+          {autentiqueSuccess ? (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 flex items-center gap-2">
+              ✅ {autentiqueSuccess}
+            </div>
+          ) : (
+            <>
+              {/* Email list */}
+              <div className="space-y-2">
+                {autentiqueEmails.map((email, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      type="email"
+                      placeholder={`E-mail do signatário ${idx + 1}`}
+                      className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+                      value={email}
+                      onChange={e => {
+                        const updated = [...autentiqueEmails];
+                        updated[idx] = e.target.value;
+                        setAutentiqueEmails(updated);
+                      }}
+                    />
+                    {autentiqueEmails.length > 1 && (
+                      <button
+                        className="text-slate-400 hover:text-red-500 px-2 text-lg"
+                        onClick={() => setAutentiqueEmails(autentiqueEmails.filter((_, i) => i !== idx))}
+                      >×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                className="text-sm text-[#0f2a5e] font-semibold hover:underline"
+                onClick={() => setAutentiqueEmails([...autentiqueEmails, ""])}
+              >
+                + Adicionar signatário
+              </button>
+
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+                🔐 O documento será enviado via <strong>Autentique</strong> para assinatura digital.
+                Cada signatário receberá um link no e-mail informado.
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <Button variant="secondary" onClick={() => setAutentiqueModal(false)}>Cancelar</Button>
+                <Button onClick={enviarParaAutentique} disabled={autentiqueLoading}>
+                  {autentiqueLoading ? "Enviando..." : "✍️ Enviar para Assinatura"}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

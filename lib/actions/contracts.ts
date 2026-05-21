@@ -46,11 +46,53 @@ export async function getContract(id: string) {
 }
 
 export async function createContract(data: any) {
+  // Sanitizar — remover campos que não existem no schema Contract
+  const {
+    // Extraímos apenas os campos válidos do schema para evitar erros do Prisma
+    studentId, companyId, institutionId, franchiseId,
+    bolsa, valorEmpresa, auxTransporte, beneficios, vencimento,
+    dataInicio, dataFim, atividades, localEstagio, cidade, uf,
+    chDiaria, chSemanal, diasSemana, horarioInicio, horarioFim, intervalo,
+    supervisorNome, supervisorCargo, supervisorEmail, supervisorTel,
+    coordNome, coordCargo, coordEmail, coordTel,
+    apoliceSeguro, seguradora, tipoEstagio,
+    numero: _numero,
+    ...rest  // descartamos campos extras
+  } = data;
+
+  const safeData = {
+    studentId, companyId, franchiseId,
+    ...(institutionId ? { institutionId } : {}),
+    bolsa, vencimento, dataInicio, dataFim,
+    ...(valorEmpresa !== null && valorEmpresa !== undefined ? { valorEmpresa } : {}),
+    ...(auxTransporte !== null && auxTransporte !== undefined ? { auxTransporte } : {}),
+    ...(beneficios ? { beneficios } : {}),
+    ...(atividades ? { atividades } : {}),
+    ...(localEstagio ? { localEstagio } : {}),
+    ...(cidade ? { cidade } : {}),
+    ...(uf ? { uf } : {}),
+    chDiaria, chSemanal, intervalo,
+    ...(diasSemana ? { diasSemana } : {}),
+    ...(horarioInicio ? { horarioInicio } : {}),
+    ...(horarioFim ? { horarioFim } : {}),
+    ...(supervisorNome ? { supervisorNome } : {}),
+    ...(supervisorCargo ? { supervisorCargo } : {}),
+    ...(supervisorEmail ? { supervisorEmail } : {}),
+    ...(supervisorTel ? { supervisorTel } : {}),
+    ...(coordNome ? { coordNome } : {}),
+    ...(coordCargo ? { coordCargo } : {}),
+    ...(coordEmail ? { coordEmail } : {}),
+    ...(coordTel ? { coordTel } : {}),
+    ...(apoliceSeguro ? { apoliceSeguro } : {}),
+    ...(seguradora ? { seguradora } : {}),
+    ...(tipoEstagio ? { tipoEstagio } : {}),
+  };
+
   // Gerar número automático se não fornecido
-  const numero = data.numero || await gerarNumeroContrato(data.franchiseId);
+  const numero = _numero || await gerarNumeroContrato(franchiseId);
 
   const contract = await prisma.contract.create({
-    data: { ...data, numero },
+    data: { ...safeData, numero },
   });
 
   // Criar 11 documentos automaticamente

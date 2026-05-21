@@ -3,6 +3,7 @@ import { buildContratoData, saveDocumentHtml } from "@/lib/services/documentServ
 import {
   gerarTCE, gerarReciboBolsa, gerarRescisao, gerarReciboRescisao,
   gerarTermoRecesso, gerarTermoRealizacao, gerarTermoAditivo, gerarContratoPrestacao,
+  gerarAvaliacaoSemestral, gerarParecerTecnico,
 } from "@/lib/documents/templates";
 import { validateTCE } from "@/lib/documents/validate";
 import { NextResponse } from "next/server";
@@ -52,6 +53,14 @@ export async function POST(
       break;
     case "cps":
       html = gerarContratoPrestacao(contratoData, body.valorMensal || 200);
+      break;
+    case "as":
+      // Avaliação Semestral — gera um documento de avaliação padrão
+      html = gerarAvaliacaoSemestral(contratoData, body.periodo || "", body.notas || {});
+      break;
+    case "pt":
+      // Parecer Técnico — gera parecer técnico do estágio
+      html = gerarParecerTecnico(contratoData, body.parecer || "", body.recomendacao || "Aprovado");
       break;
     default:
       return NextResponse.json({ error: `Tipo '${doc.tipo}' não implementado` }, { status: 400 });

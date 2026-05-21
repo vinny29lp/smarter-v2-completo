@@ -30,28 +30,39 @@ export async function POST(req: Request) {
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) return NextResponse.json({ error: "E-mail já cadastrado no sistema" }, { status: 409 });
 
-  const hash = await bcrypt.hash(senha, 10);
+  try {
+    const hash = await bcrypt.hash(senha, 10);
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      password: hash,
-      role: "FUNCIONARIO" as any,
-      franchiseId: session.user.franchiseId,
-      active: true,
-    },
-  });
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hash,
+        role: "FUNCIONARIO" as any,
+        franchiseId: session.user.franchiseId,
+        active: true,
+      },
+    });
 
-  const employee = await prisma.employee.create({
-    data: {
-      userId: user.id,
-      franchiseId: session.user.franchiseId,
-      cargo: cargo || "Colaborador",
-      permissoes,
-    },
-    include: { user: { select: { id: true, name: true, email: true, active: true, role: true, createdAt: true } } },
-  });
+    const employee = await prisma.employee.create({
+      data: {
+        userId: user.id,
+        franchiseId: session.user.franchiseId as string,
+        cargo: cargo || "Colaborador",
+        permissoes: permissoes || [],
+      },
+      include: { user: { select: { id: true, name: true, email: true, active: true, role: true, createdAt: true } } },
+    });
 
-  return NextResponse.json({ employee }, { status: 201 });
+    return NextResponse.json({ employee }, { status: 201 });
+  } catch (err: any) {
+    console.error("[equipe POST] erro:", err);
+    // Se o usuário foi criado mas employee falhou, tenta limpar
+    if (err?.message?.includes("employee")) {
+      await prisma.user.deleteMany({ where: { email } }).catch(() => {});
+    }
+    return NextResponse.json({
+      error: err?.meta?.cause || err?.message || "Erro ao criar colaborador. Verifique os dados.",
+    }, { status: 500 });
+  }
 }

@@ -865,3 +865,105 @@ ${docFooter("Contrato de Prestação de Serviços", c.numero, sm)}`);
 
 // ── Kept for backward compat ─────────────────────────────────────────────────
 export const DOC_CSS = CSS;
+
+// ── Avaliação Semestral ───────────────────────────────────────────────────────
+export function gerarAvaliacaoSemestral(c: ContratoData, periodo: string, notas: Record<string,number>): string {
+  const { estudante: est, empresa: emp, smarter: sm, estagio, numero } = c;
+  const hoje = new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" });
+  const periodoLabel = periodo || `${new Date().getFullYear()}/1`;
+
+  const criterios = [
+    { key:"pontualidade", label:"Pontualidade e Assiduidade" },
+    { key:"desempenho", label:"Desempenho Técnico" },
+    { key:"relacionamento", label:"Relacionamento Interpessoal" },
+    { key:"proatividade", label:"Proatividade e Iniciativa" },
+    { key:"aprendizagem", label:"Capacidade de Aprendizagem" },
+  ];
+
+  const notasRows = criterios.map(cr => {
+    const nota = notas[cr.key] ?? 8;
+    const pct = nota * 10;
+    const cor = nota >= 8 ? "#10b981" : nota >= 6 ? "#f59e0b" : "#ef4444";
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:11px">${cr.label}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:center">
+        <div style="background:#f1f5f9;border-radius:20px;overflow:hidden;height:12px;width:100px;display:inline-block">
+          <div style="height:12px;background:${cor};border-radius:20px;width:${pct}%"></div>
+        </div>
+      </td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:900;color:${cor}">${nota}/10</td>
+    </tr>`;
+  }).join("");
+
+  const mediaVal = Object.keys(notas).length > 0
+    ? Object.values(notas).reduce((a: number, b: any) => a + Number(b), 0) / Object.keys(notas).length
+    : 8;
+  const media = mediaVal.toFixed(1);
+
+  return wrap(`
+${premiumHeader("Avaliação Semestral de Estágio", "Período: " + periodoLabel, numero, sm)}
+${infoBar([
+  {l:"Estagiário(a)", v: est.nome},
+  {l:"Curso", v: est.curso},
+  {l:"Empresa", v: emp.nomeFan},
+  {l:"Período", v: periodoLabel},
+])}
+<div class="sec" style="margin-top:12px">
+  <table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="background:#f8fafc">
+      <th style="text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;color:#94a3b8">Critério</th>
+      <th style="text-align:center;padding:8px 10px;font-size:10px;text-transform:uppercase;color:#94a3b8">Desempenho</th>
+      <th style="text-align:center;padding:8px 10px;font-size:10px;text-transform:uppercase;color:#94a3b8">Nota</th>
+    </tr></thead>
+    <tbody>\${notasRows}</tbody>
+    <tfoot><tr style="background:#f8fafc">
+      <td colspan="2" style="padding:8px 10px;font-weight:900;font-size:12px">MÉDIA GERAL</td>
+      <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:13px;color:#0f2a5e">\${media}/10</td>
+    </tr></tfoot>
+  </table>
+</div>
+\${sign2(
+  [emp.supervisor || emp.representante || emp.nomeFan, "Supervisor do Estágio"],
+  [est.nome, "Estagiário(a)"],
+)}
+<p style="text-align:right;font-size:10px;margin:10px 0">\${sm.cidade}, \${hoje}</p>
+\${docFooter("Avaliação Semestral de Estágio", numero, sm)}`);
+}
+
+// ── Parecer Técnico ───────────────────────────────────────────────────────────
+export function gerarParecerTecnico(c: ContratoData, parecer: string, recomendacao: string = "Aprovado"): string {
+  const { estudante: est, empresa: emp, smarter: sm, estagio, numero } = c;
+  const hoje = new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" });
+  const corRec = recomendacao === "Aprovado" ? "#10b981" : recomendacao === "Em observação" ? "#f59e0b" : "#ef4444";
+  const iconeRec = recomendacao === "Aprovado" ? "✅" : recomendacao === "Em observação" ? "⚠️" : "❌";
+
+  return wrap(`
+${premiumHeader("Parecer Técnico do Estágio", "Documento oficial de avaliação técnica", numero, sm)}
+${infoBar([
+  {l:"Estagiário(a)", v: est.nome},
+  {l:"Curso", v: est.curso},
+  {l:"Empresa Concedente", v: emp.nomeFan},
+  {l:"Supervisor", v: emp.supervisor || "—"},
+])}
+<div class="fg" style="margin:14px 0">
+  \${fld("Período", estagio.dataInicio + " a " + estagio.dataFim)}
+  \${fld("Atividades Desenvolvidas", estagio.atividades, true)}
+</div>
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin:14px 0">
+  <p style="font-size:10px;font-weight:900;text-transform:uppercase;color:#94a3b8;margin-bottom:8px">Parecer Técnico</p>
+  <p style="font-size:11px;color:#374151;line-height:1.7">\${parecer || "O estagiário demonstrou bom desempenho, comprometimento e evolução contínua ao longo do período de estágio."}</p>
+</div>
+<div style="background:\${corRec}22;border:2px solid \${corRec};border-radius:8px;padding:12px 16px;margin:14px 0;display:flex;align-items:center;gap:10px">
+  <span style="font-size:20px">\${iconeRec}</span>
+  <div>
+    <p style="font-size:10px;font-weight:900;text-transform:uppercase;color:\${corRec};margin-bottom:2px">Recomendação Final</p>
+    <p style="font-size:14px;font-weight:900;color:\${corRec}">\${recomendacao}</p>
+  </div>
+</div>
+\${sign2(
+  [emp.supervisor || emp.representante || emp.nomeFan, "Supervisor — Responsável pelo Parecer"],
+  [sm.responsavel, sm.razaoSocial + " — Agente de Integração"],
+)}
+<p style="text-align:right;font-size:10px;margin:10px 0">\${sm.cidade}, \${hoje}</p>
+\${docFooter("Parecer Técnico do Estágio", numero, sm)}`);
+}
