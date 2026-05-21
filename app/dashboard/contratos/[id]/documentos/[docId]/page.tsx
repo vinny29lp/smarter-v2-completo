@@ -193,7 +193,7 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
               ✍️ Assinar: {SIGNATARIO_LABELS[proximoSignatario]}
             </Button>
           )}
-          {!isTCEouPE && gerado && doc.status === "GERADO" && (
+          {gerado && doc.status !== "ASSINADO" && doc.status !== "CANCELADO" && (
             <Button variant="secondary" onClick={() => { setAutentiqueModal(true); setAutentiqueEmails([""]); }}>
               ✍️ Enviar para Assinatura
             </Button>

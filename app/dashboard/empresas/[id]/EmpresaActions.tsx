@@ -10,6 +10,7 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
   const router = useRouter();
   const [editModal, setEditModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [acessoMsg, setAcessoMsg] = useState<string|null>(null);
 
   const aprovar = async () => {
     setLoading(true);
@@ -19,6 +20,20 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
       body: JSON.stringify({ pendente: false, status: "ATIVA" }),
     });
     router.refresh();
+    setLoading(false);
+  };
+
+  const criarAcesso = async () => {
+    if (!confirm(`Criar acesso ao portal para ${empresa.name}? Um e-mail com a senha será enviado para ${empresa.email}.`)) return;
+    setLoading(true); setAcessoMsg(null);
+    const res = await fetch(`/api/app/empresas/${empresa.id}/acesso`, { method: "POST" });
+    const data = await res.json();
+    if (data.error) {
+      setAcessoMsg("❌ " + data.error);
+    } else {
+      setAcessoMsg("✅ Acesso criado! E-mail enviado para " + empresa.email);
+      router.refresh();
+    }
     setLoading(false);
   };
 
@@ -42,6 +57,16 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
           <Button className="w-full justify-center" onClick={aprovar} disabled={loading}>
             ✓ Aprovar Empresa
           </Button>
+        )}
+        {(!empresa.users || empresa.users.length === 0) && (
+          <Button className="w-full justify-center" onClick={criarAcesso} disabled={loading}>
+            🔑 Criar Acesso ao Portal
+          </Button>
+        )}
+        {acessoMsg && (
+          <div className={`text-xs p-2 rounded-lg ${acessoMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+            {acessoMsg}
+          </div>
         )}
         <Button variant="secondary" className="w-full justify-center" onClick={() => setEditModal(true)}>
           ✏️ Editar Dados

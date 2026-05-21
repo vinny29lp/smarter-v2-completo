@@ -20,7 +20,7 @@ export function PortalEstudanteNav() {
       <div className="max-w-5xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#f5c400] rounded-lg flex items-center justify-center font-black text-[#0f2a5e] text-sm">S</div>
+            <img src="/logo-branca.png" alt="Smarter" className="h-8 object-contain"/>
             <span className="text-white font-bold text-sm">Portal do Estudante</span>
           </div>
           <nav className="flex gap-1">

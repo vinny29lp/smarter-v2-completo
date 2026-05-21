@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { enviarBoasVindasColaborador } from "@/lib/email";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -53,6 +54,11 @@ export async function POST(req: Request) {
       },
       include: { user: { select: { id: true, name: true, email: true, active: true, role: true, createdAt: true } } },
     });
+
+    // Send welcome email to collaborator (non-blocking)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://smarter-v2-completo.vercel.app";
+    enviarBoasVindasColaborador({ email, nome: name, senha, loginUrl: appUrl })
+      .catch(e => console.warn("[email] Falha boas-vindas equipe:", e));
 
     return NextResponse.json({ employee }, { status: 201 });
   } catch (err: any) {

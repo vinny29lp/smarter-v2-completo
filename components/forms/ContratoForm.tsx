@@ -146,6 +146,16 @@ export function ContratoForm({ franchiseId, students, companies, institutions }:
             </div>
             <Input label="Horário Início" type="time" value={form.horarioInicio} onChange={e=>set("horarioInicio",e.target.value)}/>
             <Input label="Horário Fim" type="time" value={form.horarioFim} onChange={e=>set("horarioFim",e.target.value)}/>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Intervalo (minutos)</label>
+              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.intervalo} onChange={e=>set("intervalo",e.target.value)}>
+                <option value="0">Sem intervalo</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">60 min (1h)</option>
+              </select>
+            </div>
             <div className="col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 font-bold">
               ⏱ Total: {chTotal}h/semana {chTotal>30&&<span className="text-red-500">⚠️ Excede limite legal (30h)</span>}
             </div>

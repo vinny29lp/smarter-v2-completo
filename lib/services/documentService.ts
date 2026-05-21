@@ -2,15 +2,18 @@ import { prisma } from "@/lib/prisma";
 import type { ContratoData } from "@/lib/documents/types";
 
 export async function buildContratoData(contractId: string): Promise<ContratoData | null> {
-  const contract = await prisma.contract.findUnique({
-    where: { id: contractId },
-    include: {
-      student: { include: { user: true, institution: true } },
-      company: true,
-      institution: true,
-      franchise: true,
-    },
-  });
+  const [contract, systemConfig] = await Promise.all([
+    prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        student: { include: { user: true, institution: true } },
+        company: true,
+        institution: true,
+        franchise: true,
+      },
+    }),
+    prisma.systemConfig.findUnique({ where: { id: "default" } }).catch(() => null),
+  ]);
 
   if (!contract) return null;
 
@@ -58,15 +61,18 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
     ativo: activeDays.has(i),
   }));
 
+  // Use SystemConfig (admin settings) as primary source for Smarter company data
   const smarter = {
-    razaoSocial: franchise?.razaoSocial || franchise?.name || "Smarter Estagios Agente de Integracao Ltda.",
-    cnpj: franchise?.cnpj || "XX.XXX.XXX/0001-XX",
-    endereco: franchise?.endereco || "—",
-    cidade: franchise?.cidade || "São Paulo",
-    estado: franchise?.uf || "SP",
-    telefone: franchise?.telefone || "—",
-    email: franchise?.email || "contato@smarter.com.br",
-    responsavel: franchise?.responsavel || "Diretor Executivo",
+    razaoSocial: systemConfig?.razaoSocial || franchise?.razaoSocial || franchise?.name || "Smarter Estágios Agente de Integração Ltda.",
+    cnpj: systemConfig?.cnpj || franchise?.cnpj || "—",
+    endereco: systemConfig?.endereco || franchise?.endereco || "—",
+    cidade: systemConfig?.cidade || franchise?.cidade || "—",
+    estado: systemConfig?.uf || franchise?.uf || "SP",
+    telefone: systemConfig?.telefone || franchise?.telefone || "—",
+    email: systemConfig?.email || franchise?.email || "—",
+    responsavel: systemConfig?.responsavel || franchise?.responsavel || "—",
+    logoDocUrl: systemConfig?.logoDocUrl || undefined,
+    watermarkText: systemConfig?.watermarkText || "SMARTER",
   };
 
   return {

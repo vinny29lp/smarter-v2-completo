@@ -19,7 +19,7 @@ function createTransporter() {
   };
 }
 
-async function sendMail(to: string, subject: string, html: string): Promise<boolean> {
+export async function sendMail(to: string, subject: string, html: string): Promise<boolean> {
   const cfg = createTransporter();
   if (!cfg) return false;
   try {
@@ -172,3 +172,24 @@ export async function enviarNotificacaoAssinatura(params: {
   `;
   return sendMail(params.email, `Documento para Assinatura — ${params.tipoDoc}`, base("Assinatura Pendente", corpo));
 }
+
+// ── Colaborador / Equipe ──────────────────────────────────────────
+export async function enviarBoasVindasColaborador(params: {
+  email: string; nome: string; senha: string; loginUrl?: string;
+}): Promise<boolean> {
+  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const corpo = `
+    <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Seu acesso à equipe Smarter Estágios foi criado.</p>
+    <div class="box">
+      <div class="label">Credenciais de acesso</div>
+      <div style="margin-top:8px">
+        <div class="label">E-mail</div><div class="value">${params.email}</div>
+        <div class="label" style="margin-top:8px">Senha</div><div class="value">${params.senha}</div>
+      </div>
+    </div>
+    <p style="color:#475569;font-size:13px">Através do sistema você pode gerenciar contratos, estudantes e processos seletivos.</p>
+    <a href="${url}/login" class="btn">Acessar o Sistema →</a>
+  `;
+  return sendMail(params.email, "Bem-vindo(a) à equipe Smarter Estágios — Credenciais de acesso", base("Bem-vindo(a) à Equipe!", corpo));
+}
+

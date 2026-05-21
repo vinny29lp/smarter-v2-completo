@@ -55,8 +55,7 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-60 bg-[#0f2a5e] flex flex-col z-40">
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#f5c400] flex items-center justify-center font-black text-[#0f2a5e] text-lg">S</div>
-          <div className="text-white font-extrabold text-base">Smarter Estágios</div>
+          <img src="/logo-branca.png" alt="Smarter Estágios" className="h-9 object-contain"/>
         </div>
         <div className="mt-2 text-[10px] text-white/40 uppercase tracking-wider">{role}</div>
       </div>
@@ -83,7 +82,7 @@ export function Sidebar() {
 
       <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#f5c400] flex items-center justify-center text-xs font-black text-[#0f2a5e]">
+          <div className="w-8 h-8 rounded-full bg-[#f5c400] flex items-center justify-center text-xs font-black text-[#0f2a5e] overflow-hidden">
             {session?.user?.name?.split(" ").map(n=>n[0]).slice(0,2).join("") || "SM"}
           </div>
           <div className="flex-1 min-w-0">
