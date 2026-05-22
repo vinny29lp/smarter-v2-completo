@@ -2,7 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const instituicoes = await prisma.institution.findMany({ orderBy: { name: "asc" } });
+  // Exclui instituições auto-criadas pelo cadastro público de estudantes
+  const instituicoes = await prisma.institution.findMany({
+    where: { OR: [{ tipo: null }, { tipo: { not: "auto" } }] },
+    orderBy: { name: "asc" },
+  });
   return NextResponse.json({ instituicoes });
 }
 

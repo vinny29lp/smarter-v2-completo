@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     let inst = await prisma.institution.findFirst({ where: { name: { contains: body.institutionNome } } });
     if (!inst) {
       inst = await prisma.institution.create({
-        data: { name: body.institutionNome, cidade: body.cidade, uf: body.uf, cursos: [body.curso] },
+        data: { name: body.institutionNome, cidade: body.cidade, uf: body.uf, cursos: [body.curso], tipo: "auto" },
       });
     }
     institutionId = inst.id;

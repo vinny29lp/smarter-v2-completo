@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
 
-const discInfo: Record<string,{nome:string;cor:string;emoji:string;desc:string}> = {
-  D:{nome:"Dominância",cor:"text-red-600",emoji:"🔴",desc:"Focado em resultados, direto e assertivo"},
-  I:{nome:"Influência",cor:"text-amber-600",emoji:"🟡",desc:"Comunicativo, entusiasmado e persuasivo"},
-  S:{nome:"Estabilidade",cor:"text-emerald-600",emoji:"🟢",desc:"Colaborativo, paciente e confiável"},
-  C:{nome:"Conformidade",cor:"text-blue-600",emoji:"🔵",desc:"Analítico, meticuloso e preciso"},
+const discInfo: Record<string,{nome:string;cor:string;corBg:string;emoji:string;desc:string}> = {
+  D:{nome:"Dominância",cor:"text-red-600",corBg:"bg-red-500",emoji:"🔴",desc:"Focado em resultados, direto e assertivo"},
+  I:{nome:"Influência",cor:"text-amber-600",corBg:"bg-amber-500",emoji:"🟡",desc:"Comunicativo, entusiasmado e persuasivo"},
+  S:{nome:"Estabilidade",cor:"text-emerald-600",corBg:"bg-emerald-500",emoji:"🟢",desc:"Colaborativo, paciente e confiável"},
+  C:{nome:"Conformidade",cor:"text-blue-600",corBg:"bg-blue-500",emoji:"🔵",desc:"Analítico, meticuloso e preciso"},
 };
 
 export default function EstudanteDetailPage() {
@@ -47,6 +47,8 @@ export default function EstudanteDetailPage() {
   if (!student) return <div className="p-8 text-center text-slate-400">Carregando...</div>;
 
   const disc = student.discResult ? discInfo[student.discResult] : null;
+  const discData = student.discData as any;
+  const grafico = discData?.grafico as Record<string,number> | undefined;
   const habilidades = student.habilidades || [];
   const idiomas = student.idiomas || [];
   const experiencias = student.experiencias || [];
@@ -121,10 +123,31 @@ export default function EstudanteDetailPage() {
         {/* DISC + Skills */}
         <div className="space-y-4">
           {disc && (
-            <Card className="p-5 text-center">
-              <p className="text-3xl mb-1">{disc.emoji}</p>
-              <p className={`font-black text-lg ${disc.cor}`}>{disc.nome}</p>
-              <p className="text-xs text-slate-400 mt-1">{disc.desc}</p>
+            <Card className="p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">{disc.emoji}</span>
+                <div>
+                  <p className={"font-black text-base "+disc.cor}>{student.discResult} — {disc.nome}</p>
+                  <p className="text-xs text-slate-400">Perfil DISC</p>
+                </div>
+              </div>
+              {grafico ? (
+                <div className="space-y-2">
+                  {["D","I","S","C"].map(t => (
+                    <div key={t}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className={"font-semibold "+discInfo[t].cor}>{t} — {discInfo[t].nome}</span>
+                        <span className={"font-black "+discInfo[t].cor}>{grafico[t]||0}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={"h-2 "+discInfo[t].corBg+" rounded-full transition-all"} style={{width:`${grafico[t]||0}%`}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">{disc.desc}</p>
+              )}
             </Card>
           )}
           {habilidades.length > 0 && (

@@ -1,13 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  const viewerFranchiseId = (session?.user as any)?.franchiseId;
+
   const estudante = await prisma.student.findUnique({
     where: { id: params.id },
     include: {
       user: { select: { email: true, active: true, lastLoginAt: true } },
       institution: true,
-      contracts: { include: { company: true }, orderBy: { createdAt: "desc" } },
+      contracts: {
+        where: viewerFranchiseId ? { franchiseId: viewerFranchiseId } : {},
+        include: { company: true },
+        orderBy: { createdAt: "desc" },
+      },
       applications: { include: { vacancy: { include: { company: true } } }, orderBy: { createdAt: "desc" } },
     },
   });

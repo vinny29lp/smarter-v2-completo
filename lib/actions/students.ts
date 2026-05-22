@@ -2,9 +2,10 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function getStudents(franchiseId?: string) {
+// Todos estudantes são visíveis para todos os franqueados (aba pública)
+export async function getStudents(_franchiseId?: string) {
   return prisma.student.findMany({
-    where: franchiseId ? { franchiseId } : {},
+    where: {},
     include: {
       user: true,
       institution: true,
