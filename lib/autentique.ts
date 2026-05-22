@@ -1,7 +1,10 @@
 /**
  * Autentique API v2 — Integração de assinatura digital
  * Docs: https://docs.autentique.com.br/api
+ * Token: env AUTHENTIQUE_API_TOKEN (priority) or SystemConfig.autentiqueToken (fallback DB)
  */
+
+import { getSystemConfig } from "./getConfig";
 
 const AUTENTIQUE_API = "https://api.autentique.com.br/v2/graphql";
 
@@ -25,6 +28,15 @@ export interface AutentiqueDocumentoResponse {
   }>;
 }
 
+async function getToken(): Promise<string> {
+  // Priority 1: env var
+  if (process.env.AUTHENTIQUE_API_TOKEN) return process.env.AUTHENTIQUE_API_TOKEN;
+  // Priority 2: SystemConfig in DB
+  const cfg = await getSystemConfig();
+  if (cfg?.autentiqueToken) return cfg.autentiqueToken;
+  throw new Error("Token Autentique não configurado. Acesse Configurações → Autentique para cadastrar.");
+}
+
 /**
  * Envia um documento HTML para assinatura via Autentique.
  * Retorna os dados do documento criado (com links de assinatura por signatário).
@@ -34,8 +46,7 @@ export async function enviarParaAutentique(
   htmlContent: string,
   signatarios: AutentiqueSignatario[]
 ): Promise<AutentiqueDocumentoResponse> {
-  const token = process.env.AUTHENTIQUE_API_TOKEN;
-  if (!token) throw new Error("AUTHENTIQUE_API_TOKEN não configurado nas variáveis de ambiente.");
+  const token = await getToken();
   if (!signatarios || signatarios.length === 0) throw new Error("Informe ao menos um signatário.");
 
   // GraphQL mutation
@@ -67,24 +78,18 @@ export async function enviarParaAutentique(
       action: s.action || "SIGN",
       ...(s.nome ? { name: s.nome } : {}),
     })),
-    file: null, // will be substituted by multipart
+    file: null,
   };
 
-  // Build multipart/form-data per GraphQL multipart spec
   const formData = new FormData();
   formData.append("operations", JSON.stringify({ query, variables }));
   formData.append("map", JSON.stringify({ "0": ["variables.file"] }));
-
-  // Convert HTML to a Blob file
   const htmlBlob = new Blob([htmlContent], { type: "text/html" });
   formData.append("0", htmlBlob, `${titulo.replace(/\s+/g, "-")}.html`);
 
   const response = await fetch(AUTENTIQUE_API, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      // Do NOT set Content-Type — fetch sets it with boundary automatically
-    },
+    headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
 
@@ -94,11 +99,18 @@ export async function enviarParaAutentique(
   }
 
   const json = await response.json();
-
   if (json.errors?.length) {
     const msg = json.errors.map((e: any) => e.message).join("; ");
     throw new Error(`Autentique GraphQL error: ${msg}`);
   }
 
   return json.data.createDocument as AutentiqueDocumentoResponse;
+}
+
+/** Verifica se o token está configurado (para UI) */
+export async function autentiqueConectado(): Promise<boolean> {
+  try {
+    const t = await getToken();
+    return !!t;
+  } catch { return false; }
 }

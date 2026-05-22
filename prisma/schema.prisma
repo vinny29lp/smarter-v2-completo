@@ -515,8 +515,10 @@ model SystemConfig {
   loginBgUrl     String?   @default("")
   logoDocUrl     String?   @default("")
   watermarkUrl   String?   @default("")
-  watermarkText  String?   @default("SMARTER")
-  updatedAt      DateTime? @default(now()) @updatedAt @db.Timestamptz(6)
+  watermarkText    String?   @default("SMARTER")
+  autentiqueToken  String?   @default("")
+  resendApiKey     String?   @default("")
+  updatedAt        DateTime? @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@map("system_configs")
 }

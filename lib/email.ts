@@ -1,34 +1,37 @@
 // ── Email via Resend HTTP API ────────────────────────────────────
-// No package install needed — uses fetch directly
+// Token: env RESEND_API_KEY (priority) or SystemConfig.resendApiKey (fallback DB)
+
+import { getSystemConfig } from "./getConfig";
+
+const RESEND_URL = "https://api.resend.com/emails";
+const FROM = "Smarter Estágios <noreply@smarterestagios.com.br>";
+
+async function getApiKey(): Promise<string | null> {
+  if (process.env.RESEND_API_KEY) return process.env.RESEND_API_KEY;
+  const cfg = await getSystemConfig();
+  return cfg?.resendApiKey || null;
+}
 
 export async function sendMail(to: string, subject: string, html: string): Promise<boolean> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = await getApiKey();
   if (!apiKey) {
-    console.warn('[Email] RESEND_API_KEY não configurado — emails não serão enviados.');
+    console.warn("[Email] RESEND_API_KEY não configurado — email não enviado.");
     return false;
   }
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Smarter Estágios <noreply@smarterestagios.com.br>',
-        to: [to],
-        subject,
-        html,
-      }),
+    const res = await fetch(RESEND_URL, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: FROM, to: [to], subject, html }),
     });
     if (!res.ok) {
       const err = await res.text();
-      console.error('[Email] Resend API error:', res.status, err);
+      console.error("[Email] Resend error:", res.status, err);
       return false;
     }
     return true;
   } catch (e) {
-    console.error('[Email] Erro ao enviar:', e);
+    console.error("[Email] Erro ao enviar:", e);
     return false;
   }
 }
@@ -66,19 +69,17 @@ function base(titulo: string, corpo: string): string {
 </body></html>`;
 }
 
-// ── Funções exportadas ───────────────────────────────────────────
-
 export async function enviarBoasVindasEstudante(params: {
   email: string; nome: string; senha: string; curso: string; loginUrl?: string;
 }): Promise<boolean> {
-  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Seu acesso ao portal de estágio foi criado.</p>
     <div class="box">
       <div class="label">Seu acesso</div>
       <div style="margin-top:8px">
         <div class="label">E-mail</div><div class="value">${params.email}</div>
-        <div class="label" style="margin-top:8px">Senha</div><div class="value">${params.senha}</div>
+        <div class="label" style="margin-top:8px">Senha temporária</div><div class="value">${params.senha}</div>
         <div class="label" style="margin-top:8px">Curso</div><div class="value">${params.curso}</div>
       </div>
     </div>
@@ -91,14 +92,14 @@ export async function enviarBoasVindasEstudante(params: {
 export async function enviarBoasVindasEmpresa(params: {
   email: string; nomeEmpresa: string; nomeResponsavel: string; senha: string; loginUrl?: string;
 }): Promise<boolean> {
-  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nomeResponsavel}</strong>! O acesso da empresa <strong>${params.nomeEmpresa}</strong> foi criado.</p>
     <div class="box">
       <div class="label">Credenciais de acesso</div>
       <div style="margin-top:8px">
         <div class="label">E-mail</div><div class="value">${params.email}</div>
-        <div class="label" style="margin-top:8px">Senha</div><div class="value">${params.senha}</div>
+        <div class="label" style="margin-top:8px">Senha temporária</div><div class="value">${params.senha}</div>
       </div>
     </div>
     <p style="color:#475569;font-size:13px">Através do portal você pode gerenciar estagiários, assinar documentos e acompanhar o financeiro.</p>
@@ -108,43 +109,22 @@ export async function enviarBoasVindasEmpresa(params: {
 }
 
 export async function enviarCobranca(params: {
-  email: string;
-  nomeEmpresa: string;
-  descricao: string;
-  valor: number;
-  vencimento?: string;
-  chavePix?: string;
-  instrucao?: string;
-  linkBoleto?: string;
-  mensagemPersonalizada?: string;
+  email: string; nomeEmpresa: string; descricao: string; valor: number;
+  vencimento?: string; chavePix?: string; instrucao?: string;
+  linkBoleto?: string; mensagemPersonalizada?: string;
 }): Promise<boolean> {
   const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
   const venc = params.vencimento ? new Date(params.vencimento).toLocaleDateString("pt-BR") : "—";
-
   let pagamentoHtml = "";
   if (params.chavePix) {
-    pagamentoHtml += `
-      <div class="box" style="border-left:3px solid #10b981">
-        <div class="label">Pagamento via PIX</div>
-        <div class="value" style="font-size:18px;letter-spacing:1px">${params.chavePix}</div>
-        <p style="font-size:12px;color:#64748b;margin-top:4px">Copie a chave acima e realize o pagamento pelo seu banco</p>
-      </div>`;
+    pagamentoHtml += `<div class="box" style="border-left:3px solid #10b981"><div class="label">💳 Pagamento via PIX</div><div class="value" style="font-size:18px;letter-spacing:1px">${params.chavePix}</div></div>`;
   }
   if (params.linkBoleto) {
-    pagamentoHtml += `
-      <div class="box" style="border-left:3px solid #3b82f6">
-        <div class="label">Boleto Bancário</div>
-        <a href="${params.linkBoleto}" style="color:#0f2a5e;font-weight:700">Clique aqui para visualizar o boleto</a>
-      </div>`;
+    pagamentoHtml += `<div class="box" style="border-left:3px solid #3b82f6"><div class="label">📄 Boleto Bancário</div><a href="${params.linkBoleto}" style="color:#0f2a5e;font-weight:700">Clique aqui para visualizar o boleto</a></div>`;
   }
   if (params.instrucao) {
-    pagamentoHtml += `
-      <div class="box">
-        <div class="label">Instruções</div>
-        <div style="color:#475569;font-size:13px;margin-top:4px">${params.instrucao}</div>
-      </div>`;
+    pagamentoHtml += `<div class="box"><div class="label">📝 Instruções</div><div style="color:#475569;font-size:13px;margin-top:4px">${params.instrucao}</div></div>`;
   }
-
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nomeEmpresa}</strong>! Segue abaixo a cobrança referente aos serviços da <strong>Smarter Estágios</strong>.</p>
     <div class="box" style="border-left:3px solid #f59e0b">
@@ -156,7 +136,6 @@ export async function enviarCobranca(params: {
     </div>
     ${params.mensagemPersonalizada ? `<p style="color:#475569;font-size:13px;font-style:italic">${params.mensagemPersonalizada}</p>` : ""}
     ${pagamentoHtml}
-    <p style="color:#94a3b8;font-size:12px;margin-top:24px">Em caso de dúvidas, entre em contato com nossa equipe.</p>
   `;
   return sendMail(params.email, `Cobrança Smarter Estágios — ${params.descricao}`, base("Cobrança Pendente", corpo));
 }
@@ -166,31 +145,26 @@ export async function enviarNotificacaoAssinatura(params: {
 }): Promise<boolean> {
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Há um documento aguardando sua assinatura digital.</p>
-    <div class="box">
-      <div class="label">Documento</div>
-      <div class="value">${params.tipoDoc}</div>
-    </div>
-    ${params.linkAssinatura ? `<a href="${params.linkAssinatura}" class="btn">Assinar Documento →</a>` : "<p style="color:#475569">Acesse o portal para assinar o documento.</p>"}
+    <div class="box"><div class="label">Documento</div><div class="value">${params.tipoDoc}</div></div>
+    ${params.linkAssinatura ? `<a href="${params.linkAssinatura}" class="btn">Assinar Documento →</a>` : "<p>Acesse o portal para assinar o documento.</p>"}
   `;
   return sendMail(params.email, `Documento para Assinatura — ${params.tipoDoc}`, base("Assinatura Pendente", corpo));
 }
 
-// ── Colaborador / Equipe ──────────────────────────────────────────
 export async function enviarBoasVindasColaborador(params: {
   email: string; nome: string; senha: string; loginUrl?: string;
 }): Promise<boolean> {
-  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Seu acesso à equipe Smarter Estágios foi criado.</p>
     <div class="box">
       <div class="label">Credenciais de acesso</div>
       <div style="margin-top:8px">
         <div class="label">E-mail</div><div class="value">${params.email}</div>
-        <div class="label" style="margin-top:8px">Senha</div><div class="value">${params.senha}</div>
+        <div class="label" style="margin-top:8px">Senha temporária</div><div class="value">${params.senha}</div>
       </div>
     </div>
-    <p style="color:#475569;font-size:13px">Através do sistema você pode gerenciar contratos, estudantes e processos seletivos.</p>
     <a href="${url}/login" class="btn">Acessar o Sistema →</a>
   `;
-  return sendMail(params.email, "Bem-vindo(a) à equipe Smarter Estágios — Credenciais de acesso", base("Bem-vindo(a) à Equipe!", corpo));
+  return sendMail(params.email, "Bem-vindo(a) à equipe Smarter Estágios", base("Bem-vindo(a) à Equipe!", corpo));
 }
