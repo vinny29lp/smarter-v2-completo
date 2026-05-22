@@ -72,7 +72,7 @@ export default function EstudanteDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-5 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
         {/* Dados Pessoais */}
         <Card className="p-5">
           <h3 className="text-sm font-bold text-slate-700 mb-3">Dados Pessoais</h3>
