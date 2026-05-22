@@ -34,8 +34,8 @@ export async function enviarParaAutentique(
   htmlContent: string,
   signatarios: AutentiqueSignatario[]
 ): Promise<AutentiqueDocumentoResponse> {
-  const token = process.env.AUTENTIQUE_TOKEN;
-  if (!token) throw new Error("AUTENTIQUE_TOKEN não configurado nas variáveis de ambiente.");
+  const token = process.env.AUTHENTIQUE_API_TOKEN;
+  if (!token) throw new Error("AUTHENTIQUE_API_TOKEN não configurado nas variáveis de ambiente.");
   if (!signatarios || signatarios.length === 0) throw new Error("Informe ao menos um signatário.");
 
   // GraphQL mutation

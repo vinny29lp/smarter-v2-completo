@@ -1,32 +1,34 @@
-import nodemailer from "nodemailer";
-
-// ── Transporter ─────────────────────────────────────────────────
-function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587");
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || "Smarter Estágios <noreply@smarter.com.br>";
-
-  if (!host || !user || !pass) {
-    console.warn("[Email] SMTP não configurado — emails não serão enviados.");
-    return null;
-  }
-
-  return {
-    transporter: nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } }),
-    from,
-  };
-}
+// ── Email via Resend HTTP API ────────────────────────────────────
+// No package install needed — uses fetch directly
 
 export async function sendMail(to: string, subject: string, html: string): Promise<boolean> {
-  const cfg = createTransporter();
-  if (!cfg) return false;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn('[Email] RESEND_API_KEY não configurado — emails não serão enviados.');
+    return false;
+  }
   try {
-    await cfg.transporter.sendMail({ from: cfg.from, to, subject, html });
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Smarter Estágios <noreply@smarterestagios.com.br>',
+        to: [to],
+        subject,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('[Email] Resend API error:', res.status, err);
+      return false;
+    }
     return true;
   } catch (e) {
-    console.error("[Email] Erro ao enviar:", e);
+    console.error('[Email] Erro ao enviar:', e);
     return false;
   }
 }
@@ -123,7 +125,7 @@ export async function enviarCobranca(params: {
   if (params.chavePix) {
     pagamentoHtml += `
       <div class="box" style="border-left:3px solid #10b981">
-        <div class="label">💳 Pagamento via PIX</div>
+        <div class="label">Pagamento via PIX</div>
         <div class="value" style="font-size:18px;letter-spacing:1px">${params.chavePix}</div>
         <p style="font-size:12px;color:#64748b;margin-top:4px">Copie a chave acima e realize o pagamento pelo seu banco</p>
       </div>`;
@@ -131,14 +133,14 @@ export async function enviarCobranca(params: {
   if (params.linkBoleto) {
     pagamentoHtml += `
       <div class="box" style="border-left:3px solid #3b82f6">
-        <div class="label">📄 Boleto Bancário</div>
+        <div class="label">Boleto Bancário</div>
         <a href="${params.linkBoleto}" style="color:#0f2a5e;font-weight:700">Clique aqui para visualizar o boleto</a>
       </div>`;
   }
   if (params.instrucao) {
     pagamentoHtml += `
       <div class="box">
-        <div class="label">📝 Instruções</div>
+        <div class="label">Instruções</div>
         <div style="color:#475569;font-size:13px;margin-top:4px">${params.instrucao}</div>
       </div>`;
   }
@@ -168,7 +170,7 @@ export async function enviarNotificacaoAssinatura(params: {
       <div class="label">Documento</div>
       <div class="value">${params.tipoDoc}</div>
     </div>
-    ${params.linkAssinatura ? `<a href="${params.linkAssinatura}" class="btn">Assinar Documento →</a>` : "<p style=\"color:#475569\">Acesse o portal para assinar o documento.</p>"}
+    ${params.linkAssinatura ? `<a href="${params.linkAssinatura}" class="btn">Assinar Documento →</a>` : "<p style="color:#475569">Acesse o portal para assinar o documento.</p>"}
   `;
   return sendMail(params.email, `Documento para Assinatura — ${params.tipoDoc}`, base("Assinatura Pendente", corpo));
 }
@@ -192,4 +194,3 @@ export async function enviarBoasVindasColaborador(params: {
   `;
   return sendMail(params.email, "Bem-vindo(a) à equipe Smarter Estágios — Credenciais de acesso", base("Bem-vindo(a) à Equipe!", corpo));
 }
-

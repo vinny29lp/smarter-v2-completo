@@ -2,8 +2,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Building2, GraduationCap, Briefcase, FileText, DollarSign, Phone, Users, Star, Settings, Shield, LogOut, KanbanSquare, PenTool, BookOpen, Activity } from "lucide-react";
+import { LayoutDashboard, Building2, GraduationCap, Briefcase, FileText, DollarSign, Phone, Users, Star, Settings, Shield, LogOut, KanbanSquare, PenTool, BookOpen, Activity, Menu, X } from "lucide-react";
 import clsx from "clsx";
+import { useState } from "react";
 
 const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number}[][]> = {
   FRANQUEADORA: [[
@@ -26,8 +27,8 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/equipe",label:"Equipe",icon:Users},
     {href:"/dashboard/configuracoes",label:"Configurações",icon:Settings},
   ]],
-  EMPRESA: [[]], // Nunca deve aparecer - middleware redireciona para /portal-empresa
-  ESTUDANTE: [[]], // Nunca deve aparecer - middleware redireciona para /portal-estudante
+  EMPRESA: [[]],
+  ESTUDANTE: [[]],
   FRANQUEADO: [[
     {href:"/dashboard",label:"Dashboard",icon:LayoutDashboard},
   ],[
@@ -45,17 +46,24 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
   ]],
 };
 
-export function Sidebar() {
+function SidebarPanel({ onClose }: { onClose?: () => void }) {
   const path = usePathname();
   const { data: session } = useSession();
   const role = session?.user?.role || "FRANQUEADO";
   const sections = navByRole[role] || navByRole["FRANQUEADO"];
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-[#0f2a5e] flex flex-col z-40">
+    <aside className="flex flex-col h-full w-60 bg-[#0f2a5e]">
       <div className="p-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <img src="/logo-branca.png" alt="Smarter Estágios" className="h-9 object-contain"/>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/logo-branca.png" alt="Smarter Estágios" className="h-9 object-contain"/>
+          </div>
+          {onClose && (
+            <button onClick={onClose} className="text-white/60 hover:text-white md:hidden p-1">
+              <X size={18}/>
+            </button>
+          )}
         </div>
         <div className="mt-2 text-[10px] text-white/40 uppercase tracking-wider">{role}</div>
       </div>
@@ -66,7 +74,7 @@ export function Sidebar() {
             {group.map(item => {
               const active = path === item.href || (item.href !== "/dashboard" && path.startsWith(item.href));
               return (
-                <Link key={item.href} href={item.href}
+                <Link key={item.href} href={item.href} onClick={onClose}
                   className={clsx("flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium mb-0.5 transition-all",
                     active ? "bg-[#f5c400] text-[#0f2a5e] font-bold" : "text-white/70 hover:bg-white/10 hover:text-white")}>
                   <item.icon size={15} className="shrink-0"/>
@@ -83,7 +91,7 @@ export function Sidebar() {
       <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-[#f5c400] flex items-center justify-center text-xs font-black text-[#0f2a5e] overflow-hidden">
-            {session?.user?.name?.split(" ").map(n=>n[0]).slice(0,2).join("") || "SM"}
+            {session?.user?.name?.split(" ").map((n: string) => n[0]).slice(0,2).join("") || "SM"}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-white text-xs font-semibold truncate">{session?.user?.name || "Usuario"}</div>
@@ -95,5 +103,43 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+  );
+}
+
+export function Sidebar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <>
+      {/* Mobile hamburger button — only visible on mobile */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-3 left-3 z-50 md:hidden bg-[#0f2a5e] text-white p-2 rounded-lg shadow-lg"
+        aria-label="Abrir menu"
+      >
+        <Menu size={20}/>
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar drawer */}
+      <div className={clsx(
+        "fixed left-0 top-0 h-screen z-50 transition-transform duration-300 md:hidden",
+        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <SidebarPanel onClose={() => setMobileOpen(false)}/>
+      </div>
+
+      {/* Desktop sidebar — always visible on md+ */}
+      <div className="hidden md:block fixed left-0 top-0 h-screen z-40">
+        <SidebarPanel/>
+      </div>
+    </>
   );
 }
