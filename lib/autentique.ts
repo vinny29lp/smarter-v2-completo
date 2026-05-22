@@ -20,10 +20,11 @@ export interface AutentiqueDocumentoResponse {
   name: string;
   refusable: boolean;
   created_at: string;
-  signers: Array<{
+  /** Autentique API v2 retorna `signatures`, não `signers` */
+  signatures: Array<{
     email: string;
     name?: string;
-    status?: { name: string };
+    action?: { name: string };
     link?: { short_link: string };
   }>;
 }
@@ -61,10 +62,10 @@ export async function enviarParaAutentique(
         name
         refusable
         created_at
-        signers {
+        signatures {
           email
           name
-          status { name }
+          action { name }
           link { short_link }
         }
       }

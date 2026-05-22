@@ -71,13 +71,13 @@ export async function POST(
       data: {
         status: "ENVIADO_ASSINATURA",
         authDocId: resultado.id,
-        signers: resultado.signers as any,
+        signers: resultado.signatures as any,
       },
     });
 
     // Notificar signatários por email
     const nomeParte = document.contract?.student?.name || "Signatário";
-    for (const signer of resultado.signers || []) {
+    for (const signer of resultado.signatures || []) {
       if (signer.email && signer.link?.short_link) {
         enviarNotificacaoAssinatura({
           email: signer.email,
@@ -91,7 +91,7 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       autentiqueId: resultado.id,
-      signers: resultado.signers,
+      signers: resultado.signatures,
       message: `Documento enviado para ${emails.length} signatário(s) via Autentique.`,
     });
 
