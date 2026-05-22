@@ -157,7 +157,7 @@ export default async function DashboardPage() {
 
       {/* ── KPIs exclusivos da Franqueadora ── */}
       {isMaster && franquias && (
-        <div className="grid grid-cols-4 gap-4 mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
           {[
             { label: "Franquias Ativas",   value: franquias.ativas,   color: "text-emerald-600", href: "/dashboard/franqueados" },
             { label: "Franquias Inativas", value: franquias.inativas,  color: franquias.inativas > 0 ? "text-red-500" : "text-slate-400", href: "/dashboard/franqueados" },
@@ -331,7 +331,7 @@ export default async function DashboardPage() {
       )}
 
       {/* ── KPIs operacionais ── */}
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
         {[
           { label: "Empresas",              value: kpis.companies,       icon: "🏢", href: "/dashboard/empresas"   },
           { label: "Estagiários Ativos",    value: kpis.studentsAtivos,  icon: "🎓", color: "text-emerald-600", href: "/dashboard/estudantes" },

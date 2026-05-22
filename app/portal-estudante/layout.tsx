@@ -11,7 +11,7 @@ export default async function PortalEstudanteLayout({ children }: { children: Re
   return (
     <div className="min-h-screen bg-[#f0f4f8]">
       <PortalEstudanteNav />
-      <main className="max-w-5xl mx-auto px-4 py-4 md:px-6 md:py-8">{children}</main>
+      <main className="max-w-5xl mx-auto w-full px-3 py-4 sm:px-6 sm:py-8">{children}</main>
     </div>
   );
 }

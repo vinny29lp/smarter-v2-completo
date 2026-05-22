@@ -55,7 +55,7 @@ export default async function EstudanteContrato() {
     <div>
       <h1 className="text-2xl font-black text-slate-800 mb-6">Meu Estágio</h1>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
           ["Empresa", contrato.company.name],
           ["Bolsa",   `R$ ${contrato.bolsa.toLocaleString("pt-BR")}/mês`],

@@ -25,7 +25,7 @@ export default async function EmpresaFinanceiro() {
     <div>
       <h1 className="text-2xl font-black text-slate-800 mb-6">Financeiro</h1>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card className="p-5 border-l-4 border-emerald-400">
           <p className="text-xs text-slate-400">Total Pago</p>
           <p className="text-2xl font-black text-emerald-600 mt-1">{fmt(pago)}</p>

@@ -62,7 +62,7 @@ export default function LoginPage() {
     : { background: "linear-gradient(135deg, #0f2a5e 0%, #1a3d8f 50%, #2d5be3 100%)" };
 
   return (
-    <div className="min-h-screen flex" style={bgStyle}>
+    <div className="min-h-screen flex flex-col md:flex-row" style={bgStyle}>
       {/* Overlay quando tem imagem de fundo */}
       {cfg.loginBgUrl && <div className="absolute inset-0 bg-[#0f2a5e]/70"/>}
 
@@ -92,8 +92,8 @@ export default function LoginPage() {
       </div>
 
       {/* Card login */}
-      <div className="relative flex-1 flex items-center justify-center p-8">
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
+      <div className="relative flex-1 flex items-center justify-center p-4 md:p-8 min-h-screen">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 md:p-8">
           <div className="text-center mb-8">
             {cfg.loginLogoUrl ? (
               <img src={cfg.loginLogoUrl} alt="logo" className="h-14 mx-auto object-contain mb-4"/>

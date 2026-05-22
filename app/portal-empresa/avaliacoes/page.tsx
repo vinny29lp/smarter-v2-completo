@@ -111,7 +111,7 @@ function AvaliacoesContent() {
               {c.evaluations?.[0]?.respostas && (
                 <div className="mt-4 pt-4 border-t border-slate-100">
                   <p className="text-xs font-bold text-slate-500 mb-2">Última avaliação</p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     {CRITERIOS.map(crit => {
                       const nota = (c.evaluations[0].respostas as any)[crit.key] || 0;
                       return (

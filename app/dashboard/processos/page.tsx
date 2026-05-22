@@ -261,7 +261,7 @@ ${disc ? `
       {/* Modal detalhe candidatura */}
       <Modal open={!!selected} onClose={()=>setSelected(null)} title="Candidatura" size="xl">
         {selected && (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Info */}
             <div className="col-span-1 space-y-3">
               <div className="p-3 bg-slate-50 rounded-xl">

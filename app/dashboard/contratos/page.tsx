@@ -81,7 +81,7 @@ export default function ContratosPage() {
         {loading ? (
           <div className="text-center py-12 text-slate-400">Carregando contratos...</div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto -mx-1"><table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
                 {["Nº","Estudante","Empresa","Bolsa","Início","Término","Docs","Status","Ações"].map(h => (
@@ -123,7 +123,7 @@ export default function ContratosPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </Card>
     </div>

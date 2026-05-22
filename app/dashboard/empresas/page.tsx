@@ -56,7 +56,7 @@ export default async function EmpresasPage({
       <EmpresasFilters franchiseRef={franchiseRef} />
 
       <Card>
-        <table className="w-full">
+        <div className="overflow-x-auto -mx-1"><table className="w-full">
           <thead>
             <tr className="border-b border-slate-100">
               {["Empresa","CNPJ","Cidade","Responsável","Contratos","Vagas","Status","Ações"].map(h => (
@@ -106,7 +106,7 @@ export default async function EmpresasPage({
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );

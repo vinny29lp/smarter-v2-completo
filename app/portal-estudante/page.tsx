@@ -87,7 +87,7 @@ export default async function PortalEstudanteHome() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
           {label:"Estágio Ativo", value:contratos.length>0?"Sim":"Não", color:contratos.length>0?"text-emerald-600":"text-slate-400", href:"/portal-estudante/contrato"},
           {label:"Candidaturas", value:candidaturas.length, color:"text-blue-600", href:"/portal-estudante/processos"},

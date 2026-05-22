@@ -51,7 +51,7 @@ export default async function EstudantesPage({ searchParams }: {
       <EstudantesFilters franchiseRef={franchiseRef} />
 
       <Card>
-        <table className="w-full">
+        <div className="overflow-x-auto"><table className="w-full">
           <thead>
             <tr className="border-b border-slate-100">
               {["Nome","Curso","Cidade","Instituição","DISC","Status","Ações"].map(h => (
@@ -95,7 +95,7 @@ export default async function EstudantesPage({ searchParams }: {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );

@@ -4,7 +4,8 @@
 import { getSystemConfig } from "./getConfig";
 
 const RESEND_URL = "https://api.resend.com/emails";
-const FROM = "Smarter Estágios <noreply@smarterestagios.com.br>";
+// Use RESEND_FROM env var for verified domain, fallback to Resend test sender
+const FROM = process.env.RESEND_FROM || "Smarter Estágios <onboarding@resend.dev>";
 
 async function getApiKey(): Promise<string | null> {
   if (process.env.RESEND_API_KEY) return process.env.RESEND_API_KEY;

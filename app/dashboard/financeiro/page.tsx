@@ -140,7 +140,7 @@ export default function FinanceiroPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-3 gap-4 mb-5">
         <Card className="p-5 border-l-4 border-emerald-400">
           <p className="text-xs text-slate-500">↑ Entradas Recebidas</p>
           <p className="text-2xl font-black text-emerald-600 mt-1">{fmt(entradas)}</p>
@@ -168,7 +168,7 @@ export default function FinanceiroPage() {
 
       {/* Tabela */}
       <Card>
-        <table className="w-full">
+        <div className="overflow-x-auto -mx-1"><table className="w-full">
           <thead>
             <tr className="border-b border-slate-100">
               {["Descrição","Tipo","Valor","Vencimento","Status","Ações"].map(h => (
@@ -222,7 +222,7 @@ export default function FinanceiroPage() {
                 );
               })}
           </tbody>
-        </table>
+        </table></div>
       </Card>
 
       {/* ── Modal Configuração Global PIX/Boleto ── */}

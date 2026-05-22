@@ -40,7 +40,7 @@ export default async function PortalEmpresaHome() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
           { label: "Estagiários Ativos", value: contratos.filter(c => c.status === "ATIVO").length, color: "text-emerald-600", href: "/portal-empresa/estagiarios" },
           { label: "Docs para Assinar", value: docsAguardando.length, color: docsAguardando.length > 0 ? "text-amber-600" : "text-slate-400", href: "/portal-empresa/documentos" },

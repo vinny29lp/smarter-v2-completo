@@ -39,7 +39,7 @@ export default async function EmpresaDetailPage({ params }: { params: { id: stri
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[
           ["Estagiários Ativos", contrAtivos.length],
           ["Vagas Abertas", vagasAbertas.length],
@@ -50,7 +50,7 @@ export default async function EmpresaDetailPage({ params }: { params: { id: stri
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-5 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
         {/* Dados Cadastrais */}
         <Card className="p-5">
           <h3 className="text-sm font-bold text-slate-700 mb-3">Dados Cadastrais</h3>

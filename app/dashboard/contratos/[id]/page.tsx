@@ -108,7 +108,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
           ["Bolsa", fmt(contract.bolsa)],
           ["Início", new Date(contract.dataInicio).toLocaleDateString("pt-BR")],
@@ -119,7 +119,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-5 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
         <Card className="p-5">
           <h3 className="text-sm font-bold text-slate-700 mb-3">Estagiário</h3>
           <p className="font-semibold text-sm">{contract.student?.name}</p>
