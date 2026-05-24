@@ -229,7 +229,7 @@ export function gerarRelatorioDisc(profile: DiscProfile): string {
 <div class="doc">
   <div class="watermark">SMARTER</div>
   ${`<div class="header">
-    <div><div class="logo-box">S</div><div style="font-size:9px;color:#666;margin-top:3px">Smarter Estágios</div></div>
+    <div><img src="https://smarter-v2-completo.vercel.app/logo-sistema.png" alt="Sistema Smarter" style="height:36px;object-fit:contain"/></div>
     <div class="title-area"><div class="doc-title">RELATÓRIO DISC COMPORTAMENTAL</div><div class="doc-sub">Análise Completa de Perfil</div></div>
   </div>`}
 
@@ -310,7 +310,7 @@ export function gerarRelatorioDisc(profile: DiscProfile): string {
   </div>
 
   <div class="footer-line">
-    <span>Relatório DISC Comportamental — Smarter Estágios</span>
+    <span>Relatório DISC Comportamental — Sistema Smarter</span>
     <span>Gerado em ${new Date().toLocaleDateString("pt-BR")}</span>
   </div>
 </div>

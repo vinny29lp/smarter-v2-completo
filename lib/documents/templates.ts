@@ -12,8 +12,8 @@ body{background:#e5e7eb;font-family:Arial,Helvetica,sans-serif}
 .dh{background:linear-gradient(135deg,#0f2a5e 0%,#1a3d8f 100%);
   border-radius:6px;padding:12px 16px;margin-bottom:8px;display:flex;
   align-items:center;justify-content:space-between}
-.dh-logo{color:#f5c400;font-weight:900;font-size:22px;letter-spacing:-1px}
-.dh-logo span{font-size:9px;display:block;font-weight:400;color:rgba(255,255,255,.7);letter-spacing:0}
+.dh-logo{display:flex;align-items:center}
+.dh-logo img{height:36px;object-fit:contain}
 .dh-center{text-align:center;flex:1;padding:0 16px}
 .dh-type{color:rgba(255,255,255,.7);font-size:8.5px;text-transform:uppercase;letter-spacing:1px}
 .dh-title{color:white;font-size:15px;font-weight:900;text-transform:uppercase;margin:2px 0}
@@ -197,7 +197,7 @@ function actItem(n: number, text: string): string {
 }
 function docHeader(tceNum: string, mainTitle: string, subTitle: string, badge: string = "DOCUMENTO ATIVO"): string {
   return `<div class="dh">
-    <div class="dh-logo">S<span>Smarter Estágios</span></div>
+    <div class="dh-logo"><img src="https://smarter-v2-completo.vercel.app/logo-sistema.png" alt="Sistema Smarter"/></div>
     <div class="dh-center">
       <div class="dh-type">TCE · Nº ${tceNum}</div>
       <div class="dh-title">${mainTitle}</div>
@@ -384,7 +384,7 @@ ${clause(20, "Conformidade Legal e Foro",
 
 <!-- ASSINATURAS -->
 <p style="font-size:10px;text-align:justify;margin:14px 0">
-Em <strong>${c.cidadeAssinatura}</strong>, ${dataExtenso ? dataExtenso(c.dataAssinatura) : c.dataAssinatura}. As partes declaram ter lido e compreendido integralmente o presente Termo, concordando com todos os seus termos, assinando-o eletronicamente pela plataforma Smarter Estágios, com plena validade jurídica conforme MP 2.200-2/2001 e Lei 14.063/2020.
+Em <strong>${c.cidadeAssinatura}</strong>, ${dataExtenso ? dataExtenso(c.dataAssinatura) : c.dataAssinatura}. As partes declaram ter lido e compreendido integralmente o presente Termo, concordando com todos os seus termos, assinando-o eletronicamente pela plataforma Sistema Smarter, com plena validade jurídica conforme MP 2.200-2/2001 e Lei 14.063/2020.
 </p>
 
 <div class="sign-grid">
@@ -430,7 +430,7 @@ Em <strong>${c.cidadeAssinatura}</strong>, ${dataExtenso ? dataExtenso(c.dataAss
 </div>
 
 <p style="font-size:8px;text-align:center;color:#9ca3af;margin-top:8px">
-  Documento gerado pela plataforma Smarter Estágios · ${did} · ${new Date().toLocaleDateString("pt-BR")} · Conforme Lei 11.788/2008 · LGPD 13.709/2018 · MP 2.200-2/2001
+  Documento gerado pela plataforma Sistema Smarter · ${did} · ${new Date().toLocaleDateString("pt-BR")} · Conforme Lei 11.788/2008 · LGPD 13.709/2018 · MP 2.200-2/2001
 </p>
 
 ${pageFooter(c.numero, did, sm)}
@@ -541,7 +541,7 @@ ${pageFooter(c.numero, did, sm)}
 // ── HELPERS COMPARTILHADOS ─────────────────────────────────────────────────────
 function premiumHeader(titulo: string, subtitulo: string, numero: string, sm: ContratoData["smarter"]): string {
   return `<div class="dh">
-    <div class="dh-logo">S<span>Smarter Estágios</span></div>
+    <div class="dh-logo"><img src="https://smarter-v2-completo.vercel.app/logo-sistema.png" alt="Sistema Smarter"/></div>
     <div class="dh-center">
       <div class="dh-type">Documento Nº ${numero}</div>
       <div class="dh-title">${titulo}</div>
