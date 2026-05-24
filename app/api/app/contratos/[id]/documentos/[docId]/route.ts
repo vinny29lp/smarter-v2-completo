@@ -68,9 +68,18 @@ export async function POST(
 
   const updated = await saveDocumentHtml(params.docId, html);
 
-  // Quando TR (Rescisão) é gerado → contrato vira INATIVO imediatamente
-  if (doc.tipo === "tr") {
-    await prisma.contract.update({ where: { id: params.id }, data: { status: "INATIVO" as any } });
+  // Para TR: salvar ultimoDia e motivo no metaData (contrato fica INATIVO apenas ao ENVIAR para assinatura)
+  if (doc.tipo === "tr" && (body.ultimoDia || body.motivo)) {
+    await prisma.internshipDocument.update({
+      where: { id: params.docId },
+      data: {
+        metaData: {
+          ...((doc.metaData as any) || {}),
+          ultimoDia: body.ultimoDia || null,
+          motivo: body.motivo || null,
+        },
+      },
+    });
   }
 
   return NextResponse.json({ document: updated, html });
@@ -124,10 +133,6 @@ export async function PATCH(
     },
   });
 
-  // Quando TR (Rescisão) é GERADO → contrato vira INATIVO imediatamente
-  if (body.status === "GERADO" && doc.tipo === "tr") {
-    await prisma.contract.update({ where: { id: params.id }, data: { status: "INATIVO" as any } });
-  }
   // Auto-ativar contrato quando TCE marcado como ASSINADO diretamente
   if (body.status === "ASSINADO" && doc.tipo === "tce") {
     await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO" as any } });
@@ -140,7 +145,29 @@ export async function GET(
   _req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
-  const document = await prisma.internshipDocument.findUnique({ where: { id: params.docId } });
+  const document = await prisma.internshipDocument.findUnique({
+    where: { id: params.docId },
+    include: {
+      contract: {
+        include: {
+          student: { select: { email: true, name: true } },
+          company: { select: { email: true, name: true } },
+          institution: { select: { email: true, name: true } },
+        },
+      },
+    },
+  });
   if (!document) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ document });
+
+  // Extrair emails do contrato para pré-preenchimento no frontend
+  const contractEmails = {
+    company: document.contract?.company?.email || null,
+    companyName: document.contract?.company?.name || null,
+    student: document.contract?.student?.email || null,
+    studentName: document.contract?.student?.name || null,
+    institution: document.contract?.institution?.email || null,
+    institutionName: document.contract?.institution?.name || null,
+  };
+
+  return NextResponse.json({ document, contractEmails });
 }

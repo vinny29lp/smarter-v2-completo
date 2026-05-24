@@ -16,14 +16,13 @@ export async function POST(
   const isMaster = role === "FRANQUEADORA";
   const franchiseId = (session.user as any).franchiseId as string | undefined;
 
-  // FRANQUEADORA pode acessar qualquer contrato; FRANQUEADO precisa ter franchiseId
   if (!isMaster && !franchiseId) {
     return NextResponse.json({ error: "Franchise não identificada" }, { status: 403 });
   }
 
   try {
     const body = await req.json();
-    const { emails }: { emails: string[] } = body;
+    const { emails, labels }: { emails: string[]; labels?: string[] } = body;
 
     if (!emails || emails.length === 0) {
       return NextResponse.json({ error: "Informe ao menos um e-mail de signatário." }, { status: 400 });
@@ -36,13 +35,12 @@ export async function POST(
       }
     }
 
-    // Buscar documento — FRANQUEADORA vê todos, FRANQUEADO vê só os seus
     const document = await prisma.internshipDocument.findFirst({
       where: {
         id: params.docId,
         contract: {
           id: params.id,
-          ...(franchiseId ? { franchiseId } : {}),
+          ...(franchiseId && !isMaster ? { franchiseId } : {}),
         },
       },
       include: { contract: { include: { student: true } } },
@@ -66,14 +64,37 @@ export async function POST(
       signatarios
     );
 
+    // Montar mapa email → label para salvar no metaData
+    const signerLabels: Record<string, string> = {};
+    if (labels && labels.length > 0) {
+      emails.forEach((email, i) => {
+        if (labels[i]) signerLabels[email.trim()] = labels[i];
+      });
+    }
+
+    const existingMeta = (document.metaData as any) || {};
+
     await prisma.internshipDocument.update({
       where: { id: params.docId },
       data: {
         status: "ENVIADO_ASSINATURA",
         authDocId: resultado.id,
         signers: resultado.signatures as any,
+        metaData: {
+          ...existingMeta,
+          signerLabels,
+        },
       },
     });
+
+    // TR: contrato fica INATIVO a partir do envio para assinatura
+    // (data ultimoDia já salva no metaData durante a geração)
+    if (document.tipo === "tr") {
+      await prisma.contract.update({
+        where: { id: params.id },
+        data: { status: "INATIVO" as any },
+      });
+    }
 
     // Notificar signatários por email
     const nomeParte = document.contract?.student?.name || "Signatário";
@@ -138,20 +159,45 @@ export async function GET(
     // Consultar Autentique
     const status = await buscarStatusAutentique(document.authDocId);
 
+    // Mesclar labels salvas no metaData com os signers retornados pelo Autentique
+    const metaData = (document.metaData as any) || {};
+    const signerLabels: Record<string, string> = metaData.signerLabels || {};
+
+    const signersWithLabels = status.signers.map(s => ({
+      ...s,
+      label: signerLabels[s.email] || undefined,
+    }));
+
     // Sincronizar banco de dados
     const updateData: any = {
-      signers: status.signers as any,
+      signers: signersWithLabels as any,
     };
+
+    let contratoAtivado = false;
+    let contratoInativado = false;
 
     if (status.allSigned && document.status !== "ASSINADO") {
       updateData.status = "ASSINADO";
       if (status.signedUrl) updateData.signedUrl = status.signedUrl;
 
-      // Ativar o contrato automaticamente
-      await prisma.contract.update({
-        where: { id: params.id },
-        data: { status: "ATIVO" },
-      });
+      const docTipo = document.tipo;
+
+      if (docTipo === "tce" || docTipo === "pe") {
+        // TCE: todos assinaram → contrato ATIVO
+        await prisma.contract.update({
+          where: { id: params.id },
+          data: { status: "ATIVO" },
+        });
+        contratoAtivado = true;
+      } else if (docTipo === "tr") {
+        // TR: todos assinaram → garantir contrato INATIVO (já deveria estar, mas confirmar)
+        await prisma.contract.update({
+          where: { id: params.id },
+          data: { status: "INATIVO" as any },
+        });
+        contratoInativado = true;
+      }
+      // Outros documentos: não alteram o status do contrato
     }
 
     const updated = await prisma.internshipDocument.update({
@@ -163,9 +209,10 @@ export async function GET(
       ok: true,
       allSigned: status.allSigned,
       signedUrl: status.signedUrl,
-      signers: status.signers,
+      signers: signersWithLabels,
       document: updated,
-      contratoAtivado: status.allSigned && document.status !== "ASSINADO",
+      contratoAtivado,
+      contratoInativado,
     });
 
   } catch (err: any) {

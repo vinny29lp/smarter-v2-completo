@@ -10,27 +10,23 @@ echo "🔓 Removendo lock files..."
 rm -f .git/HEAD.lock .git/index.lock .git/refs/heads/main.lock .git/MERGE_HEAD.lock .git/ORIG_HEAD.lock
 echo "✅ Lock files removidos"
 
-# Resetar HEAD e índice para o estado do GitHub (5aa207b)
+# Resetar HEAD e índice para o estado atual do GitHub
 echo "🔄 Resetando índice para estado limpo do GitHub..."
-git reset --mixed 5aa207b75c78d93f55d301371ec7dd96b505022f 2>&1
+git fetch origin main 2>&1
+REMOTE_HEAD=$(git rev-parse origin/main)
+git reset --mixed "$REMOTE_HEAD" 2>&1
 rm -f .git/HEAD.lock .git/index.lock .git/ORIG_HEAD.lock 2>/dev/null
 
 echo ""
 echo "📦 Adicionando apenas os arquivos de código alterados..."
 
-# Adicionar apenas os arquivos específicos que mudaram
-git add components/layout/Sidebar.tsx
-git add lib/aiService.ts
+# Assinatura digital — fix completo
 git add lib/autentique.ts
-git add app/api/app/ai/sugestao-testes/route.ts
-git add app/api/app/ai/tce-atividades/route.ts
 git add "app/api/app/contratos/[id]/documentos/[docId]/autentique/route.ts"
+git add "app/api/app/contratos/[id]/documentos/[docId]/route.ts"
 git add "app/dashboard/contratos/[id]/documentos/[docId]/page.tsx"
-git add prisma/schema.prisma
-git add components/forms/ContratoForm.tsx
-git add app/api/auth/forgot-password/route.ts
-git add app/login/page.tsx
-git add .gitignore
+
+# Deploy script atualizado
 git add deploy-sistema-smarter.command
 
 echo ""
@@ -47,7 +43,7 @@ fi
 
 echo ""
 echo "💾 Criando commit..."
-git commit -m "fix: sidebar franqueado, IA TCE/vagas, assinatura digital automatica, AIUsageLog @@map"
+git commit -m "fix: assinaturas - GraphQL Event types, TCE 3 slots, TR INATIVO no envio, labels signatários"
 
 echo "🚀 Fazendo push..."
 git push origin main

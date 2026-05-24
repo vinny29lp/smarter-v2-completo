@@ -120,8 +120,13 @@ export interface AutentiqueSignerStatus {
   email: string;
   name?: string;
   action?: string;
+  label?: string;
   signed: boolean;
   signedAt?: string;
+  rejected: boolean;
+  rejectedAt?: string;
+  viewed: boolean;
+  viewedAt?: string;
   link?: string;
 }
 
@@ -148,11 +153,11 @@ export async function buscarStatusAutentique(docId: string): Promise<AutentiqueD
         signatures {
           email
           name
-          signed
-          signed_at
-          rejected
           action { name }
           link { short_link }
+          signed { created_at }
+          rejected { created_at }
+          viewed { created_at }
         }
       }
     }
@@ -186,7 +191,11 @@ export async function buscarStatusAutentique(docId: string): Promise<AutentiqueD
     name: s.name,
     action: s.action?.name,
     signed: !!s.signed,
-    signedAt: s.signed_at || undefined,
+    signedAt: s.signed?.created_at || undefined,
+    rejected: !!s.rejected,
+    rejectedAt: s.rejected?.created_at || undefined,
+    viewed: !!s.viewed,
+    viewedAt: s.viewed?.created_at || undefined,
     link: s.link?.short_link,
   }));
 
