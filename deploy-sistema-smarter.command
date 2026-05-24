@@ -20,10 +20,11 @@ rm -f .git/HEAD.lock .git/index.lock .git/ORIG_HEAD.lock 2>/dev/null
 echo ""
 echo "📦 Adicionando apenas os arquivos de código alterados..."
 
-# Assinatura digital — fix completo
+# Assinatura digital — fix completo + download assinado
 git add lib/autentique.ts
 git add "app/api/app/contratos/[id]/documentos/[docId]/autentique/route.ts"
 git add "app/api/app/contratos/[id]/documentos/[docId]/route.ts"
+git add "app/api/app/contratos/[id]/documentos/[docId]/download-assinado/route.ts"
 git add "app/dashboard/contratos/[id]/documentos/[docId]/page.tsx"
 
 # Deploy script atualizado
@@ -43,7 +44,7 @@ fi
 
 echo ""
 echo "💾 Criando commit..."
-git commit -m "fix: assinaturas - GraphQL Event types, TCE 3 slots, TR INATIVO no envio, labels signatários"
+git commit -m "feat: download e visualização do documento assinado via proxy route"
 
 echo "🚀 Fazendo push..."
 git push origin main

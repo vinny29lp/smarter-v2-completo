@@ -197,7 +197,13 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
       if (data.error) {
         setAlertas(["⚠️ " + data.error]);
       } else {
-        setDoc((p: any) => ({ ...p, ...data.document, signers: data.signers || p?.signers }));
+        // Mesclar signedUrl diretamente do response (não só do data.document) para garantir atualização imediata
+        setDoc((p: any) => ({
+          ...p,
+          ...data.document,
+          signers: data.signers || p?.signers,
+          ...(data.signedUrl ? { signedUrl: data.signedUrl } : {}),
+        }));
         if (data.allSigned) {
           const msgs = [];
           if (data.contratoAtivado) msgs.push("✅ Todos assinaram! Contrato ativado automaticamente.");
@@ -220,11 +226,20 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
     setCheckingStatus(false);
   };
 
-  const downloadAssinado = () => {
+  // Visualizar o PDF assinado em nova aba (link direto)
+  const visualizarAssinado = () => {
     const url = doc?.signedUrl;
     if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  // Baixar o PDF assinado via proxy (força download com nome correto)
+  const downloadAssinado = () => {
+    const url = `/api/app/contratos/${params.id}/documentos/${params.docId}/download-assinado`;
     const a = document.createElement("a");
-    a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer"; a.click();
+    a.href = url;
+    a.download = `${doc?.titulo?.replace(/\s+/g, "-") || "documento"}-assinado.pdf`;
+    a.click();
   };
 
   const marcarAssinado = async () => {
@@ -268,9 +283,14 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
             </Button>
           )}
           {assinado && doc?.signedUrl && (
-            <Button onClick={downloadAssinado}>
-              ⬇ Baixar Documento Assinado
-            </Button>
+            <>
+              <Button variant="secondary" onClick={visualizarAssinado}>
+                👁 Visualizar Assinado
+              </Button>
+              <Button onClick={downloadAssinado}>
+                ⬇ Baixar Assinado (PDF)
+              </Button>
+            </>
           )}
           {!enviado && doc?.status === "AGUARDANDO_ASSINATURA" && (
             <Button onClick={marcarAssinado}>✓ Marcar Assinado</Button>
@@ -301,12 +321,20 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                 {isTce && <span className="ml-2 text-[#0f2a5e] normal-case font-normal">(3 obrigatórias para ativar o estágio)</span>}
               </p>
               {assinado && doc?.signedUrl && (
-                <button
-                  onClick={downloadAssinado}
-                  className="text-xs text-[#0f2a5e] font-bold hover:underline flex items-center gap-1"
-                >
-                  ⬇ Baixar Assinado
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={visualizarAssinado}
+                    className="text-xs text-slate-500 font-bold hover:underline flex items-center gap-1"
+                  >
+                    👁 Visualizar
+                  </button>
+                  <button
+                    onClick={downloadAssinado}
+                    className="text-xs text-[#0f2a5e] font-bold hover:underline flex items-center gap-1"
+                  >
+                    ⬇ Baixar PDF
+                  </button>
+                </div>
               )}
             </div>
 

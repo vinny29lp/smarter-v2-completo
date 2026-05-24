@@ -173,12 +173,16 @@ export async function GET(
       signers: signersWithLabels as any,
     };
 
+    // Sempre salvar o signedUrl quando disponível (independente de mudança de status)
+    if (status.signedUrl) {
+      updateData.signedUrl = status.signedUrl;
+    }
+
     let contratoAtivado = false;
     let contratoInativado = false;
 
     if (status.allSigned && document.status !== "ASSINADO") {
       updateData.status = "ASSINADO";
-      if (status.signedUrl) updateData.signedUrl = status.signedUrl;
 
       const docTipo = document.tipo;
 
