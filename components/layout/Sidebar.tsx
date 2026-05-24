@@ -70,6 +70,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/processos",label:"Processos Seletivos",icon:KanbanSquare},
     {href:"/dashboard/contratos",label:"Contratos",icon:FileText},
     {href:"/dashboard/assinaturas",label:"Assinaturas",icon:PenTool},
+    {href:"/dashboard/instituicoes",label:"Instituições",icon:BookOpen},
   ],[
     {href:"/dashboard/financeiro",label:"Financeiro",icon:DollarSign},
     {href:"/dashboard/crm",label:"CRM",icon:Phone},

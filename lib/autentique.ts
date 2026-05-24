@@ -115,3 +115,88 @@ export async function autentiqueConectado(): Promise<boolean> {
     return !!t;
   } catch { return false; }
 }
+
+export interface AutentiqueSignerStatus {
+  email: string;
+  name?: string;
+  action?: string;
+  signed: boolean;
+  signedAt?: string;
+  link?: string;
+}
+
+export interface AutentiqueDocumentStatus {
+  id: string;
+  name: string;
+  allSigned: boolean;
+  signedUrl?: string;
+  signers: AutentiqueSignerStatus[];
+}
+
+/**
+ * Consulta o status de assinaturas de um documento no Autentique.
+ */
+export async function buscarStatusAutentique(docId: string): Promise<AutentiqueDocumentStatus> {
+  const token = await getToken();
+
+  const query = `
+    query {
+      document(id: "${docId}") {
+        id
+        name
+        files { signed }
+        signatures {
+          email
+          name
+          signed
+          signed_at
+          rejected
+          action { name }
+          link { short_link }
+        }
+      }
+    }
+  `;
+
+  const response = await fetch(AUTENTIQUE_API, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ query }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Autentique HTTP ${response.status}: ${text}`);
+  }
+
+  const json = await response.json();
+  if (json.errors?.length) {
+    const msg = json.errors.map((e: any) => e.message).join("; ");
+    throw new Error(`Autentique GraphQL error: ${msg}`);
+  }
+
+  const doc = json.data?.document;
+  if (!doc) throw new Error("Documento não encontrado no Autentique.");
+
+  const signers: AutentiqueSignerStatus[] = (doc.signatures || []).map((s: any) => ({
+    email: s.email,
+    name: s.name,
+    action: s.action?.name,
+    signed: !!s.signed,
+    signedAt: s.signed_at || undefined,
+    link: s.link?.short_link,
+  }));
+
+  const allSigned = signers.length > 0 && signers.every(s => s.signed);
+
+  return {
+    id: doc.id,
+    name: doc.name,
+    allSigned,
+    signedUrl: doc.files?.signed || undefined,
+    signers,
+  };
+}

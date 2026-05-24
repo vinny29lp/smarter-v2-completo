@@ -52,46 +52,52 @@ const LIMITE_DIARIO_FRANQUIA  = 200;  // chamadas por franquia por dia
 // ── VERIFICAÇÃO DE LIMITE ─────────────────────────────────────────────────
 
 async function verificarLimite(franchiseId: string, userId?: string): Promise<{ ok: boolean; motivo?: string }> {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const amanha = new Date(hoje);
-  amanha.setDate(amanha.getDate() + 1);
+  try {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const amanha = new Date(hoje);
+    amanha.setDate(amanha.getDate() + 1);
 
-  // Verificar limite da franquia
-  const usoFranquia = await prisma.aIUsageLog.count({
-    where: {
-      franchiseId,
-      sucesso: true,
-      createdAt: { gte: hoje, lt: amanha },
-    },
-  });
-
-  if (usoFranquia >= LIMITE_DIARIO_FRANQUIA) {
-    return {
-      ok: false,
-      motivo: `Limite diário da franquia atingido (${LIMITE_DIARIO_FRANQUIA} usos/dia). Tente amanhã.`,
-    };
-  }
-
-  // Verificar limite do usuário
-  if (userId) {
-    const usoUsuario = await prisma.aIUsageLog.count({
+    // Verificar limite da franquia
+    const usoFranquia = await prisma.aIUsageLog.count({
       where: {
-        userId,
+        franchiseId,
         sucesso: true,
         createdAt: { gte: hoje, lt: amanha },
       },
     });
 
-    if (usoUsuario >= LIMITE_DIARIO_USUARIO) {
+    if (usoFranquia >= LIMITE_DIARIO_FRANQUIA) {
       return {
         ok: false,
-        motivo: `Limite diário do usuário atingido (${LIMITE_DIARIO_USUARIO} usos/dia). Tente amanhã.`,
+        motivo: `Limite diário da franquia atingido (${LIMITE_DIARIO_FRANQUIA} usos/dia). Tente amanhã.`,
       };
     }
-  }
 
-  return { ok: true };
+    // Verificar limite do usuário
+    if (userId) {
+      const usoUsuario = await prisma.aIUsageLog.count({
+        where: {
+          userId,
+          sucesso: true,
+          createdAt: { gte: hoje, lt: amanha },
+        },
+      });
+
+      if (usoUsuario >= LIMITE_DIARIO_USUARIO) {
+        return {
+          ok: false,
+          motivo: `Limite diário do usuário atingido (${LIMITE_DIARIO_USUARIO} usos/dia). Tente amanhã.`,
+        };
+      }
+    }
+
+    return { ok: true };
+  } catch (e) {
+    // Se a tabela de log ainda não existe no banco, não bloqueia o uso da IA
+    console.error("[AIService] Erro ao verificar limite (tabela de log indisponível):", e);
+    return { ok: true };
+  }
 }
 
 // ── REGISTRAR LOG ─────────────────────────────────────────────────────────

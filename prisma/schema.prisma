@@ -603,6 +603,7 @@ model AIUsageLog {
 
   franchise    Franchise @relation(fields: [franchiseId], references: [id])
 
+  @@map("ai_usage_logs")
   @@index([franchiseId])
   @@index([userId])
   @@index([tipoUso])

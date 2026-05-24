@@ -31,10 +31,16 @@ export function ContratoForm({ franchiseId, students, companies, institutions }:
   const chTotal = parseInt(form.chDiaria||"0") * (form.diasSemana.includes("Sábado")?6:5);
 
   // Módulo 2 — Payload para IA de atividades TCE
+  const selectedStudent = students.find(s => s.id === form.studentId);
+  const nivelEscolar    = selectedStudent?.nivelEscolar || "";
   const aiAtividadesPayload = {
-    curso: students.find(s => s.id === form.studentId)?.curso || "",
-    area: "",
+    curso: selectedStudent?.curso || "",
+    area: nivelEscolar === "MEDIO"
+      ? "Ensino Médio / Técnico"
+      : selectedStudent?.curso || "Ensino Superior",
+    nivelEscolar,
     empresa: companies.find(c => c.id === form.companyId)?.name || "",
+    setor: companies.find(c => c.id === form.companyId)?.setor || "",
     bolsa: form.bolsa,
     cargaHoraria: String(chTotal),
     chDiaria: form.chDiaria,

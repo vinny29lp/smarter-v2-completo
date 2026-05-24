@@ -11,10 +11,13 @@ export async function POST(req: Request) {
   if (!franchiseId) return NextResponse.json({ error: "Franquia não identificada" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const { curso, area, empresa, setor, descricaoVaga, extras } = body;
+  const { empresa, setor, descricaoVaga, extras } = body;
+  // curso e area podem vir do cadastro do estudante — aceitar fallbacks
+  const curso = body.curso || "Curso Superior";
+  const area  = body.area  || (body.nivelEscolar === "MEDIO" ? "Ensino Médio / Técnico" : "Ensino Superior");
 
-  if (!curso || !area) {
-    return NextResponse.json({ error: "Campos obrigatórios: curso, área." }, { status: 400 });
+  if (!empresa && !descricaoVaga) {
+    return NextResponse.json({ error: "Informe ao menos o nome da empresa ou a descrição da vaga." }, { status: 400 });
   }
 
   try {

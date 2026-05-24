@@ -11,10 +11,11 @@ export async function POST(req: Request) {
   if (!franchiseId) return NextResponse.json({ error: "Franquia não identificada" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const { titulo, area, curso, atividades, discDesejado, extras } = body;
+  const { titulo, area, atividades, discDesejado, extras } = body;
+  const curso = body.curso || "Diversas áreas";
 
-  if (!titulo || !area || !curso) {
-    return NextResponse.json({ error: "Campos obrigatórios: título, área, curso." }, { status: 400 });
+  if (!titulo || !area) {
+    return NextResponse.json({ error: "Campos obrigatórios: título e área." }, { status: 400 });
   }
 
   try {
