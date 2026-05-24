@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import bcrypt from "bcryptjs";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -10,7 +11,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const estudante = await prisma.student.findUnique({
     where: { id: params.id },
     include: {
-      user: { select: { email: true, active: true, lastLoginAt: true } },
+      user: { select: { id: true, email: true, active: true, lastLoginAt: true } },
       institution: true,
       contracts: {
         where: viewerFranchiseId ? { franchiseId: viewerFranchiseId } : {},
@@ -25,7 +26,35 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
   const body = await req.json();
+
+  // Alterar senha do estudante — requer FRANQUEADORA ou FRANQUEADO
+  if (body.action === "change_password") {
+    if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session?.user?.role || "")) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    }
+    if (!body.userId || !body.password) {
+      return NextResponse.json({ error: "userId e password são obrigatórios" }, { status: 400 });
+    }
+    const hash = await bcrypt.hash(body.password, 10);
+    await prisma.user.update({ where: { id: body.userId }, data: { password: hash } });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Alterar e-mail de login do estudante — requer FRANQUEADORA ou FRANQUEADO
+  if (body.action === "change_email") {
+    if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session?.user?.role || "")) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    }
+    if (!body.userId || !body.email) {
+      return NextResponse.json({ error: "userId e email são obrigatórios" }, { status: 400 });
+    }
+    await prisma.user.update({ where: { id: body.userId }, data: { email: body.email } });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Atualização geral de dados do estudante
   const estudante = await prisma.student.update({ where: { id: params.id }, data: body });
   return NextResponse.json({ estudante });
 }

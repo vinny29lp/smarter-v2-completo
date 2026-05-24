@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
 
@@ -23,10 +24,20 @@ export default function EstudanteDetailPage() {
   const [vagaSelecionada, setVagaSelecionada] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [msg, setMsg] = useState("");
+  // Modais de acesso
+  const [senhaModal, setSenhaModal] = useState(false);
+  const [emailModal, setEmailModal] = useState(false);
+  const [novaSenha, setNovaSenha] = useState("");
+  const [novoEmail, setNovoEmail] = useState("");
+  const [savingAcesso, setSavingAcesso] = useState(false);
 
-  useEffect(() => {
+  const loadStudent = () => {
     fetch(`/api/app/estudantes/${params.id}`)
       .then(r=>r.json()).then(d=>setStudent(d.estudante));
+  };
+
+  useEffect(() => {
+    loadStudent();
     fetch("/api/app/vagas")
       .then(r=>r.json()).then(d=>setVagas((d.vagas||[]).filter((v:any)=>v.status==="ABERTA")));
   },[params.id]);
@@ -42,6 +53,32 @@ export default function EstudanteDetailPage() {
     if (data.error) { setMsg("Erro: "+data.error); }
     else { setMsg("✓ Estudante adicionado ao processo seletivo!"); setProcessoModal(false); }
     setEnviando(false);
+  };
+
+  const alterarSenha = async () => {
+    if (!novaSenha || novaSenha.length < 6) { setMsg("❌ Senha deve ter ao menos 6 caracteres"); return; }
+    setSavingAcesso(true);
+    const res = await fetch(`/api/app/estudantes/${student.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "change_password", userId: student.user?.id, password: novaSenha }),
+    });
+    const data = await res.json();
+    setSavingAcesso(false);
+    if (data.error) { setMsg("❌ " + data.error); }
+    else { setMsg("✅ Senha alterada com sucesso!"); setSenhaModal(false); setNovaSenha(""); }
+  };
+
+  const alterarEmail = async () => {
+    if (!novoEmail) { setMsg("❌ Informe o novo e-mail"); return; }
+    setSavingAcesso(true);
+    const res = await fetch(`/api/app/estudantes/${student.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "change_email", userId: student.user?.id, email: novoEmail }),
+    });
+    const data = await res.json();
+    setSavingAcesso(false);
+    if (data.error) { setMsg("❌ " + data.error); }
+    else { setMsg("✅ E-mail de login alterado!"); setEmailModal(false); setNovoEmail(""); loadStudent(); }
   };
 
   if (!student) return <div className="p-8 text-center text-slate-400">Carregando...</div>;
@@ -66,7 +103,13 @@ export default function EstudanteDetailPage() {
           <h1 className="text-2xl font-black text-slate-800">{student.name}</h1>
           <Badge variant={student.status==="EM_ESTAGIO"?"green":student.status==="DISPONIVEL"?"yellow":"gray"}>{student.status}</Badge>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {student.user && (
+            <>
+              <Button variant="secondary" size="sm" onClick={()=>{ setNovoEmail(student.user?.email||""); setEmailModal(true); }}>📧 Alterar E-mail Login</Button>
+              <Button variant="secondary" size="sm" onClick={()=>setSenhaModal(true)}>🔑 Alterar Senha</Button>
+            </>
+          )}
           <Button variant="secondary" onClick={()=>{ const a=document.createElement("a"); a.href=`/api/app/estudantes/${student.id}/curriculo`; a.download=`curriculo-${student.name?.replace(/\s+/g,"-").toLowerCase()}.html`; a.click(); }}>📄 Baixar Currículo + DISC</Button>
           <Button onClick={()=>setProcessoModal(true)}>+ Enviar para Vaga</Button>
         </div>
@@ -211,6 +254,36 @@ export default function EstudanteDetailPage() {
           ))}
         </Card>
       )}
+
+      {/* Modal: Alterar Senha do Estudante */}
+      <Modal open={senhaModal} onClose={()=>setSenhaModal(false)} title="Alterar Senha do Estudante">
+        <div className="space-y-4">
+          <div className="p-3 bg-slate-50 rounded-xl text-sm">
+            <p className="font-bold">{student.name}</p>
+            <p className="text-slate-500">E-mail de login: {student.user?.email || "—"}</p>
+          </div>
+          <Input label="Nova Senha" type="password" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} placeholder="Mínimo 6 caracteres"/>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={()=>{ setSenhaModal(false); setNovaSenha(""); }}>Cancelar</Button>
+            <Button onClick={alterarSenha} disabled={savingAcesso||!novaSenha}>{savingAcesso?"Salvando...":"Alterar Senha"}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Alterar E-mail de Login do Estudante */}
+      <Modal open={emailModal} onClose={()=>setEmailModal(false)} title="Alterar E-mail de Login">
+        <div className="space-y-4">
+          <div className="p-3 bg-slate-50 rounded-xl text-sm">
+            <p className="font-bold">{student.name}</p>
+            <p className="text-slate-500">E-mail atual: {student.user?.email || "—"}</p>
+          </div>
+          <Input label="Novo E-mail" type="email" value={novoEmail} onChange={e=>setNovoEmail(e.target.value)} placeholder="novo@email.com"/>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={()=>{ setEmailModal(false); setNovoEmail(""); }}>Cancelar</Button>
+            <Button onClick={alterarEmail} disabled={savingAcesso||!novoEmail}>{savingAcesso?"Salvando...":"Alterar E-mail"}</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal: Enviar para Processo Seletivo */}
       <Modal open={processoModal} onClose={()=>setProcessoModal(false)} title="Enviar para Processo Seletivo">

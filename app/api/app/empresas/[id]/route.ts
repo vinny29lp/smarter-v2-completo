@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import bcrypt from "bcryptjs";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const empresa = await prisma.company.findUnique({
@@ -17,7 +20,35 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
   const body = await req.json();
+
+  // Alterar senha do usuário da empresa — requer FRANQUEADORA ou FRANQUEADO
+  if (body.action === "change_password") {
+    if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session?.user?.role || "")) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    }
+    if (!body.userId || !body.password) {
+      return NextResponse.json({ error: "userId e password são obrigatórios" }, { status: 400 });
+    }
+    const hash = await bcrypt.hash(body.password, 10);
+    await prisma.user.update({ where: { id: body.userId }, data: { password: hash } });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Alterar e-mail de login da empresa — requer FRANQUEADORA ou FRANQUEADO
+  if (body.action === "change_email") {
+    if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session?.user?.role || "")) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    }
+    if (!body.userId || !body.email) {
+      return NextResponse.json({ error: "userId e email são obrigatórios" }, { status: 400 });
+    }
+    await prisma.user.update({ where: { id: body.userId }, data: { email: body.email } });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Atualização geral de dados da empresa
   const empresa = await prisma.company.update({
     where: { id: params.id },
     data: {
