@@ -44,6 +44,7 @@ model Franchise {
   cep                  String?
   status               FranchiseStatus?     @default(ATIVO)
   mensalidade          Float?               @default(200)
+  cobrarMensalidade    Boolean              @default(true)
   plano                String?              @default("completo")
   pontuacao            Int?                 @default(0)
   chavePix             String?

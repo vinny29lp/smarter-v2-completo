@@ -93,8 +93,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   body{background:#e5e7eb;font-family:Arial,Helvetica,sans-serif}
   .doc{width:210mm;min-height:297mm;margin:0 auto;padding:12mm 14mm 20mm;background:white;font-size:11px;color:#1a1a1a;line-height:1.55;position:relative}
   .dh{background:linear-gradient(135deg,#0f2a5e,#1a3d8f);border-radius:6px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
-  .dh-logo{color:#f5c400;font-weight:900;font-size:22px}
-  .dh-logo span{font-size:9px;display:block;font-weight:400;color:rgba(255,255,255,.7)}
+  .dh-logo{display:flex;align-items:center}
+  .dh-logo img{height:36px;object-fit:contain}
   .dh-center{flex:1;text-align:center;padding:0 16px}
   .dh-name{color:white;font-size:16px;font-weight:900}
   .dh-sub{color:rgba(255,255,255,.7);font-size:10px;margin-top:2px}
@@ -110,7 +110,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 </head><body><div class="doc">
 
 <div class="dh">
-  <div class="dh-logo">S<span>Smarter Estágios</span></div>
+  <div class="dh-logo"><img src="${process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app"}/logo-sistema.png" alt="Sistema Smarter"/></div>
   <div class="dh-center">
     <div class="dh-name">${s.name}</div>
     <div class="dh-sub">${s.curso || "—"} · ${s.periodo || "—"}° Período · ${s.institution?.name || "—"}</div>
@@ -183,7 +183,7 @@ ${disc ? `
 <div style="page-break-before:always;padding-top:10mm">
 
 <div class="dh" style="background:linear-gradient(135deg,${disc.cor}cc,${disc.cor}99)">
-  <div class="dh-logo">S<span>Smarter Estágios</span></div>
+  <div class="dh-logo"><img src="${process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app"}/logo-sistema.png" alt="Sistema Smarter"/></div>
   <div class="dh-center">
     <div style="color:rgba(255,255,255,.8);font-size:9px;text-transform:uppercase;letter-spacing:1px">Relatório DISC Comportamental</div>
     <div class="dh-name">${s.name}</div>
@@ -219,7 +219,7 @@ ${box("💼 Vagas e Funções com Melhor Compatibilidade",
 
 <div class="footer">
   <span>Currículo + Relatório DISC · ${s.name}</span>
-  <span>Gerado pela plataforma Smarter Estágios · ${new Date().toLocaleDateString("pt-BR")}</span>
+  <span>Gerado pela plataforma Sistema Smarter · ${new Date().toLocaleDateString("pt-BR")}</span>
 </div>
 </div></body></html>`;
 

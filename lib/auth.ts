@@ -16,7 +16,7 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
-          include: { franchise: true, company: true, student: true },
+          include: { franchise: true, company: true, student: true, employee: true },
         });
 
         if (!user || !user.active) return null;
@@ -32,6 +32,11 @@ export const authOptions: NextAuthOptions = {
           prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
         ]).catch(() => {});
 
+        // For FUNCIONARIO, load their permissoes from the Employee record
+        const permissoes: string[] = user.role === "FUNCIONARIO"
+          ? (user.employee?.permissoes ?? [])
+          : [];
+
         return {
           id: user.id,
           name: user.name,
@@ -40,6 +45,7 @@ export const authOptions: NextAuthOptions = {
           franchiseId: user.franchiseId ?? undefined,
           companyId: user.companyId ?? undefined,
           studentId: user.student?.id ?? undefined,
+          permissoes,
         };
       },
     }),
@@ -52,6 +58,7 @@ export const authOptions: NextAuthOptions = {
         token.franchiseId = (user as any).franchiseId;
         token.companyId = (user as any).companyId;
         token.studentId = (user as any).studentId;
+        token.permissoes = (user as any).permissoes ?? [];
       }
       return token;
     },
@@ -62,6 +69,7 @@ export const authOptions: NextAuthOptions = {
         session.user.franchiseId = token.franchiseId as string | undefined;
         session.user.companyId = token.companyId as string | undefined;
         session.user.studentId = token.studentId as string | undefined;
+        session.user.permissoes = token.permissoes as string[] | undefined;
       }
       return session;
     },

@@ -9,6 +9,7 @@ declare module "next-auth" {
       franchiseId?: string;
       companyId?: string;
       studentId?: string;
+      permissoes?: string[];
     } & DefaultSession["user"];
   }
   interface User extends DefaultUser {
@@ -16,6 +17,7 @@ declare module "next-auth" {
     franchiseId?: string;
     companyId?: string;
     studentId?: string;
+    permissoes?: string[];
   }
 }
 declare module "next-auth/jwt" {
@@ -24,5 +26,6 @@ declare module "next-auth/jwt" {
     franchiseId?: string;
     companyId?: string;
     studentId?: string;
+    permissoes?: string[];
   }
 }

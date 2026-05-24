@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Smarter One V2",
+  title: "Sistema Smarter",
   description: "Sistema de Gestao de Estagios",
 };
 

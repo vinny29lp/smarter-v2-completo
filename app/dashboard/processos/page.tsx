@@ -104,11 +104,11 @@ export default function ProcessosPage() {
     const recColor: Record<string,string> = {aprovado:"#16a34a",reprovado:"#dc2626",em_analise:"#d97706"};
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>Parecer — ${selected.student?.name}</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#e5e7eb;font-family:Arial,Helvetica,sans-serif}.doc{width:210mm;min-height:297mm;margin:0 auto;padding:12mm 14mm 20mm;background:white;font-size:11px;color:#1a1a1a;line-height:1.55;position:relative}.dh{background:linear-gradient(135deg,#0f2a5e,#1a3d8f);border-radius:6px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}.dh-logo{color:#f5c400;font-weight:900;font-size:22px}.dh-logo span{font-size:9px;display:block;font-weight:400;color:rgba(255,255,255,.7)}.dh-center{flex:1;text-align:center;padding:0 16px}.dh-name{color:white;font-size:14px;font-weight:900}.dh-sub{color:rgba(255,255,255,.7);font-size:9.5px;margin-top:2px}.dh-right{text-align:right}.dh-badge{display:inline-block;background:#22c55e;color:white;font-size:8px;font-weight:900;padding:2px 8px;border-radius:20px;letter-spacing:.5px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sec-head{display:flex;align-items:center;gap:6px;margin-bottom:5px;padding-bottom:3px;border-bottom:2px solid #0f2a5e;margin-top:10px}.sec-n{background:#0f2a5e;color:white;font-size:9px;font-weight:900;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}.sec-t{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:#0f2a5e}.footer{border-top:1px solid #e2e8f0;padding-top:4px;margin-top:16px;display:flex;justify-content:space-between;font-size:8px;color:#9ca3af}@media print{body{background:white}.doc{margin:0}}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#e5e7eb;font-family:Arial,Helvetica,sans-serif}.doc{width:210mm;min-height:297mm;margin:0 auto;padding:12mm 14mm 20mm;background:white;font-size:11px;color:#1a1a1a;line-height:1.55;position:relative}.dh{background:linear-gradient(135deg,#0f2a5e,#1a3d8f);border-radius:6px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}.dh-logo{display:flex;align-items:center}.dh-logo img{height:36px;object-fit:contain}.dh-center{flex:1;text-align:center;padding:0 16px}.dh-name{color:white;font-size:14px;font-weight:900}.dh-sub{color:rgba(255,255,255,.7);font-size:9.5px;margin-top:2px}.dh-right{text-align:right}.dh-badge{display:inline-block;background:#22c55e;color:white;font-size:8px;font-weight:900;padding:2px 8px;border-radius:20px;letter-spacing:.5px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sec-head{display:flex;align-items:center;gap:6px;margin-bottom:5px;padding-bottom:3px;border-bottom:2px solid #0f2a5e;margin-top:10px}.sec-n{background:#0f2a5e;color:white;font-size:9px;font-weight:900;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}.sec-t{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:#0f2a5e}.footer{border-top:1px solid #e2e8f0;padding-top:4px;margin-top:16px;display:flex;justify-content:space-between;font-size:8px;color:#9ca3af}@media print{body{background:white}.doc{margin:0}}</style>
 </head><body><div class="doc">
 
 <div class="dh">
-  <div class="dh-logo">S<span>Smarter Estágios</span></div>
+  <div class="dh-logo"><img src="https://smarter-v2-completo.vercel.app/logo-sistema.png" alt="Sistema Smarter"/></div>
   <div class="dh-center">
     <div style="color:rgba(255,255,255,.7);font-size:9px;text-transform:uppercase;letter-spacing:.5px">Parecer Técnico — Processo Seletivo</div>
     <div class="dh-name">${selected.student?.name}</div>
@@ -146,7 +146,7 @@ ${recomendacao ? `
 ${disc ? `
 <div style="page-break-before:always;padding-top:8mm">
   <div style="background:linear-gradient(135deg,${disc.cor}cc,${disc.cor}99);border-radius:6px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-    <div style="color:#f5c400;font-weight:900;font-size:20px">S<span style="font-size:9px;display:block;font-weight:400;color:rgba(255,255,255,.7)">Smarter Estágios</span></div>
+    <div><img src="https://smarter-v2-completo.vercel.app/logo-sistema.png" alt="Sistema Smarter" style="height:36px;object-fit:contain"/></div>
     <div style="text-align:center;flex:1;padding:0 16px">
       <div style="color:rgba(255,255,255,.8);font-size:9px;text-transform:uppercase;letter-spacing:.5px">Relatório DISC Comportamental</div>
       <div style="color:white;font-size:14px;font-weight:900;margin-top:2px">${selected.student?.name}</div>
@@ -169,7 +169,7 @@ ${disc ? `
 
 <div class="footer">
   <span>Parecer Técnico + DISC · ${selected.student?.name} · ${selected.vacancy?.titulo}</span>
-  <span>Gerado pela plataforma Smarter Estágios · ${new Date().toLocaleDateString("pt-BR")}</span>
+  <span>Gerado pela plataforma Sistema Smarter · ${new Date().toLocaleDateString("pt-BR")}</span>
 </div>
 </div></body></html>`;
     const blob = new Blob([html],{type:"text/html"});
