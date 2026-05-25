@@ -30,20 +30,26 @@ export default function NovaVagaPage() {
   const handleSubmit = async () => {
     if (!form.titulo||!form.companyId||!form.bolsa) { setError("Preencha: Título, Empresa e Bolsa."); return; }
     setLoading(true); setError("");
-    const res = await fetch("/api/app/vagas", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        ...form,
-        bolsa: parseFloat(form.bolsa),
-        auxTransporte: form.auxTransporte ? parseFloat(form.auxTransporte) : null,
-        cargaHoraria: parseInt(form.cargaHoraria),
-        chDiaria: parseInt(form.chDiaria),
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok||data.error) { setError(data.error||"Erro ao criar vaga."); setLoading(false); return; }
-    router.push(`/dashboard/vagas/${data.vaga.id}`);
-    router.refresh();
+    try {
+      const res = await fetch("/api/app/vagas", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          ...form,
+          bolsa: parseFloat(form.bolsa),
+          auxTransporte: form.auxTransporte ? parseFloat(form.auxTransporte) : null,
+          cargaHoraria: parseInt(form.cargaHoraria),
+          chDiaria: parseInt(form.chDiaria),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok||data.error) { setError(data.error||"Erro ao criar vaga."); return; }
+      router.push(`/dashboard/vagas/${data.vaga.id}`);
+      router.refresh();
+    } catch (e: any) {
+      setError("Erro de conexão ao publicar vaga. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Payloads para IA

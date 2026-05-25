@@ -27,6 +27,9 @@ git add "app/api/app/contratos/[id]/documentos/[docId]/route.ts"
 git add "app/api/app/contratos/[id]/documentos/[docId]/download-assinado/route.ts"
 git add "app/dashboard/contratos/[id]/documentos/[docId]/page.tsx"
 
+# Fix: publicação de vagas travada em "publicando" — try/catch adicionado
+git add "app/dashboard/vagas/nova/page.tsx"
+
 # Deploy script atualizado
 git add deploy-sistema-smarter.command
 
@@ -44,7 +47,7 @@ fi
 
 echo ""
 echo "💾 Criando commit..."
-git commit -m "feat: download e visualização do documento assinado via proxy route"
+git commit -m "fix: vagas nova page try/catch + autentique download assinado"
 
 echo "🚀 Fazendo push..."
 git push origin main
