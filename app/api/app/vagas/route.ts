@@ -13,11 +13,27 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.franchiseId) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.franchiseId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+    const body = await req.json();
+    // Sanitize: only pass fields known to the Vacancy schema
+    const {
+      titulo, funcao, area, descricao, requisitos, beneficios,
+      modalidade, bolsa, auxTransporte, cargaHoraria, chDiaria,
+      horario, cidade, uf, discDesejado, companyId,
+    } = body;
+    const vaga = await createVacancy({
+      titulo, funcao, area, descricao, requisitos, beneficios,
+      modalidade, bolsa, auxTransporte, cargaHoraria, chDiaria,
+      horario, cidade, uf, discDesejado, companyId,
+      franchiseId: session.user.franchiseId,
+    });
+    return NextResponse.json({ vaga });
+  } catch (err: any) {
+    console.error("[POST /api/app/vagas]", err);
+    return NextResponse.json({ error: err.message || "Erro ao criar vaga" }, { status: 500 });
   }
-  const body = await req.json();
-  const vaga = await createVacancy({ ...body, franchiseId: session.user.franchiseId });
-  return NextResponse.json({ vaga });
 }

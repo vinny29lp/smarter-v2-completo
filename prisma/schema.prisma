@@ -172,6 +172,7 @@ model Student {
 model Vacancy {
   id            String         @id @default(dbgenerated("(gen_random_uuid())::text"))
   titulo        String
+  funcao        String?
   area          String?
   descricao     String?
   requisitos    String?

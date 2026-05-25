@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 export type VacancyInput = {
   titulo: string;
+  funcao?: string;
   area?: string;
   descricao?: string;
   requisitos?: string;

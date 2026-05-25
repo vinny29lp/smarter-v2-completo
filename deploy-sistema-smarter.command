@@ -30,6 +30,11 @@ git add "app/dashboard/contratos/[id]/documentos/[docId]/page.tsx"
 # Fix: publicação de vagas travada em "publicando" — try/catch adicionado
 git add "app/dashboard/vagas/nova/page.tsx"
 
+# Fix: campo funcao não existia no schema Vacancy → PrismaClientValidationError
+git add "app/api/app/vagas/route.ts"
+git add "lib/actions/vacancies.ts"
+git add "prisma/schema.prisma"
+
 # Deploy script atualizado
 git add deploy-sistema-smarter.command
 
@@ -47,7 +52,7 @@ fi
 
 echo ""
 echo "💾 Criando commit..."
-git commit -m "fix: vagas nova page try/catch + autentique download assinado"
+git commit -m "fix: vagas POST — campo funcao adicionado ao schema + sanitize body na API"
 
 echo "🚀 Fazendo push..."
 git push origin main
