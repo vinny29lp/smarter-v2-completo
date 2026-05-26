@@ -117,6 +117,9 @@ function CadastroContent() {
               : <Button className="flex-1 justify-center" onClick={handleSubmit} disabled={loading}>{loading?"Enviando...":"Enviar Cadastro ✓"}</Button>
             }
           </div>
+          <div className="text-center mt-3">
+            <a href="/login" className="text-sm text-gray-500 hover:text-gray-700 underline">Já tenho cadastro → Fazer login</a>
+          </div>
         </Card>
 
         <p className="text-white/40 text-xs text-center mt-4">Smarter Estágios — Sistema de Gestão de Estágios</p>

@@ -35,6 +35,10 @@ git add "app/api/app/vagas/route.ts"
 git add "lib/actions/vacancies.ts"
 git add "prisma/schema.prisma"
 
+# Fix: botão "Já tenho cadastro" nas páginas de auto-cadastro
+git add "cadastro/estudante/page.tsx"
+git add "cadastro/empresa/page.tsx"
+
 # Deploy script atualizado
 git add deploy-sistema-smarter.command
 
@@ -52,7 +56,7 @@ fi
 
 echo ""
 echo "💾 Criando commit..."
-git commit -m "fix: vagas POST — campo funcao adicionado ao schema + sanitize body na API"
+git commit -m "feat: add 'Já tenho cadastro' login link on cadastro/estudante and cadastro/empresa pages"
 
 echo "🚀 Fazendo push..."
 git push origin main
