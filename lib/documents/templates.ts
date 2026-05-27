@@ -974,3 +974,139 @@ ${infoBar([
 <p style="text-align:right;font-size:10px;margin:10px 0">\${sm.cidade}, \${hoje}</p>
 \${docFooter("Parecer Técnico do Estágio", numero, sm)}`);
 }
+
+// ── Avaliação Semestral Respondida (PDF do resultado preenchido) ──────────────
+export function gerarAvaliacaoRespondidaPDF(params: {
+  numero?: string;
+  nomeEstagiario: string;
+  cursoEstagiario: string;
+  nomeEmpresa: string;
+  supervisor: string;
+  nomeAgente: string;
+  cidade: string;
+  periodo: string;
+  respondidoAt?: string;
+  respostas: Record<string, number>;
+  observacoes?: string;
+}): string {
+  const { numero, nomeEstagiario, cursoEstagiario, nomeEmpresa, supervisor, nomeAgente, cidade, periodo, respondidoAt, respostas, observacoes } = params;
+  const hoje = respondidoAt
+    ? new Date(respondidoAt).toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" })
+    : new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" });
+
+  const CRITERIOS = [
+    { key:"pontualidade",  label:"Pontualidade e Assiduidade",       desc:"Cumpre horarios e compromissos" },
+    { key:"produtividade", label:"Produtividade e Qualidade",        desc:"Entrega tarefas com qualidade e no prazo" },
+    { key:"iniciativa",    label:"Iniciativa e Proatividade",        desc:"Busca solucoes sem ser solicitado" },
+    { key:"comunicacao",   label:"Comunicacao e Relacionamento",     desc:"Comunica-se de forma clara e respeitosa" },
+    { key:"aprendizado",   label:"Aprendizado e Desenvolvimento",    desc:"Demonstra evolucao e absorcao de conteudos" },
+    { key:"postura",       label:"Postura Profissional",             desc:"Apresentacao, etica e comprometimento" },
+  ];
+
+  const CONCEITO = (n: number) => n >= 5 ? "Excelente" : n === 4 ? "Otimo" : n === 3 ? "Bom" : n === 2 ? "Regular" : "Insuficiente";
+  const COR = (n: number) => n >= 4 ? "#10b981" : n === 3 ? "#3b82f6" : n === 2 ? "#f59e0b" : "#ef4444";
+
+  const totalNotas = CRITERIOS.reduce((acc, cr) => acc + (respostas[cr.key] || 0), 0);
+  const media = totalNotas / CRITERIOS.length;
+  const mediaFormatada = media.toFixed(1);
+  const corMedia = media >= 4 ? "#10b981" : media >= 3 ? "#3b82f6" : media >= 2 ? "#f59e0b" : "#ef4444";
+  const conceitoMedia = CONCEITO(Math.round(media));
+
+  const rows = CRITERIOS.map(cr => {
+    const nota = respostas[cr.key] || 0;
+    const cor = COR(nota);
+    const estrelas = [1,2,3,4,5].map(s =>
+      `<span style="font-size:14px;color:${s <= nota ? "#f5c400" : "#d1d5db"}">&#9733;</span>`
+    ).join("");
+    return `<tr>
+      <td style="padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top">
+        <p style="font-size:11px;font-weight:700;color:#1e293b">${cr.label}</p>
+        <p style="font-size:9px;color:#94a3b8;margin-top:2px">${cr.desc}</p>
+      </td>
+      <td style="padding:9px 10px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:middle">${estrelas}</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:middle">
+        <span style="font-weight:900;font-size:13px;color:${cor}">${nota}/5</span>
+      </td>
+      <td style="padding:9px 10px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:middle">
+        <span style="background:${cor}22;color:${cor};font-weight:700;font-size:9px;padding:2px 8px;border-radius:20px">${CONCEITO(nota)}</span>
+      </td>
+    </tr>`;
+  }).join("");
+
+  const numDoc = numero ? `Contrato no ${numero}` : "Avaliacao Semestral";
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#e5e7eb;font-family:Arial,Helvetica,sans-serif}
+.doc{font-size:11px;color:#1a1a1a;width:210mm;min-height:297mm;margin:0 auto;padding:12mm 14mm 20mm;background:white;line-height:1.55;position:relative}
+@page{size:A4 portrait;margin:0}
+@media print{
+  html,body{margin:0!important;padding:0!important;background:white!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .doc{width:100%!important;max-width:100%!important;margin:0!important;padding:12mm 14mm 16mm!important;box-shadow:none!important}
+}
+</style></head><body>
+<div class="doc">
+<div style="background:linear-gradient(135deg,#0f2a5e,#1a3f8a);padding:16px 20px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="background:#f5c400;width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#0f2a5e">S</div>
+    <div>
+      <p style="color:white;font-weight:900;font-size:16px">${nomeAgente}</p>
+      <p style="color:#a5b4fc;font-size:9px">Agente de Integracao - Lei 11.788/2008</p>
+    </div>
+  </div>
+  <div style="text-align:right">
+    <p style="color:#f5c400;font-weight:900;font-size:13px">Avaliacao Semestral de Estagio</p>
+    <p style="color:#93c5fd;font-size:9px">${numDoc} - ${periodo}</p>
+  </div>
+</div>
+<div style="background:#eff6ff;border-left:3px solid #3b82f6;padding:8px 12px;border-radius:4px;margin-bottom:12px">
+  <p style="font-size:9px;color:#1d4ed8;font-weight:700">Base Legal: Lei 11.788/2008 - Art. 12, paragrafo 1</p>
+  <p style="font-size:9px;color:#3b82f6;margin-top:2px">As partes deverao apresentar, pelo menos semestralmente, relatorio de atividades com avaliacao do estagiario pela empresa concedente.</p>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+  ${[["Estagiario(a)", nomeEstagiario],["Curso", cursoEstagiario],["Empresa Concedente", nomeEmpresa],["Supervisor", supervisor || "---"]].map(([l,v]) => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px"><p style="font-size:8px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:2px">${l}</p><p style="font-size:10px;font-weight:700;color:#1e293b">${v}</p></div>`).join("")}
+</div>
+<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:14px">
+  <div style="background:#f8fafc;padding:10px 14px;border-bottom:1px solid #e2e8f0">
+    <p style="font-size:11px;font-weight:900;color:#0f2a5e">Avaliacao de Desempenho</p>
+    <p style="font-size:9px;color:#94a3b8;margin-top:2px">Escala: 1 = Insuficiente | 2 = Regular | 3 = Bom | 4 = Otimo | 5 = Excelente</p>
+  </div>
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:#f8fafc">
+      <th style="text-align:left;padding:8px 10px;font-size:9px;font-weight:700;text-transform:uppercase;color:#94a3b8;width:45%">Criterio</th>
+      <th style="text-align:center;padding:8px 10px;font-size:9px;font-weight:700;text-transform:uppercase;color:#94a3b8;width:20%">Avaliacao</th>
+      <th style="text-align:center;padding:8px 10px;font-size:9px;font-weight:700;text-transform:uppercase;color:#94a3b8;width:10%">Nota</th>
+      <th style="text-align:center;padding:8px 10px;font-size:9px;font-weight:700;text-transform:uppercase;color:#94a3b8;width:15%">Conceito</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</div>
+<div style="background:${corMedia}11;border:2px solid ${corMedia};border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+  <div>
+    <p style="font-size:10px;font-weight:900;text-transform:uppercase;color:${corMedia}">Media Geral de Desempenho</p>
+    <p style="font-size:9px;color:${corMedia};opacity:0.8;margin-top:2px">Baseado nos ${CRITERIOS.length} criterios avaliados</p>
+  </div>
+  <div style="text-align:right">
+    <p style="font-size:28px;font-weight:900;color:${corMedia}">${mediaFormatada}<span style="font-size:14px">/5</span></p>
+    <p style="font-size:11px;font-weight:700;color:${corMedia}">${conceitoMedia}</p>
+  </div>
+</div>
+${observacoes ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:14px"><p style="font-size:10px;font-weight:900;color:#374151;margin-bottom:6px">Observacoes e Feedback</p><p style="font-size:10px;color:#475569;line-height:1.7;font-style:italic">"${observacoes}"</p></div>` : ""}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px">
+  <div style="text-align:center;border-top:2px solid #1e293b;padding-top:8px">
+    <p style="font-size:10px;font-weight:700;color:#1e293b">${supervisor || nomeEmpresa}</p>
+    <p style="font-size:9px;color:#94a3b8">Supervisor / Empresa Concedente</p>
+  </div>
+  <div style="text-align:center;border-top:2px solid #1e293b;padding-top:8px">
+    <p style="font-size:10px;font-weight:700;color:#1e293b">${nomeEstagiario}</p>
+    <p style="font-size:9px;color:#94a3b8">Estagiario(a)</p>
+  </div>
+</div>
+<div style="margin-top:16px;padding-top:10px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+  <p style="font-size:8px;color:#94a3b8">${cidade}, ${hoje}</p>
+  <p style="font-size:8px;color:#94a3b8">Avaliacao Semestral - Ref: ${periodo} - ${nomeAgente}</p>
+</div>
+</div></body></html>`;
+}

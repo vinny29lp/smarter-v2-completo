@@ -256,14 +256,24 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         {contract.evaluations?.length > 0 && (
           <div className="mt-4 pt-3 border-t border-slate-100">
             <p className="text-xs font-bold text-slate-500 mb-2">{contract.evaluations.length} avaliação(ões) respondida(s)</p>
-            {contract.evaluations.slice(0, 3).map((ev: any) => (
-              <div key={ev.id} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                <p className="text-xs text-slate-500">
+            {contract.evaluations.slice(0, 5).map((ev: any) => (
+              <div key={ev.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0 gap-2">
+                <p className="text-xs text-slate-500 flex-1">
                   {ev.respondidoAt ? new Date(ev.respondidoAt).toLocaleDateString("pt-BR") : new Date(ev.createdAt).toLocaleDateString("pt-BR")}
                 </p>
                 <Badge variant={ev.status === "respondido" ? "green" : "yellow"}>
                   {ev.status === "respondido" ? "Respondida" : "Pendente"}
                 </Badge>
+                {ev.status === "respondido" && (
+                  <a
+                    href={`/api/app/contratos/${params.id}/avaliacoes/${ev.id}/pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors"
+                  >
+                    📄 PDF
+                  </a>
+                )}
               </div>
             ))}
           </div>

@@ -57,6 +57,13 @@ export default function FinanceiroPage() {
 
   useEffect(() => { load(); loadConfig(); }, []);
   useEffect(() => { if (isFranqueadora) loadFranquiasPreview(); }, [isFranqueadora]);
+  // Atualiza preview quando a aba ganha foco (reflete mudanças no cadastro de franqueados)
+  useEffect(() => {
+    if (!isFranqueadora) return;
+    const onFocus = () => loadFranquiasPreview();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [isFranqueadora]);
 
   const filtrados = filtro === "TODOS" ? lancamentos : lancamentos.filter(l => l.status === filtro);
   const entradas  = lancamentos.filter(l => l.tipo==="entrada" && l.status==="PAGO").reduce((a,b)=>a+b.valor,0);
@@ -218,6 +225,12 @@ export default function FinanceiroPage() {
               </div>
             </div>
           </div>
+          {/* Fórmula de cálculo */}
+          <div className="px-5 py-2 bg-blue-50 border-b border-blue-100 flex items-center gap-3 text-xs text-blue-700 font-medium">
+            <span>📐 Fórmula:</span>
+            <span className="font-mono bg-blue-100 px-2 py-0.5 rounded">Mensalidade + (Estag. Ativos × R$ 13,00) = Total a Cobrar</span>
+            <span className="text-blue-400 text-[10px]">Atualiza automaticamente conforme os dados do cadastro</span>
+          </div>
           {franquiasPreview.length === 0 ? (
             <div className="px-5 py-6 text-center text-sm text-slate-400">Nenhum franqueado ativo encontrado.</div>
           ) : (
@@ -225,7 +238,7 @@ export default function FinanceiroPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-100">
-                    {["Franqueado","Estag. Ativos","Taxa Admin","Mensalidade","Total","Cobrar Mens."].map(h => (
+                    {["Franqueado","Estag. Ativos","Mensalidade","Taxa (×R$13)","Fórmula","Total","Cobrar"].map(h => (
                       <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wide px-4 py-2">{h}</th>
                     ))}
                   </tr>
@@ -233,12 +246,15 @@ export default function FinanceiroPage() {
                 <tbody>
                   {franquiasPreview.map((f: any) => (
                     <tr key={f.franchiseId} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
-                      <td className="px-4 py-2 text-sm font-semibold">{f.nome}</td>
-                      <td className="px-4 py-2 text-sm text-center">{f.ativosCount}</td>
-                      <td className="px-4 py-2 text-sm text-emerald-600 font-medium">{fmt(f.taxaAdmin)}</td>
-                      <td className="px-4 py-2 text-sm">{fmt(f.mensalidade)}</td>
-                      <td className="px-4 py-2 text-sm font-black text-[#0f2a5e]">{fmt(f.total)}</td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2.5 text-sm font-semibold">{f.nome}</td>
+                      <td className="px-4 py-2.5 text-sm text-center font-bold text-slate-700">{f.ativosCount}</td>
+                      <td className="px-4 py-2.5 text-sm text-slate-600">{fmt(f.mensalidade)}</td>
+                      <td className="px-4 py-2.5 text-sm text-emerald-600 font-medium">{fmt(f.taxaAdmin)}</td>
+                      <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">
+                        {fmt(f.mensalidade)} + {f.ativosCount}×R$13
+                      </td>
+                      <td className="px-4 py-2.5 text-sm font-black text-[#0f2a5e]">{fmt(f.total)}</td>
+                      <td className="px-4 py-2.5">
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${f.cobrarMensalidade ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
                           {f.cobrarMensalidade ? "Sim" : "Não"}
                         </span>
@@ -246,6 +262,13 @@ export default function FinanceiroPage() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 border-t-2 border-slate-200">
+                    <td colSpan={5} className="px-4 py-2.5 text-xs font-bold text-slate-500">TOTAL GERAL A RECEBER</td>
+                    <td className="px-4 py-2.5 text-base font-black text-[#0f2a5e]">{fmt(franquiasTotal)}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}

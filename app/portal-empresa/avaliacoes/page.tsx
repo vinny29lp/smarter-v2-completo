@@ -107,29 +107,51 @@ function AvaliacoesContent() {
                 </div>
               </div>
 
-              {/* Última avaliação */}
-              {c.evaluations?.[0]?.respostas && (
+              {/* Avaliações respondidas */}
+              {c.evaluations?.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-100">
-                  <p className="text-xs font-bold text-slate-500 mb-2">Última avaliação</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    {CRITERIOS.map(crit => {
-                      const nota = (c.evaluations[0].respostas as any)[crit.key] || 0;
-                      return (
-                        <div key={crit.key} className="bg-slate-50 rounded-xl p-2">
-                          <p className="text-[10px] text-slate-400">{crit.label}</p>
-                          <div className="flex items-center gap-1 mt-1">
-                            {[1,2,3,4,5].map(n => (
-                              <div key={n} className={`w-4 h-4 rounded-full ${n <= nota ? "bg-[#0f2a5e]" : "bg-slate-200"}`}/>
-                            ))}
-                            <span className="text-xs font-bold ml-1">{nota}/5</span>
+                  <p className="text-xs font-bold text-slate-500 mb-2">{c.evaluations.length} avaliação(ões) respondida(s)</p>
+
+                  {/* Última avaliação — notas */}
+                  {c.evaluations[0]?.respostas && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+                      {CRITERIOS.map(crit => {
+                        const nota = (c.evaluations[0].respostas as any)[crit.key] || 0;
+                        return (
+                          <div key={crit.key} className="bg-slate-50 rounded-xl p-2">
+                            <p className="text-[10px] text-slate-400">{crit.label}</p>
+                            <div className="flex items-center gap-1 mt-1">
+                              {[1,2,3,4,5].map(n => (
+                                <div key={n} className={`w-4 h-4 rounded-full ${n <= nota ? "bg-[#0f2a5e]" : "bg-slate-200"}`}/>
+                              ))}
+                              <span className="text-xs font-bold ml-1">{nota}/5</span>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {c.evaluations[0].observacoes && (
-                    <p className="text-xs text-slate-500 mt-2 italic">"{c.evaluations[0].observacoes}"</p>
+                        );
+                      })}
+                    </div>
                   )}
+                  {c.evaluations[0]?.observacoes && (
+                    <p className="text-xs text-slate-500 mb-3 italic">"{c.evaluations[0].observacoes}"</p>
+                  )}
+
+                  {/* Links PDF para cada avaliação */}
+                  <div className="flex flex-wrap gap-2">
+                    {c.evaluations.map((ev: any, idx: number) => (
+                      <a
+                        key={ev.id}
+                        href={`/api/app/contratos/${c.id}/avaliacoes/${ev.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors"
+                      >
+                        📄 Baixar PDF {c.evaluations.length > 1 ? `(${idx + 1})` : ""}
+                        {ev.respondidoAt && (
+                          <span className="text-blue-400 font-normal">{new Date(ev.respondidoAt).toLocaleDateString("pt-BR")}</span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
             </Card>

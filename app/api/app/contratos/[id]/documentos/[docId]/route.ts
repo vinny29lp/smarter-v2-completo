@@ -8,6 +8,41 @@ import {
 import { validateTCE } from "@/lib/documents/validate";
 import { NextResponse } from "next/server";
 
+// ── Helper: lançamento automático de taxa de administração ──────────────────
+async function criarLancamentoTaxaAdmin(contractId: string) {
+  try {
+    const contrato = await prisma.contract.findUnique({
+      where: { id: contractId },
+      select: {
+        valorEmpresa: true, companyId: true, franchiseId: true,
+        vencimento: true, student: { select: { name: true } },
+      },
+    });
+    if (!contrato?.valorEmpresa || contrato.valorEmpresa <= 0) return;
+    const jaExiste = await prisma.financial.findFirst({
+      where: { contractId, categoria: "Taxa Admin" },
+    });
+    if (jaExiste) return;
+    const mesAtual = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    await prisma.financial.create({
+      data: {
+        descricao: `Taxa Admin — ${contrato.student?.name} — ${mesAtual}`,
+        tipo: "entrada",
+        valor: contrato.valorEmpresa,
+        categoria: "Taxa Admin",
+        status: "PENDENTE",
+        recorrente: true,
+        diaVencimento: contrato.vencimento || 5,
+        contractId,
+        companyId: contrato.companyId,
+        franchiseId: contrato.franchiseId,
+      } as any,
+    });
+  } catch (e) {
+    console.error("[Financeiro] criarLancamentoTaxaAdmin:", e);
+  }
+}
+
 export async function POST(
   req: Request,
   { params }: { params: { id: string; docId: string } }
@@ -118,6 +153,8 @@ export async function PATCH(
     // Auto-ativar contrato quando TCE 100% assinado pelos 3
     if (todosAssinaram && doc.tipo === "tce") {
       await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO" as any } });
+      // Lançamento automático de Taxa de Administração
+      await criarLancamentoTaxaAdmin(params.id);
     }
 
     return NextResponse.json({ document: updated, todosAssinaram, novoStatus });
@@ -136,6 +173,7 @@ export async function PATCH(
   // Auto-ativar contrato quando TCE marcado como ASSINADO diretamente
   if (body.status === "ASSINADO" && doc.tipo === "tce") {
     await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO" as any } });
+    await criarLancamentoTaxaAdmin(params.id);
   }
 
   return NextResponse.json({ document: updated });
