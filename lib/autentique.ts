@@ -8,6 +8,15 @@ import { getSystemConfig } from "./getConfig";
 
 const AUTENTIQUE_API = "https://api.autentique.com.br/v2/graphql";
 
+/**
+ * E-mails internos do Autentique que são adicionados automaticamente como
+ * signatários quando um documento é criado via API (dono da conta / sistema).
+ * Eles não devem aparecer na interface nem entrar no cálculo de allSigned.
+ */
+export const AUTENTIQUE_INTERNAL_EMAILS = [
+  "assinaturas@smarterestagios.com.br",
+];
+
 export interface AutentiqueSignatario {
   email: string;
   nome?: string;
@@ -186,18 +195,21 @@ export async function buscarStatusAutentique(docId: string): Promise<AutentiqueD
   const doc = json.data?.document;
   if (!doc) throw new Error("Documento não encontrado no Autentique.");
 
-  const signers: AutentiqueSignerStatus[] = (doc.signatures || []).map((s: any) => ({
-    email: s.email,
-    name: s.name,
-    action: s.action?.name,
-    signed: !!s.signed,
-    signedAt: s.signed?.created_at || undefined,
-    rejected: !!s.rejected,
-    rejectedAt: s.rejected?.created_at || undefined,
-    viewed: !!s.viewed,
-    viewedAt: s.viewed?.created_at || undefined,
-    link: s.link?.short_link,
-  }));
+  const signers: AutentiqueSignerStatus[] = (doc.signatures || [])
+    // Excluir e-mails internos do Autentique (dono da conta, adicionados automaticamente)
+    .filter((s: any) => !AUTENTIQUE_INTERNAL_EMAILS.includes((s.email || "").toLowerCase()))
+    .map((s: any) => ({
+      email: s.email,
+      name: s.name,
+      action: s.action?.name,
+      signed: !!s.signed,
+      signedAt: s.signed?.created_at || undefined,
+      rejected: !!s.rejected,
+      rejectedAt: s.rejected?.created_at || undefined,
+      viewed: !!s.viewed,
+      viewedAt: s.viewed?.created_at || undefined,
+      link: s.link?.short_link,
+    }));
 
   const allSigned = signers.length > 0 && signers.every(s => s.signed);
 

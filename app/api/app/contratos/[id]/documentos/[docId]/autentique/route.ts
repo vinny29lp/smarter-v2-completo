@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { enviarParaAutentique, buscarStatusAutentique, AutentiqueSignatario } from "@/lib/autentique";
+import { enviarParaAutentique, buscarStatusAutentique, AutentiqueSignatario, AUTENTIQUE_INTERNAL_EMAILS } from "@/lib/autentique";
 import { enviarNotificacaoAssinatura } from "@/lib/email";
 
 export async function POST(
@@ -74,12 +74,17 @@ export async function POST(
 
     const existingMeta = (document.metaData as any) || {};
 
+    // Filtrar e-mails internos do Autentique antes de salvar (ex: dono da conta)
+    const signatariosReais = (resultado.signatures || []).filter(
+      (s: any) => !AUTENTIQUE_INTERNAL_EMAILS.includes((s.email || "").toLowerCase())
+    );
+
     await prisma.internshipDocument.update({
       where: { id: params.docId },
       data: {
         status: "ENVIADO_ASSINATURA",
         authDocId: resultado.id,
-        signers: resultado.signatures as any,
+        signers: signatariosReais as any,
         metaData: {
           ...existingMeta,
           signerLabels,
@@ -112,7 +117,7 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       autentiqueId: resultado.id,
-      signers: resultado.signatures,
+      signers: signatariosReais,
       message: `Documento enviado para ${emails.length} signatário(s) via Autentique.`,
     });
 
