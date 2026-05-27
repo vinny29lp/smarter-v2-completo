@@ -49,7 +49,14 @@ export async function createContract(data: any) {
   // ── Validações antecipadas com mensagens legíveis ──────────────
   if (!data.studentId)   throw new Error("Selecione o Estudante antes de continuar.");
   if (!data.companyId)   throw new Error("Selecione a Empresa antes de continuar.");
-  if (!data.franchiseId) throw new Error("Franquia não identificada. Recarregue a página e tente novamente.");
+  // Se franchiseId não veio (FRANQUEADORA não tem franchiseId na sessão),
+  // deriva da empresa selecionada
+  if (!data.franchiseId) {
+    if (!data.companyId) throw new Error("Selecione a Empresa antes de continuar.");
+    const co = await prisma.company.findUnique({ where: { id: data.companyId }, select: { franchiseId: true } });
+    if (!co?.franchiseId) throw new Error("A empresa selecionada não está vinculada a nenhuma franquia. Verifique o cadastro da empresa.");
+    data.franchiseId = co.franchiseId;
+  }
   if (!data.bolsa || isNaN(Number(data.bolsa)))
     throw new Error("Informe um valor de Bolsa válido.");
   if (!data.dataInicio || isNaN(new Date(data.dataInicio).getTime()))

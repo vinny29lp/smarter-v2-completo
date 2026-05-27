@@ -76,8 +76,8 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   if (!estudante) return NextResponse.json({ error: "Estudante não encontrado" }, { status: 404 });
 
   await prisma.$transaction(async (tx) => {
-    // Delete contract documents related to student's contracts
-    await tx.contractDocument.deleteMany({ where: { contract: { studentId: params.id } } });
+    // Delete internship documents related to student's contracts
+    await tx.internshipDocument.deleteMany({ where: { contract: { studentId: params.id } } });
     // Delete contracts
     await tx.contract.deleteMany({ where: { studentId: params.id } });
     // Delete applications

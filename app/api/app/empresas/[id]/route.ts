@@ -89,8 +89,8 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   await prisma.$transaction(async (tx) => {
     // Delete evaluations linked to contracts
     await tx.evaluation.deleteMany({ where: { contract: { companyId: params.id } } });
-    // Delete contract documents
-    await tx.contractDocument.deleteMany({ where: { contract: { companyId: params.id } } });
+    // Delete internship documents linked to contracts
+    await tx.internshipDocument.deleteMany({ where: { contract: { companyId: params.id } } });
     // Delete contracts
     await tx.contract.deleteMany({ where: { companyId: params.id } });
     // Delete applications for this company's vacancies
