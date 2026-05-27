@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -9,9 +10,12 @@ import { EmpresaForm } from "@/components/forms/EmpresaForm";
 
 export function EmpresaActions({ empresa }: { empresa: any }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isFranqueadora = (session?.user as any)?.role === "FRANQUEADORA";
   const [editModal, setEditModal] = useState(false);
   const [senhaModal, setSenhaModal] = useState(false);
   const [emailModal, setEmailModal] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [savingAcesso, setSavingAcesso] = useState(false);
   const [acessoMsg, setAcessoMsg] = useState<string|null>(null);
@@ -68,6 +72,17 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
       router.refresh();
     }
     setLoading(false);
+  };
+
+  const excluirEmpresa = async () => {
+    setLoading(true);
+    const res = await fetch(`/api/app/empresas/${empresa.id}`, { method: "DELETE" });
+    const data = await res.json();
+    setLoading(false);
+    if (data.error) { alert("Erro: " + data.error); return; }
+    setDeleteModal(false);
+    router.push("/dashboard/empresas");
+    router.refresh();
   };
 
   const inativar = async () => {
@@ -147,7 +162,31 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
             ✉️ Enviar E-mail
           </a>
         )}
+        {isFranqueadora && (
+          <Button variant="danger" className="w-full justify-center mt-2" onClick={() => setDeleteModal(true)} disabled={loading}>
+            🗑️ Excluir Empresa
+          </Button>
+        )}
       </div>
+
+      {/* Modal: Confirmar Exclusão da Empresa */}
+      <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="Excluir Empresa">
+        <div className="space-y-4">
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+            <p className="text-sm font-bold text-red-800">⚠️ Atenção: Ação Irreversível</p>
+            <p className="text-sm text-red-700 mt-1">
+              Isso irá excluir permanentemente <strong>{empresa.name}</strong> e todos os dados relacionados: contratos, documentos, vagas, candidaturas e acesso ao portal.
+            </p>
+          </div>
+          <p className="text-sm text-slate-600">Tem certeza que deseja excluir esta empresa?</p>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setDeleteModal(false)} className="flex-1 justify-center">Cancelar</Button>
+            <Button variant="danger" onClick={excluirEmpresa} disabled={loading} className="flex-1 justify-center">
+              {loading ? "Excluindo..." : "Sim, Excluir"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal: Alterar Senha do Portal da Empresa */}
       <Modal open={senhaModal} onClose={() => { setSenhaModal(false); setNovaSenha(""); }} title="Alterar Senha do Portal">

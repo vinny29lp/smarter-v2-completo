@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +19,9 @@ const discInfo: Record<string,{nome:string;cor:string;corBg:string;emoji:string;
 export default function EstudanteDetailPage() {
   const params = useParams();
   const search = useSearchParams();
+  const router = useRouter();
+  const { data: session } = useSession();
+  const isFranqueadora = (session?.user as any)?.role === "FRANQUEADORA";
   const [student, setStudent] = useState<any>(null);
   const [vagas, setVagas] = useState<any[]>([]);
   const [processoModal, setProcessoModal] = useState(search.get("acao")==="processo");
@@ -27,6 +31,8 @@ export default function EstudanteDetailPage() {
   // Modais de acesso
   const [senhaModal, setSenhaModal] = useState(false);
   const [emailModal, setEmailModal] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [novaSenha, setNovaSenha] = useState("");
   const [novoEmail, setNovoEmail] = useState("");
   const [savingAcesso, setSavingAcesso] = useState(false);
@@ -81,6 +87,16 @@ export default function EstudanteDetailPage() {
     else { setMsg("✅ E-mail de login alterado!"); setEmailModal(false); setNovoEmail(""); loadStudent(); }
   };
 
+  const excluirEstudante = async () => {
+    setDeleting(true);
+    const res = await fetch(`/api/app/estudantes/${params.id}`, { method: "DELETE" });
+    const data = await res.json();
+    setDeleting(false);
+    if (data.error) { setMsg("❌ " + data.error); setDeleteModal(false); return; }
+    router.push("/dashboard/estudantes");
+    router.refresh();
+  };
+
   if (!student) return <div className="p-8 text-center text-slate-400">Carregando...</div>;
 
   const disc = student.discResult ? discInfo[student.discResult] : null;
@@ -110,8 +126,11 @@ export default function EstudanteDetailPage() {
               <Button variant="secondary" size="sm" onClick={()=>setSenhaModal(true)}>🔑 Alterar Senha</Button>
             </>
           )}
-          <Button variant="secondary" onClick={()=>{ const a=document.createElement("a"); a.href=`/api/app/estudantes/${student.id}/curriculo`; a.download=`curriculo-${student.name?.replace(/\s+/g,"-").toLowerCase()}.html`; a.click(); }}>📄 Baixar Currículo + DISC</Button>
+          <Button variant="secondary" onClick={()=>window.open(`/api/app/estudantes/${student.id}/curriculo`, "_blank")}>📄 Baixar Currículo + DISC (PDF)</Button>
           <Button onClick={()=>setProcessoModal(true)}>+ Enviar para Vaga</Button>
+          {isFranqueadora && (
+            <Button variant="danger" size="sm" onClick={() => setDeleteModal(true)}>🗑️ Excluir</Button>
+          )}
         </div>
       </div>
 
@@ -281,6 +300,25 @@ export default function EstudanteDetailPage() {
           <div className="flex gap-3">
             <Button variant="secondary" onClick={()=>{ setEmailModal(false); setNovoEmail(""); }}>Cancelar</Button>
             <Button onClick={alterarEmail} disabled={savingAcesso||!novoEmail}>{savingAcesso?"Salvando...":"Alterar E-mail"}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Confirmar Exclusão do Estudante */}
+      <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="Excluir Estudante">
+        <div className="space-y-4">
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+            <p className="text-sm font-bold text-red-800">⚠️ Atenção: Ação Irreversível</p>
+            <p className="text-sm text-red-700 mt-1">
+              Isso irá excluir permanentemente <strong>{student.name}</strong> e todos os dados relacionados: contratos, documentos, candidaturas e acesso ao portal do estudante.
+            </p>
+          </div>
+          <p className="text-sm text-slate-600">Tem certeza que deseja excluir este estudante?</p>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setDeleteModal(false)} className="flex-1 justify-center">Cancelar</Button>
+            <Button variant="danger" onClick={excluirEstudante} disabled={deleting} className="flex-1 justify-center">
+              {deleting ? "Excluindo..." : "Sim, Excluir"}
+            </Button>
           </div>
         </div>
       </Modal>

@@ -1,8 +1,8 @@
 #!/bin/bash
-# Deploy: Sistema Smarter — batch 2 (6 ajustes de funcionalidade)
+# Deploy: Sistema Smarter — batch 3 (DISC completo, mobile fix, PDF, delete empresa/estudante)
 cd "$(dirname "$0")"
 
-echo "🚀 Deploying Sistema Smarter — Batch 2..."
+echo "🚀 Deploying Sistema Smarter — Batch 3..."
 echo ""
 
 # Remove TODOS os lock files do git
@@ -20,30 +20,38 @@ rm -f .git/HEAD.lock .git/index.lock .git/ORIG_HEAD.lock 2>/dev/null
 echo ""
 echo "📦 Adicionando arquivos alterados..."
 
-# ── TASK 8: DISC salvo e visualizável no painel do estudante ──────────────
+# ── BATCH 2 (already deployed, keeping for safety) ──────────────────────────
 git add "app/portal-estudante/disc/page.tsx"
 git add "app/portal-estudante/page.tsx"
 git add "app/api/portal/estudante/disc-relatorio/route.ts"
-
-# ── TASK 9: DISC completo no currículo (já estava pronto, sem mudanças) ────
-
-# ── TASK 10: Processo seletivo vinculado a cada vaga ────────────────────────
 git add "app/dashboard/vagas/[id]/page.tsx"
 git add "app/dashboard/processos/page.tsx"
 git add "app/api/app/processos/route.ts"
-
-# ── TASK 11: CPS movido para aba Empresa ────────────────────────────────────
 git add "lib/actions/contracts.ts"
 git add "prisma/schema.prisma"
 git add "app/api/app/empresas/[id]/cps/route.ts"
 git add "app/dashboard/empresas/[id]/EmpresaActions.tsx"
 git add "app/dashboard/empresas/[id]/page.tsx"
-
-# ── TASK 12: Avaliação semestral online ──────────────────────────────────────
 git add "lib/email.ts"
 git add "app/api/portal/empresa/avaliacoes/route.ts"
 git add "app/api/app/contratos/[id]/enviar-avaliacao/route.ts"
 git add "app/dashboard/contratos/[id]/page.tsx"
+
+# ── BATCH 3: DISC mobile fix + PDF auto-print ───────────────────────────────
+git add "lib/pdf-wrapper.ts"
+git add "app/dashboard/contratos/[id]/documentos/[docId]/page.tsx"
+git add "app/api/app/estudantes/[id]/curriculo/route.ts"
+
+# ── BATCH 3: DISC completo (radar, motivadores, liderança, carreiras) ────────
+git add "lib/documents/disc-report.ts"
+git add "app/dashboard/processos/page.tsx"
+git add "app/api/portal/estudante/disc-relatorio/route.ts"
+
+# ── BATCH 3: Delete empresa/estudante para FRANQUEADORA ──────────────────────
+git add "app/api/app/empresas/[id]/route.ts"
+git add "app/api/app/estudantes/[id]/route.ts"
+git add "app/dashboard/empresas/[id]/EmpresaActions.tsx"
+git add "app/dashboard/estudantes/[id]/page.tsx"
 
 # Deploy script atualizado
 git add deploy-sistema-smarter.command
@@ -62,7 +70,7 @@ fi
 
 echo ""
 echo "💾 Criando commit..."
-git commit -m "feat: batch-2 — DISC persist, processo seletivo por vaga, CPS na empresa, avaliacao semestral online"
+git commit -m "feat: batch-3 — DISC completo com radar/motivadores/liderança/carreiras, PDF auto-print, mobile fix, delete empresa/estudante"
 
 echo "🚀 Fazendo push..."
 git push origin main

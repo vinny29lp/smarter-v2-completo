@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { wrapParaPDF } from "@/lib/pdf-wrapper";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
 
@@ -138,7 +139,7 @@ export async function GET(
     return NextResponse.json({ error: "Defina o valor de gestão por estagiário antes de gerar o contrato." }, { status: 400 });
   }
 
-  const html = gerarHtmlCPS(empresa, empresa.franchise, valorGestao);
+  const html = wrapParaPDF(gerarHtmlCPS(empresa, empresa.franchise, valorGestao), `CPS — ${empresa.name}`);
   return new Response(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",

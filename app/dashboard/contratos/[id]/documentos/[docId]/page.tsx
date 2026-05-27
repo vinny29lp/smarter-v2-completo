@@ -130,15 +130,18 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
     setDoc(data.document); setHtml(data.html); setExtraModal(false); setLoading(false);
   };
 
-  const downloadHTML = () => {
-    const blob = new Blob([html], { type:"text/html" });
+  const openAsPDF = () => {
+    // Inject auto-print into the HTML so browser opens Save-as-PDF dialog
+    const printHtml = html.includes("</body>")
+      ? html.replace("</body>", `<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},300);});</script></body>`)
+      : html + `<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},300);});</script>`;
+    const blob = new Blob([printHtml], { type:"text/html" });
     const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href = url; a.download = `${doc?.titulo?.replace(/\s+/g,"-")||"documento"}.html`; a.click();
-    URL.revokeObjectURL(url);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
-  const printDoc = () => iframeRef.current?.contentWindow?.print();
+  const printDoc = () => openAsPDF();
 
   const enviarParaAutentique = async () => {
     setAutentiqueLoading(true); setAlertas([]); setAutentiqueSuccess(null);
@@ -268,8 +271,8 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
           </Button>
           {gerado && (
             <>
-              <Button variant="secondary" onClick={downloadHTML}>⬇ HTML</Button>
-              <Button variant="secondary" onClick={printDoc}>🖨 Imprimir/PDF</Button>
+              <Button variant="secondary" onClick={openAsPDF}>⬇ Baixar PDF</Button>
+              <Button variant="secondary" onClick={() => iframeRef.current?.contentWindow?.print()}>🖨 Imprimir</Button>
             </>
           )}
           {gerado && !assinado && (

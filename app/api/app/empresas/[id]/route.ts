@@ -70,3 +70,43 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   });
   return NextResponse.json({ empresa });
 }
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "FRANQUEADORA") {
+    return NextResponse.json({ error: "Apenas FRANQUEADORA pode excluir empresas" }, { status: 403 });
+  }
+
+  const empresa = await prisma.company.findUnique({
+    where: { id: params.id },
+    include: {
+      contracts: true,
+      vacancies: true,
+    },
+  });
+  if (!empresa) return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
+
+  await prisma.$transaction(async (tx) => {
+    // Delete evaluations linked to contracts
+    await tx.evaluation.deleteMany({ where: { contract: { companyId: params.id } } });
+    // Delete contract documents
+    await tx.contractDocument.deleteMany({ where: { contract: { companyId: params.id } } });
+    // Delete contracts
+    await tx.contract.deleteMany({ where: { companyId: params.id } });
+    // Delete applications for this company's vacancies
+    for (const vaga of empresa.vacancies) {
+      await tx.application.deleteMany({ where: { vacancyId: vaga.id } });
+    }
+    // Delete vacancies
+    await tx.vacancy.deleteMany({ where: { companyId: params.id } });
+    // Delete financials
+    await tx.financial.deleteMany({ where: { companyId: params.id } });
+    // Delete the user account if it exists
+    const user = await tx.user.findFirst({ where: { companyId: params.id } });
+    if (user) await tx.user.delete({ where: { id: user.id } });
+    // Delete the company
+    await tx.company.delete({ where: { id: params.id } });
+  });
+
+  return NextResponse.json({ ok: true });
+}

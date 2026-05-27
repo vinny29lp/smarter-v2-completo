@@ -58,3 +58,30 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const estudante = await prisma.student.update({ where: { id: params.id }, data: body });
   return NextResponse.json({ estudante });
 }
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "FRANQUEADORA") {
+    return NextResponse.json({ error: "Apenas FRANQUEADORA pode excluir estudantes" }, { status: 403 });
+  }
+
+  const estudante = await prisma.student.findUnique({ where: { id: params.id } });
+  if (!estudante) return NextResponse.json({ error: "Estudante não encontrado" }, { status: 404 });
+
+  await prisma.$transaction(async (tx) => {
+    // Delete contract documents related to student's contracts
+    await tx.contractDocument.deleteMany({ where: { contract: { studentId: params.id } } });
+    // Delete contracts
+    await tx.contract.deleteMany({ where: { studentId: params.id } });
+    // Delete applications
+    await tx.application.deleteMany({ where: { studentId: params.id } });
+    // Delete the user account if it exists
+    if (estudante.userId) {
+      await tx.user.delete({ where: { id: estudante.userId } }).catch(() => null);
+    }
+    // Delete the student
+    await tx.student.delete({ where: { id: params.id } });
+  });
+
+  return NextResponse.json({ ok: true });
+}

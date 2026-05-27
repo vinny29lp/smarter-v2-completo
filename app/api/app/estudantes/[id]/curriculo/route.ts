@@ -2,45 +2,83 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { wrapParaPDF } from "@/lib/pdf-wrapper";
 
 const DISC_FULL: Record<string, any> = {
   D: {
-    titulo: "Dominante", cor: "#dc2626",
+    titulo: "Dominante", cor: "#dc2626", emoji: "🔴",
     descricao: "Orientado a resultados, direto e assertivo. Age com rapidez, assume o controle e gosta de desafios.",
     pontosFortes: ["Liderança e tomada de decisão","Foco em resultados e metas","Determinação e persistência","Motivação de equipes em crise","Ação rápida em situações críticas"],
     pontosMelhoria: ["Desenvolver paciência e escuta ativa","Considerar sentimentos da equipe","Aprender a delegar","Moderar a impulsividade","Praticar empatia"],
     vagasIdeais: ["Gerente de vendas","Líder de projetos","Empreendedor","Diretor comercial","Coordenador de operações"],
     ambienteIdeal: "Ambientes desafiadores, com autonomia, metas claras e oportunidades de liderança.",
     comunicacao: "Seja direto, objetivo e focado em resultados. Evite detalhes desnecessários.",
+    motivadores: "Poder e autoridade · Desafios e competição · Liberdade para agir · Resultados mensuráveis · Reconhecimento por conquistas",
+    lideranca: "Líder orientado a resultados. Define metas ambiciosas, toma decisões rapidamente e espera execução eficiente. Funciona melhor com autonomia total e desafios constantes.",
+    carreiras: "Empreendedorismo · Gestão executiva · Vendas de alto nível · Advocacia · Política · Gestão de projetos · Diretoria",
   },
   I: {
-    titulo: "Influente", cor: "#f59e0b",
+    titulo: "Influente", cor: "#f59e0b", emoji: "🟡",
     descricao: "Entusiasta, comunicativo e inspirador. Destaca-se pela energia positiva, criatividade e persuasão.",
     pontosFortes: ["Comunicação e persuasão","Criação de relacionamentos","Motivação de equipes","Criatividade e inovação","Alta energia e entusiasmo"],
     pontosMelhoria: ["Desenvolver organização e disciplina","Melhorar a gestão do tempo","Aprofundar análise antes de decidir","Manter o foco em uma tarefa","Cumprir prazos com consistência"],
     vagasIdeais: ["Vendas e relacionamento","Marketing e comunicação","RH e T&D","Relações públicas","Atendimento ao cliente"],
     ambienteIdeal: "Ambientes sociais, criativos, com reconhecimento e variedade de atividades.",
     comunicacao: "Use entusiasmo, reconheça suas ideias e crie conexão pessoal antes de tratar de negócios.",
+    motivadores: "Reconhecimento social · Novas experiências · Trabalho em equipe · Liberdade de expressão · Influência sobre outros",
+    lideranca: "Líder inspirador e motivador. Cria ambientes positivos e entusiasma a equipe. Excelente para engajar pessoas em projetos novos.",
+    carreiras: "Marketing e Publicidade · Recursos Humanos · Relações Públicas · Treinamento · Vendas · Coaching · Educação · Comunicação",
   },
   S: {
-    titulo: "Estável", cor: "#16a34a",
+    titulo: "Estável", cor: "#16a34a", emoji: "🟢",
     descricao: "Colaborativo, paciente e confiável. Valoriza harmonia, consistência e relações duradouras.",
     pontosFortes: ["Confiabilidade e consistência","Trabalho em equipe","Paciência e escuta ativa","Lealdade e comprometimento","Estabilidade emocional"],
     pontosMelhoria: ["Desenvolver assertividade","Aprender a lidar com mudanças rápidas","Comunicar discordâncias","Tomar decisões com mais agilidade","Sair da zona de conforto"],
     vagasIdeais: ["Analista administrativo","Assistente de RH","Suporte ao cliente","Educação e treinamento","Saúde e assistência social"],
     ambienteIdeal: "Ambientes estáveis, previsíveis, com bom relacionamento interpessoal e propósito claro.",
     comunicacao: "Crie um ambiente de confiança, seja paciente e demonstre estabilidade nas relações.",
+    motivadores: "Segurança e estabilidade · Relações de confiança · Reconhecimento por lealdade · Harmonia · Sentimento de pertencimento",
+    lideranca: "Líder servidor e colaborativo. Prioriza o bem-estar da equipe e cria ambientes harmoniosos. Excelente mediador de conflitos.",
+    carreiras: "Recursos Humanos · Psicologia · Enfermagem · Assistência Social · Educação · Serviço ao cliente · Administração",
   },
   C: {
-    titulo: "Consciente", cor: "#2563eb",
+    titulo: "Consciente", cor: "#2563eb", emoji: "🔵",
     descricao: "Analítico, meticuloso e preciso. Toma decisões baseadas em dados, prima pela qualidade e exatidão.",
     pontosFortes: ["Análise e pensamento crítico","Atenção a detalhes e qualidade","Planejamento e organização","Rigor técnico e precisão","Soluções bem estruturadas"],
     pontosMelhoria: ["Desenvolver flexibilidade","Comunicação interpessoal","Equilibrar perfeição com prazos","Agir em situações de incerteza","Delegar tarefas sem microgerenciar"],
     vagasIdeais: ["Analista de dados","Contabilidade e finanças","TI e desenvolvimento","Engenharia e qualidade","Jurídico e compliance"],
     ambienteIdeal: "Ambientes estruturados, com padrões claros, dados concretos e tempo para análise.",
     comunicacao: "Forneça dados, documentação e tempo para análise. Evite decisões impulsivas.",
+    motivadores: "Qualidade e excelência · Expertise e conhecimento · Processos estruturados · Independência analítica · Precisão",
+    lideranca: "Líder analítico e sistemático. Define processos claros e padrões elevados. Toma decisões baseadas em dados e rigor técnico.",
+    carreiras: "Engenharia · Finanças e Contabilidade · Ciência de Dados · Direito · Medicina · Pesquisa · Auditoria · TI · Arquitetura",
   },
 };
+
+// Generate radar chart SVG for DISC profile
+function radarSVG(scores: Record<string, number>): string {
+  const cx = 100, cy = 100, r = 75;
+  const labels = ["D","I","S","C"];
+  const cores: Record<string,string> = {D:"#ef4444",I:"#eab308",S:"#22c55e",C:"#3b82f6"};
+  const angles = labels.map((_,i) => (i * Math.PI * 2) / 4 - Math.PI / 2);
+  const max = Math.max(...Object.values(scores).map(Number), 1);
+  const pts = labels.map((l,i) => {
+    const pct = Number(scores[l] || 0) / max;
+    return { x: cx + r * pct * Math.cos(angles[i]), y: cy + r * pct * Math.sin(angles[i]) };
+  });
+  const poly = pts.map(p => `${p.x},${p.y}`).join(" ");
+  const grid = [0.25,0.5,0.75,1].map(lvl =>
+    `<polygon points="${angles.map(a=>`${cx+r*lvl*Math.cos(a)},${cy+r*lvl*Math.sin(a)}`).join(" ")}" fill="none" stroke="#e2e8f0" stroke-width="0.8"/>`
+  ).join("");
+  const axes = angles.map(a => `<line x1="${cx}" y1="${cy}" x2="${cx+r*Math.cos(a)}" y2="${cy+r*Math.sin(a)}" stroke="#e2e8f0" stroke-width="0.8"/>`).join("");
+  const lbls = labels.map((l,i) => {
+    const lx = cx + (r+16)*Math.cos(angles[i]);
+    const ly = cy + (r+16)*Math.sin(angles[i]);
+    return `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="900" fill="${cores[l]}">${l}</text>`;
+  }).join("");
+  const dots = pts.map((p,i) => `<circle cx="${p.x}" cy="${p.y}" r="4" fill="${cores[labels[i]]}"/>`).join("");
+  return `<svg viewBox="0 0 200 200" style="width:160px;height:160px;display:block;margin:0 auto">${grid}${axes}<polygon points="${poly}" fill="rgba(15,42,94,0.12)" stroke="#0f2a5e" stroke-width="2"/>${dots}${lbls}</svg>`;
+}
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -53,20 +91,20 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (!s) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const disc = s.discResult ? DISC_FULL[s.discResult.charAt(0).toUpperCase()] : null;
-  const scores = (s.discData as any) || {};
-  const maxScore = Math.max(...Object.values(scores).map(Number), 1);
+  // discData stored as { grafico: { D, I, S, C }, resultado, respostas, realizadoEm }
+  const rawDiscData = (s.discData as any) || {};
+  const scores: Record<string, number> = rawDiscData.grafico || rawDiscData || {};
 
   const barras = disc ? Object.entries(DISC_FULL).map(([k, v]) => {
-    const val = Number(scores[k] || 0);
-    const pct = Math.round((val / maxScore) * 100);
+    const pct = Number(scores[k] || 0); // values are already 0-100 percentages
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
       <div style="width:16px;font-weight:900;font-size:12px;color:${v.cor}">${k}</div>
       <div style="flex:1;background:#f1f5f9;border-radius:4px;overflow:hidden;height:18px">
         <div style="height:18px;background:${v.cor};border-radius:4px;width:${pct}%;padding-left:6px;display:flex;align-items:center">
-          ${pct > 15 ? `<span style="font-size:10px;color:white;font-weight:700">${val}</span>` : ""}
+          ${pct > 15 ? `<span style="font-size:10px;color:white;font-weight:700">${pct}%</span>` : ""}
         </div>
       </div>
-      <span style="width:28px;font-size:10px;color:#64748b;font-weight:600">${val}</span>
+      <span style="width:32px;font-size:10px;color:#64748b;font-weight:700">${pct}%</span>
       ${k === s.discResult?.charAt(0).toUpperCase() ? `<span style="font-size:9px;font-weight:900;color:${v.cor}">✓</span>` : ""}
     </div>`;
   }).join("") : "";
@@ -179,7 +217,7 @@ ${habilidades.length > 0 || idiomas.length > 0 ? `
 </div>` : ""}
 
 ${disc ? `
-<!-- ═══════════════════ RELATÓRIO DISC ═══════════════════ -->
+<!-- ═══════════════════ RELATÓRIO DISC COMPLETO ═══════════════════ -->
 <div style="page-break-before:always;padding-top:10mm">
 
 <div class="dh" style="background:linear-gradient(135deg,${disc.cor}cc,${disc.cor}99)">
@@ -191,29 +229,41 @@ ${disc ? `
   </div>
   <div class="dh-right">
     <div class="dh-badge" style="background:${disc.cor}">Perfil ${disc.titulo}</div>
-    <div style="font-size:22px;margin-top:4px">🎯</div>
+    <div style="font-size:20px;margin-top:4px">${disc.emoji}</div>
   </div>
 </div>
 
-<!-- Descrição do perfil -->
+<!-- Perfil Predominante -->
 ${box("Perfil Predominante — " + s.discResult + " · " + disc.titulo,
   `<p style="font-size:11px;color:#374151;line-height:1.6">${disc.descricao}</p>`, disc.cor)}
 
-<!-- Gráfico -->
-${box("Distribuição DISC — Pontuação por Dimensão", `${barras}<p style="font-size:9px;color:#9ca3af;margin-top:6px;font-style:italic">D=Dominante · I=Influente · S=Estável · C=Consciente</p>`, disc.cor)}
+<!-- Distribuição + Mapa Radar lado a lado -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+  ${box("📊 Distribuição DISC — Percentuais", `${barras}<p style="font-size:9px;color:#9ca3af;margin-top:6px;font-style:italic">D=Dominante · I=Influente · S=Estável · C=Consciente</p>`, disc.cor)}
+  ${box("🗺️ Mapa de Perfil", `${radarSVG(scores)}<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;justify-content:center">${Object.keys(DISC_FULL).map(k=>`<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:${DISC_FULL[k].cor}22;color:${DISC_FULL[k].cor}">${k}: ${Number(scores[k]||0)}%</span>`).join("")}</div>`, disc.cor)}
+</div>
 
+<!-- Pontos Fortes e de Desenvolvimento -->
 <div class="grid2">
   ${box("✅ Pontos Fortes", ul(disc.pontosFortes), "#16a34a")}
   ${box("📈 Pontos de Desenvolvimento", ul(disc.pontosMelhoria), "#dc2626")}
 </div>
 
+<!-- Comunicação e Ambiente -->
 <div class="grid2">
-  ${box("💬 Como se Comunicar com esse Perfil", `<p style="font-size:11px;color:#374151;line-height:1.5">${disc.comunicacao}</p>`, disc.cor)}
+  ${box("💬 Estilo de Comunicação", `<p style="font-size:11px;color:#374151;line-height:1.5">${disc.comunicacao}</p>`, disc.cor)}
   ${box("🏢 Ambiente de Trabalho Ideal", `<p style="font-size:11px;color:#374151;line-height:1.5">${disc.ambienteIdeal}</p>`, disc.cor)}
 </div>
 
-${box("💼 Vagas e Funções com Melhor Compatibilidade",
-  `<div>${disc.vagasIdeais.map((v: string) => tag(v, disc.cor)).join("")}</div>`, disc.cor)}
+<!-- Motivadores e Estilo de Liderança -->
+<div class="grid2">
+  ${box("⚡ Motivadores", `<div>${disc.motivadores.split(" · ").map((m: string)=>`<div style="font-size:10.5px;color:#374151;margin-bottom:3px;display:flex;align-items:center;gap:4px"><span style="color:${disc.cor};font-weight:700">→</span>${m}</div>`).join("")}</div>`, disc.cor)}
+  ${box("👑 Estilo de Liderança", `<p style="font-size:11px;color:#374151;line-height:1.5">${disc.lideranca}</p>`, disc.cor)}
+</div>
+
+<!-- Carreiras com Alta Afinidade -->
+${box("🚀 Carreiras com Alta Afinidade",
+  `<div>${disc.carreiras.split(" · ").map((c: string) => tag(c, disc.cor)).join("")}</div>`, disc.cor)}
 
 </div>` : ""}
 
@@ -223,7 +273,8 @@ ${box("💼 Vagas e Funções com Melhor Compatibilidade",
 </div>
 </div></body></html>`;
 
-  return new Response(html, {
+  const htmlPDF = wrapParaPDF(html, `Currículo — ${s.name}`);
+  return new Response(htmlPDF, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }

@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { gerarRelatorioDisc } from "@/lib/documents/disc-report";
+import { wrapParaPDF } from "@/lib/pdf-wrapper";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -26,10 +27,11 @@ export async function GET() {
     curso: student.curso || undefined,
   });
 
-  return new Response(html, {
+  const htmlPDF = wrapParaPDF(html, `Relatório DISC — ${student.name}`);
+  return new Response(htmlPDF, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Content-Disposition": `inline; filename="relatorio-disc.html"`,
+      "Content-Disposition": `inline; filename="relatorio-disc-${student.name?.replace(/\s+/g, "-").toLowerCase()}.html"`,
     },
   });
 }

@@ -329,10 +329,7 @@ export default function DiscTestPage() {
             </button>
           )}
         </div>
-        <p className="text-slate-500 text-sm mt-1">Descubra seu perfil comportamental profissional. {progresso}/{QUESTOES.length} respondidas.</p>
-        <div className="h-2 bg-slate-100 rounded-full mt-3">
-          <div className="h-2 bg-[#0f2a5e] rounded-full transition-all" style={{ width: `${(progresso / QUESTOES.length) * 100}%` }} />
-        </div>
+        <p className="text-slate-500 text-sm mt-1">Responda as {QUESTOES.length} questões abaixo para descobrir seu perfil.</p>
       </div>
       <div className="space-y-4">
         {QUESTOES.map(q => (
@@ -355,11 +352,31 @@ export default function DiscTestPage() {
           </Card>
         ))}
       </div>
-      <div className="mt-6 flex items-center justify-between">
-        <p className="text-sm text-slate-400">{QUESTOES.length - progresso} questões restantes</p>
-        <Button onClick={finalizar} disabled={progresso < QUESTOES.length || loading} className="px-8">
-          {loading ? "Calculando..." : progresso < QUESTOES.length ? `Responda mais ${QUESTOES.length - progresso}` : "Ver Resultado →"}
-        </Button>
+      {/* Spacer so content isn't hidden behind sticky bar on mobile */}
+      <div className="h-24 md:h-0"/>
+
+      {/* Sticky bottom bar — visible on mobile, inline on desktop */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 md:static md:mt-6 bg-white md:bg-transparent border-t border-slate-200 md:border-0 px-4 py-3 md:p-0 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:shadow-none">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-slate-700">
+              {progresso < QUESTOES.length
+                ? <><span className="text-[#0f2a5e]">{progresso}</span>/{QUESTOES.length} respondidas</>
+                : <span className="text-emerald-600">✓ Todas respondidas!</span>
+              }
+            </p>
+            <div className="w-40 h-1.5 bg-slate-100 rounded-full mt-1">
+              <div className="h-1.5 bg-[#0f2a5e] rounded-full transition-all" style={{ width: `${(progresso / QUESTOES.length) * 100}%` }}/>
+            </div>
+          </div>
+          <button
+            onClick={finalizar}
+            disabled={progresso < QUESTOES.length || loading}
+            className="px-6 py-3 bg-[#0f2a5e] text-white rounded-xl font-black text-sm hover:bg-[#1a3d8f] transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {loading ? "Calculando..." : progresso < QUESTOES.length ? `Faltam ${QUESTOES.length - progresso}` : "Ver Resultado →"}
+          </button>
+        </div>
       </div>
     </div>
   );

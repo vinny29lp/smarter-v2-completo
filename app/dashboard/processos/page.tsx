@@ -93,26 +93,41 @@ function ProcessosContent() {
   };
 
   const DISC_INFO: Record<string, any> = {
-    D:{titulo:"Dominante",cor:"#dc2626",descricao:"Orientado a resultados, direto e assertivo. Age com rapidez e gosta de desafios.",pontosFortes:["Liderança e tomada de decisão","Foco em resultados","Determinação e persistência","Motivação de equipes","Ação rápida"],pontosMelhoria:["Desenvolver escuta ativa","Considerar sentimentos da equipe","Aprender a delegar","Moderar impulsividade","Praticar empatia"],vagasIdeais:["Gerente de vendas","Líder de projetos","Diretor comercial","Coordenador de operações"],comunicacao:"Seja direto, objetivo e focado em resultados. Evite detalhes desnecessários."},
-    I:{titulo:"Influente",cor:"#f59e0b",descricao:"Entusiasta, comunicativo e inspirador. Destaca-se pela energia positiva e persuasão.",pontosFortes:["Comunicação e persuasão","Criação de relacionamentos","Motivação de equipes","Criatividade e inovação","Alta energia"],pontosMelhoria:["Desenvolver organização","Melhorar gestão do tempo","Aprofundar análise","Manter foco","Cumprir prazos"],vagasIdeais:["Vendas e relacionamento","Marketing","RH e T&D","Relações públicas","Atendimento"],comunicacao:"Use entusiasmo, reconheça suas ideias e crie conexão pessoal."},
-    S:{titulo:"Estável",cor:"#16a34a",descricao:"Colaborativo, paciente e confiável. Valoriza harmonia e relações duradouras.",pontosFortes:["Confiabilidade","Trabalho em equipe","Paciência e escuta","Lealdade","Estabilidade emocional"],pontosMelhoria:["Desenvolver assertividade","Lidar com mudanças","Comunicar discordâncias","Decidir com agilidade","Sair da zona de conforto"],vagasIdeais:["Analista administrativo","Assistente de RH","Suporte ao cliente","Educação","Saúde"],comunicacao:"Crie ambiente de confiança, seja paciente e demonstre estabilidade."},
-    C:{titulo:"Consciente",cor:"#2563eb",descricao:"Analítico, meticuloso e preciso. Toma decisões baseadas em dados e prima pela qualidade.",pontosFortes:["Análise e pensamento crítico","Atenção a detalhes","Planejamento e organização","Rigor técnico","Soluções bem estruturadas"],pontosMelhoria:["Desenvolver flexibilidade","Comunicação interpessoal","Equilibrar perfeição e prazos","Agir na incerteza","Delegar"],vagasIdeais:["Analista de dados","Contabilidade","TI e desenvolvimento","Engenharia","Jurídico"],comunicacao:"Forneça dados e documentação. Dê tempo para análise."},
+    D:{titulo:"Dominante",cor:"#dc2626",descricao:"Orientado a resultados, direto e assertivo. Age com rapidez e gosta de desafios.",pontosFortes:["Liderança e tomada de decisão","Foco em resultados","Determinação e persistência","Motivação de equipes","Ação rápida"],pontosMelhoria:["Desenvolver escuta ativa","Considerar sentimentos da equipe","Aprender a delegar","Moderar impulsividade","Praticar empatia"],comunicacao:"Seja direto, objetivo e focado em resultados. Evite detalhes desnecessários.",motivadores:"Poder e autoridade · Desafios e competição · Liberdade para agir · Resultados mensuráveis · Reconhecimento por conquistas",estiloLideranca:"Líder orientado a resultados — define metas arrojadas, age com decisão e cobra entregas. Melhor em ambientes de alta performance onde velocidade e resultado são prioridade.",carreiras:"Empreendedorismo · Gestão Executiva · Vendas de Alto Nível · Advocacia · Medicina (cirurgia/emergência) · Engenharia de Projetos · Militarismo · Consultoria Estratégica"},
+    I:{titulo:"Influente",cor:"#f59e0b",descricao:"Entusiasta, comunicativo e inspirador. Destaca-se pela energia positiva e persuasão.",pontosFortes:["Comunicação e persuasão","Criação de relacionamentos","Motivação de equipes","Criatividade e inovação","Alta energia"],pontosMelhoria:["Desenvolver organização","Melhorar gestão do tempo","Aprofundar análise","Manter foco","Cumprir prazos"],comunicacao:"Use entusiasmo, reconheça suas ideias e crie conexão pessoal.",motivadores:"Reconhecimento social · Liberdade criativa · Interação com pessoas · Projetos variados · Prestígio e aprovação · Ambiente descontraído",estiloLideranca:"Líder inspirador e motivacional — contagia a equipe com entusiasmo, facilita a comunicação e cria um ambiente positivo. Melhor em contextos que valorizam criatividade e engajamento.",carreiras:"Marketing e Publicidade · Relações Públicas · Eventos e Entretenimento · Pedagogia · Jornalismo · Recursos Humanos · Vendas · Coaching · Comunicação Corporativa"},
+    S:{titulo:"Estável",cor:"#16a34a",descricao:"Colaborativo, paciente e confiável. Valoriza harmonia e relações duradouras.",pontosFortes:["Confiabilidade","Trabalho em equipe","Paciência e escuta","Lealdade","Estabilidade emocional"],pontosMelhoria:["Desenvolver assertividade","Lidar com mudanças","Comunicar discordâncias","Decidir com agilidade","Sair da zona de conforto"],comunicacao:"Crie ambiente de confiança, seja paciente e demonstre estabilidade.",motivadores:"Harmonia e estabilidade · Segurança no trabalho · Reconhecimento pela dedicação · Relacionamentos saudáveis · Rotinas previsíveis",estiloLideranca:"Líder servidor e colaborativo — prioriza o bem-estar da equipe, resolve conflitos com empatia e mantém o ambiente estável. Melhor em contextos que exigem continuidade e coesão.",carreiras:"Psicologia · Enfermagem e Saúde · Assistência Social · Pedagogia · Recursos Humanos · Administração · Secretariado · Serviço Público · Gestão de Pessoas"},
+    C:{titulo:"Consciente",cor:"#2563eb",descricao:"Analítico, meticuloso e preciso. Toma decisões baseadas em dados e prima pela qualidade.",pontosFortes:["Análise e pensamento crítico","Atenção a detalhes","Planejamento e organização","Rigor técnico","Soluções bem estruturadas"],pontosMelhoria:["Desenvolver flexibilidade","Comunicação interpessoal","Equilibrar perfeição e prazos","Agir na incerteza","Delegar"],comunicacao:"Forneça dados e documentação. Dê tempo para análise.",motivadores:"Qualidade e precisão · Conhecimento e expertise · Processos estruturados · Autonomia técnica · Reconhecimento pela excelência",estiloLideranca:"Líder técnico e sistemático — define processos claros, mantém altos padrões de qualidade e toma decisões baseadas em dados. Melhor em ambientes que exigem precisão e excelência técnica.",carreiras:"Tecnologia da Informação · Engenharia · Contabilidade e Finanças · Medicina e Ciências da Saúde · Pesquisa Científica · Arquitetura · Direito · Análise de Dados · Auditoria"},
   };
 
   const gerarParecer = () => {
     if (!selected) return;
     const discKey = selected.student?.discResult?.charAt(0)?.toUpperCase() as string;
     const disc = DISC_INFO[discKey] || null;
-    const scores = selected.student?.discData || {};
-    const maxScore = Math.max(...Object.values(scores).map(Number as any), 1);
+    // discData is stored as { grafico: { D, I, S, C }, resultado, ... }
+    const rawDiscData = selected.student?.discData || {};
+    const scores: Record<string, number> = rawDiscData.grafico || rawDiscData || {};
     const ul = (items: string[]) => items.map((i: string) => `<li style="font-size:11px;color:#475569;margin-bottom:4px">${i}</li>`).join("");
     const tag = (t: string, cor: string) => `<span style="display:inline-block;background:${cor}22;color:${cor};font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:12px;margin:2px">${t}</span>`;
     const box = (title: string, body: string, cor = "#0f2a5e") => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:10px"><div style="font-size:9.5px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:${cor};border-bottom:1px solid ${cor}22;padding-bottom:4px;margin-bottom:7px">${title}</div>${body}</div>`;
     const fld = (l: string, v: string) => `<div style="margin-bottom:6px"><div style="font-size:8.5px;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:1px">${l}</div><div style="font-size:11px;color:#1f2937">${v||"—"}</div></div>`;
-    const barras = disc ? Object.entries(DISC_INFO).map(([k, v]: [string, any]) => {
-      const val = Number(scores[k] || 0); const pct = Math.round((val / maxScore) * 100);
-      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:16px;font-weight:900;font-size:12px;color:${v.cor}">${k}</div><div style="flex:1;background:#f1f5f9;border-radius:4px;overflow:hidden;height:16px"><div style="height:16px;background:${v.cor};border-radius:4px;width:${pct}%;padding-left:5px;display:flex;align-items:center">${pct>15?`<span style="font-size:9px;color:white;font-weight:700">${val}</span>`:""}</div></div><span style="width:26px;font-size:10px;color:#64748b">${val}</span>${k===discKey?`<span style="font-size:9px;font-weight:900;color:${v.cor}">✓</span>`:""}</div>`;
+    // Values are already 0-100 percentages
+    const barras = disc ? ["D","I","S","C"].map((k) => {
+      const v = DISC_INFO[k]; const val = Number(scores[k] || 0);
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:16px;font-weight:900;font-size:12px;color:${v.cor}">${k}</div><div style="flex:1;background:#f1f5f9;border-radius:4px;overflow:hidden;height:16px"><div style="height:16px;background:${v.cor};border-radius:4px;width:${val}%;padding-left:5px;display:flex;align-items:center">${val>15?`<span style="font-size:9px;color:white;font-weight:700">${val}%</span>`:""}</div></div><span style="width:36px;font-size:10px;color:#64748b;text-align:right">${val}%</span>${k===discKey?`<span style="font-size:9px;font-weight:900;color:${v.cor}">✓</span>`:""}</div>`;
     }).join("") : "";
+    // Radar SVG for parecer
+    const cx=120,cy=120,r=90;
+    const discAngles: Record<string,number> = {D:-90,I:0,S:90,C:180};
+    const discCors: Record<string,string> = {D:"#dc2626",I:"#f59e0b",S:"#10b981",C:"#3b82f6"};
+    const toXY=(a:number,p:number)=>({x:cx+r*(p/100)*Math.cos(a*Math.PI/180),y:cy+r*(p/100)*Math.sin(a*Math.PI/180)});
+    const gridC=[25,50,75,100].map(p=>`<circle cx="${cx}" cy="${cy}" r="${r*p/100}" fill="none" stroke="#e2e8f0" stroke-width="1"/>`).join("");
+    const axisL=["D","I","S","C"].map(k=>{const e=toXY(discAngles[k],100);return `<line x1="${cx}" y1="${cy}" x2="${e.x}" y2="${e.y}" stroke="#e2e8f0" stroke-width="1.5"/>`;}).join("");
+    const polyPts=["D","I","S","C"].map(k=>{const p=toXY(discAngles[k],Math.max(Number(scores[k]||0),5));return `${p.x},${p.y}`;}).join(" ");
+    const dotsSvg=["D","I","S","C"].map(k=>{const p=toXY(discAngles[k],Math.max(Number(scores[k]||0),5));return `<circle cx="${p.x}" cy="${p.y}" r="4" fill="${discCors[k]}" stroke="white" stroke-width="1.5"/>`;}).join("");
+    const lblPos=[{x:cx,y:cy-r-14,a:"middle"},{x:cx+r+14,y:cy+4,a:"start"},{x:cx,y:cy+r+18,a:"middle"},{x:cx-r-14,y:cy+4,a:"end"}];
+    const lblSvg=["D","I","S","C"].map((k,i)=>`<text x="${lblPos[i].x}" y="${lblPos[i].y}" text-anchor="${lblPos[i].a}" font-size="11" font-weight="900" fill="${discCors[k]}">${k} ${Number(scores[k]||0)}%</text>`).join("");
+    const dominantKey = ["D","I","S","C"].reduce((a,b)=>(Number(scores[a]||0)>=Number(scores[b]||0)?a:b),"D");
+    const radarSvg=`<svg width="220" height="220" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">${gridC}${axisL}<polygon points="${polyPts}" fill="${discCors[dominantKey]}33" stroke="${discCors[dominantKey]}" stroke-width="2"/>${dotsSvg}${lblSvg}</svg>`;
     const recLabel: Record<string,string> = {aprovado:"✅ APROVADO",reprovado:"❌ REPROVADO",em_analise:"⏳ EM ANÁLISE"};
     const recColor: Record<string,string> = {aprovado:"#16a34a",reprovado:"#dc2626",em_analise:"#d97706"};
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -169,15 +184,28 @@ ${disc ? `
   </div>
 
   ${box(`Perfil Predominante — ${discKey} · ${disc.titulo}`, `<p style="font-size:11px;color:#374151;line-height:1.6">${disc.descricao}</p>`, disc.cor)}
-  ${box("Distribuição DISC — Pontuação", `${barras}<p style="font-size:9px;color:#9ca3af;margin-top:4px">D=Dominante · I=Influente · S=Estável · C=Consciente</p>`, disc.cor)}
+
+  <div style="display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:10px;align-items:start">
+    ${box("Distribuição DISC — Percentuais", `${barras}<p style="font-size:9px;color:#9ca3af;margin-top:4px">D=Dominante · I=Influente · S=Estável · C=Consciente</p>`, disc.cor)}
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;text-align:center">
+      <div style="font-size:9.5px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:${disc.cor};border-bottom:1px solid ${disc.cor}22;padding-bottom:4px;margin-bottom:7px">Mapa de Perfil</div>
+      ${radarSvg}
+    </div>
+  </div>
+
   <div class="grid2">
     ${box("✅ Pontos Fortes", `<ul style="padding-left:16px;margin:0">${ul(disc.pontosFortes)}</ul>`, "#16a34a")}
     ${box("📈 Pontos de Desenvolvimento", `<ul style="padding-left:16px;margin:0">${ul(disc.pontosMelhoria)}</ul>`, "#dc2626")}
   </div>
+
+  ${box("🚀 Motivadores", `<div>${disc.motivadores.split(" · ").map((m: string)=>`<span style="display:inline-block;background:#f0fdf4;border:1px solid #86efac;color:#166534;font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:12px;margin:2px">${m}</span>`).join("")}</div>`, disc.cor)}
+
   <div class="grid2">
     ${box("💬 Como se Comunicar", `<p style="font-size:11px;color:#374151;line-height:1.5">${disc.comunicacao}</p>`, disc.cor)}
-    ${box("💼 Vagas e Funções Compatíveis", `<div>${disc.vagasIdeais.map((v: string) => tag(v, disc.cor)).join("")}</div>`, disc.cor)}
+    ${box("👑 Estilo de Liderança", `<p style="font-size:11px;color:#374151;line-height:1.5">${disc.estiloLideranca}</p>`, disc.cor)}
   </div>
+
+  ${box("💼 Carreiras com Alta Afinidade", `<div>${disc.carreiras.split(" · ").map((c: string)=>`<span style="display:inline-block;background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:12px;margin:2px">${c}</span>`).join("")}</div>`, disc.cor)}
 </div>` : ""}
 
 <div class="footer">
@@ -185,11 +213,12 @@ ${disc ? `
   <span>Gerado pela plataforma Sistema Smarter · ${new Date().toLocaleDateString("pt-BR")}</span>
 </div>
 </div></body></html>`;
-    const blob = new Blob([html],{type:"text/html"});
+    // Auto-print → browser Save-as-PDF
+    const printHtml = html.replace("</body>", `<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},300);});</script></body>`);
+    const blob = new Blob([printHtml],{type:"text/html"});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href=url; a.download=`parecer-${selected.student?.name?.replace(/\s+/g,"-").toLowerCase()}.html`;
-    a.click(); URL.revokeObjectURL(url);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
   const porEtapa = (etapa: string) => candidaturas.filter(c => c.etapa === etapa);
