@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EmpresaActions } from "./EmpresaActions";
+import { EmpresaActions, EmpresaCPS } from "./EmpresaActions";
 
 const statusBadge: Record<string,"green"|"gray"|"yellow"|"red"> = { ATIVA:"green",INATIVA:"gray",ATENCAO:"yellow",PENDENTE:"yellow" };
 const docStatusBadge: Record<string,"green"|"gray"|"yellow"|"blue"|"purple"|"red"> = { NAO_GERADO:"gray",GERADO:"purple",AGUARDANDO_ASSINATURA:"blue",ASSINADO:"green",CANCELADO:"red" };
@@ -161,6 +161,9 @@ export default async function EmpresaDetailPage({ params }: { params: { id: stri
           </div>
         </Card>
       )}
+
+      {/* Contrato de Prestação de Serviços */}
+      <EmpresaCPS empresa={empresa} />
 
       {/* Financeiro */}
       {empresa.financials.length > 0 && (

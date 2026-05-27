@@ -105,9 +105,9 @@ export async function createContract(data: any) {
     { tipo: "rec",  titulo: "Termo de Recesso Remunerado" },
     { tipo: "rpb",  titulo: "Recibo de Pagamento de Bolsa" },
     { tipo: "re",   titulo: "Termo de Realizacao de Estagio" },
-    { tipo: "as",   titulo: "Avaliacao Semestral" },
     { tipo: "pt",   titulo: "Parecer Tecnico" },
-    { tipo: "cps",  titulo: "Contrato de Prestacao de Servicos" },
+    // "as" (Avaliação Semestral) foi movido para formulário online no portal da empresa
+    // "cps" (Contrato de Prestação de Serviços) foi movido para o cadastro da empresa
   ];
 
   await prisma.internshipDocument.createMany({

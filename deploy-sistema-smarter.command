@@ -1,8 +1,8 @@
 #!/bin/bash
-# Deploy: Sistema Smarter — adiciona apenas arquivos específicos (sem node_modules)
+# Deploy: Sistema Smarter — batch 2 (6 ajustes de funcionalidade)
 cd "$(dirname "$0")"
 
-echo "🚀 Deploying Sistema Smarter..."
+echo "🚀 Deploying Sistema Smarter — Batch 2..."
 echo ""
 
 # Remove TODOS os lock files do git
@@ -18,26 +18,32 @@ git reset --mixed "$REMOTE_HEAD" 2>&1
 rm -f .git/HEAD.lock .git/index.lock .git/ORIG_HEAD.lock 2>/dev/null
 
 echo ""
-echo "📦 Adicionando apenas os arquivos de código alterados..."
+echo "📦 Adicionando arquivos alterados..."
 
-# Assinatura digital — fix completo + download assinado
-git add lib/autentique.ts
-git add "app/api/app/contratos/[id]/documentos/[docId]/autentique/route.ts"
-git add "app/api/app/contratos/[id]/documentos/[docId]/route.ts"
-git add "app/api/app/contratos/[id]/documentos/[docId]/download-assinado/route.ts"
-git add "app/dashboard/contratos/[id]/documentos/[docId]/page.tsx"
+# ── TASK 8: DISC salvo e visualizável no painel do estudante ──────────────
+git add "app/portal-estudante/disc/page.tsx"
+git add "app/portal-estudante/page.tsx"
+git add "app/api/portal/estudante/disc-relatorio/route.ts"
 
-# Fix: publicação de vagas travada em "publicando" — try/catch adicionado
-git add "app/dashboard/vagas/nova/page.tsx"
+# ── TASK 9: DISC completo no currículo (já estava pronto, sem mudanças) ────
 
-# Fix: campo funcao não existia no schema Vacancy → PrismaClientValidationError
-git add "app/api/app/vagas/route.ts"
-git add "lib/actions/vacancies.ts"
+# ── TASK 10: Processo seletivo vinculado a cada vaga ────────────────────────
+git add "app/dashboard/vagas/[id]/page.tsx"
+git add "app/dashboard/processos/page.tsx"
+git add "app/api/app/processos/route.ts"
+
+# ── TASK 11: CPS movido para aba Empresa ────────────────────────────────────
+git add "lib/actions/contracts.ts"
 git add "prisma/schema.prisma"
+git add "app/api/app/empresas/[id]/cps/route.ts"
+git add "app/dashboard/empresas/[id]/EmpresaActions.tsx"
+git add "app/dashboard/empresas/[id]/page.tsx"
 
-# Fix: botão "Já tenho cadastro" nas páginas de auto-cadastro
-git add "cadastro/estudante/page.tsx"
-git add "cadastro/empresa/page.tsx"
+# ── TASK 12: Avaliação semestral online ──────────────────────────────────────
+git add "lib/email.ts"
+git add "app/api/portal/empresa/avaliacoes/route.ts"
+git add "app/api/app/contratos/[id]/enviar-avaliacao/route.ts"
+git add "app/dashboard/contratos/[id]/page.tsx"
 
 # Deploy script atualizado
 git add deploy-sistema-smarter.command
@@ -56,7 +62,7 @@ fi
 
 echo ""
 echo "💾 Criando commit..."
-git commit -m "feat: add 'Já tenho cadastro' login link on cadastro/estudante and cadastro/empresa pages"
+git commit -m "feat: batch-2 — DISC persist, processo seletivo por vaga, CPS na empresa, avaliacao semestral online"
 
 echo "🚀 Fazendo push..."
 git push origin main

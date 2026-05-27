@@ -60,6 +60,17 @@ export default async function VagaDetailPage({ params }: { params: { id: string 
         <Card className="p-5">
           <h3 className="text-sm font-bold text-slate-700 mb-3">Ações</h3>
           <VagaActions vagaId={vaga.id} status={vaga.status || "ABERTA"} publicSlug={vaga.publicSlug||undefined} titulo={vaga.titulo}/>
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <Link
+              href={`/dashboard/processos?vagaId=${vaga.id}`}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0f2a5e] text-white rounded-xl text-sm font-bold hover:bg-[#1a3d8f] transition-colors"
+            >
+              🎯 Processo Seletivo
+              {vaga.applications.length > 0 && (
+                <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-xs">{vaga.applications.length}</span>
+              )}
+            </Link>
+          </div>
         </Card>
       </div>
 

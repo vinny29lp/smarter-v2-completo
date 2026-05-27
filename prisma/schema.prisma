@@ -89,6 +89,7 @@ model Company {
   updatedAt        DateTime?      @default(now()) @updatedAt @db.Timestamptz(6)
   pendente         Boolean?       @default(false)
   emailFinanceiro  String?
+  valorGestao      Float?
   franchise        Franchise      @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   contracts        Contract[]
   crmLeads         CrmLead[]

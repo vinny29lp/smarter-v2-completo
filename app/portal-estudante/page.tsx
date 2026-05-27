@@ -67,7 +67,7 @@ export default async function PortalEstudanteHome() {
       {/* Perfil DISC se já tiver */}
       {temDisc && student?.discResult && (
         <div className={`mb-6 p-4 ${DISC_INFO[student.discResult].cor} rounded-2xl border`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <span className="text-3xl">{DISC_INFO[student.discResult].emoji}</span>
               <div>
@@ -76,7 +76,16 @@ export default async function PortalEstudanteHome() {
                 <p className="text-xs text-slate-600">{DISC_INFO[student.discResult].desc}</p>
               </div>
             </div>
-            <Link href="/portal-estudante/disc" className="text-xs font-bold text-slate-500 hover:underline">Refazer →</Link>
+            <div className="flex gap-2">
+              <Link href="/portal-estudante/disc"
+                className="text-xs font-bold px-4 py-2 rounded-xl bg-[#0f2a5e] text-white hover:bg-[#1a3d8f] transition-colors">
+                📄 Ver Relatório
+              </Link>
+              <Link href="/portal-estudante/disc"
+                className="text-xs font-bold px-3 py-2 rounded-xl bg-white/60 text-slate-600 hover:bg-white transition-colors border border-slate-200">
+                🔄 Refazer
+              </Link>
+            </div>
           </div>
         </div>
       )}

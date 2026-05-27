@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -21,7 +22,10 @@ const DISC_COLOR: Record<string,string> = {
 };
 const REC_BADGE: Record<string,"green"|"yellow"|"red"> = {aprovado:"green",em_analise:"yellow",reprovado:"red"};
 
-export default function ProcessosPage() {
+function ProcessosContent() {
+  const searchParams = useSearchParams();
+  const vagaId = searchParams.get("vagaId");
+  const [vagaInfo, setVagaInfo] = useState<{titulo:string;id:string}|null>(null);
   const [candidaturas, setCandidaturas] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"anotacoes"|"agendamento"|"parecer">("anotacoes");
@@ -38,8 +42,17 @@ export default function ProcessosPage() {
   const [recomendacao, setRecomendacao] = useState("");
   const [parecerTecnico, setParecerTecnico] = useState("");
 
-  const load = () => fetch("/api/app/processos").then(r=>r.json()).then(d=>setCandidaturas(d.candidaturas||[]));
-  useEffect(()=>{ load(); },[]);
+  const load = () => {
+    const url = vagaId ? `/api/app/processos?vacancyId=${vagaId}` : "/api/app/processos";
+    fetch(url).then(r=>r.json()).then(d=>{
+      setCandidaturas(d.candidaturas||[]);
+      if (vagaId && d.candidaturas?.length > 0) {
+        const v = d.candidaturas[0]?.vacancy;
+        if (v) setVagaInfo({ id: v.id, titulo: v.titulo });
+      }
+    });
+  };
+  useEffect(()=>{ load(); },[vagaId]);
 
   const openCard = (c: any) => {
     setSelected(c);
@@ -190,8 +203,23 @@ ${disc ? `
   return (
     <div>
       <div className="mb-5">
-        <h1 className="text-2xl font-black text-slate-800">Processos Seletivos</h1>
-        <p className="text-slate-500 text-sm mt-1">{candidaturas.length} candidaturas</p>
+        {vagaId && (
+          <div className="flex items-center gap-2 mb-2">
+            <Link href="/dashboard/vagas" className="text-slate-400 hover:text-slate-600 text-sm">← Vagas</Link>
+            <span className="text-slate-300">/</span>
+            {vagaInfo && (
+              <>
+                <Link href={`/dashboard/vagas/${vagaInfo.id}`} className="text-slate-400 hover:text-slate-600 text-sm">{vagaInfo.titulo}</Link>
+                <span className="text-slate-300">/</span>
+              </>
+            )}
+            <span className="text-sm text-slate-600 font-semibold">Processo Seletivo</span>
+          </div>
+        )}
+        <h1 className="text-2xl font-black text-slate-800">
+          {vagaInfo ? `Processo Seletivo — ${vagaInfo.titulo}` : "Processos Seletivos"}
+        </h1>
+        <p className="text-slate-500 text-sm mt-1">{candidaturas.length} candidatura{candidaturas.length !== 1 ? "s" : ""}</p>
       </div>
 
       {/* Lembretes de entrevistas */}
@@ -210,8 +238,12 @@ ${disc ? `
       {candidaturas.length === 0 ? (
         <Card className="p-12 text-center">
           <p className="text-4xl mb-3">🎯</p>
-          <p className="text-slate-600 font-semibold">Nenhuma candidatura ainda</p>
-          <p className="text-slate-400 text-sm mt-1">Publique vagas e inscreva estudantes para começar.</p>
+          <p className="text-slate-600 font-semibold">
+            {vagaId ? "Nenhuma candidatura nesta vaga ainda" : "Nenhuma candidatura ainda"}
+          </p>
+          <p className="text-slate-400 text-sm mt-1">
+            {vagaId ? "Compartilhe o link da vaga para receber candidaturas." : "Publique vagas e inscreva estudantes para começar."}
+          </p>
           <Link href="/dashboard/vagas" className="mt-3 inline-flex text-sm text-blue-500 hover:underline">→ Ver Vagas</Link>
         </Card>
       ) : (
@@ -372,5 +404,13 @@ ${disc ? `
         )}
       </Modal>
     </div>
+  );
+}
+
+export default function ProcessosPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-[#0f2a5e] border-t-transparent rounded-full animate-spin"/></div>}>
+      <ProcessosContent />
+    </Suspense>
   );
 }

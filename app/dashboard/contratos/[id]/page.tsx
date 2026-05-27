@@ -19,6 +19,8 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const [rescisaoModal, setRescisaoModal] = useState(false);
   const [rescisao, setRescisao] = useState({ ultimoDia: "", motivo: "" });
   const [calc, setCalc] = useState<any>(null);
+  const [enviandoAval, setEnviandoAval] = useState(false);
+  const [avalMsg, setAvalMsg] = useState<string|null>(null);
 
   useEffect(() => {
     fetch(`/api/app/contratos/${params.id}`)
@@ -90,6 +92,19 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
     if (!doc?.htmlContent) { alert("Documento ainda não gerado."); return; }
     const w = window.open("", "_blank");
     if (w) { w.document.write(doc.htmlContent); w.document.close(); w.print(); }
+  };
+
+  const enviarAvaliacao = async () => {
+    setEnviandoAval(true); setAvalMsg(null);
+    const res = await fetch(`/api/app/contratos/${params.id}/enviar-avaliacao`, { method: "POST" });
+    const data = await res.json();
+    setEnviandoAval(false);
+    if (data.error) {
+      setAvalMsg("❌ " + data.error);
+    } else {
+      setAvalMsg(`✅ E-mail enviado para ${data.emailEnviado}`);
+    }
+    setTimeout(() => setAvalMsg(null), 5000);
   };
 
   // Docs chave
@@ -210,6 +225,49 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
             </div>
           ))}
         </div>
+      </Card>
+
+      {/* Avaliação Semestral Online */}
+      <Card className="p-5 mb-5">
+        <h3 className="text-sm font-bold text-slate-700 mb-1">📋 Avaliação Semestral</h3>
+        <p className="text-xs text-slate-400 mb-4">Conforme Lei 11.788/2008, art. 7º. O formulário é enviado por e-mail para a empresa preencher no portal deles.</p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={enviarAvaliacao}
+            disabled={enviandoAval}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#0f2a5e] text-white rounded-xl text-sm font-bold hover:bg-[#1a3d8f] transition-colors disabled:opacity-50"
+          >
+            {enviandoAval ? "Enviando..." : "📧 Enviar Avaliação por E-mail"}
+          </button>
+          <a
+            href={`/portal-empresa/avaliacoes?contrato=${params.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
+          >
+            🔗 Abrir Formulário Diretamente
+          </a>
+        </div>
+        {avalMsg && (
+          <p className={`mt-3 text-xs p-2 rounded-lg ${avalMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+            {avalMsg}
+          </p>
+        )}
+        {contract.evaluations?.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-slate-100">
+            <p className="text-xs font-bold text-slate-500 mb-2">{contract.evaluations.length} avaliação(ões) respondida(s)</p>
+            {contract.evaluations.slice(0, 3).map((ev: any) => (
+              <div key={ev.id} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                <p className="text-xs text-slate-500">
+                  {ev.respondidoAt ? new Date(ev.respondidoAt).toLocaleDateString("pt-BR") : new Date(ev.createdAt).toLocaleDateString("pt-BR")}
+                </p>
+                <Badge variant={ev.status === "respondido" ? "green" : "yellow"}>
+                  {ev.status === "respondido" ? "Respondida" : "Pendente"}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       {contract.atividades && (

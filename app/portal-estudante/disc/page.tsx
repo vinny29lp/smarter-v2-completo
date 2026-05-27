@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -116,9 +116,24 @@ function RadarChart({ grafico }: { grafico: Record<string, number> }) {
 export default function DiscTestPage() {
   const router = useRouter();
   const [respostas, setRespostas] = useState<Record<number, string>>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [resultado, setResultado] = useState<string | null>(null);
   const [grafico, setGrafico] = useState<Record<string, number>>({ D: 0, I: 0, S: 0, C: 0 });
+  const [refazer, setRefazer] = useState(false);
+
+  // Carrega resultado salvo ao abrir a página
+  useEffect(() => {
+    fetch("/api/portal/estudante/disc")
+      .then(r => r.json())
+      .then(d => {
+        if (d.discResult && d.discData?.grafico) {
+          setResultado(d.discResult);
+          setGrafico(d.discData.grafico);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const responder = (qId: number, tipo: string) => setRespostas(p => ({ ...p, [qId]: tipo }));
 
@@ -145,10 +160,22 @@ export default function DiscTestPage() {
       });
     } catch {}
     setResultado(result);
+    setRefazer(false);
     setLoading(false);
   };
 
-  if (resultado) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-[#0f2a5e] border-t-transparent rounded-full animate-spin mx-auto mb-3"/>
+          <p className="text-slate-500 text-sm">Carregando seu relatório...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (resultado && !refazer) {
     const primario = DISC_INFO[resultado];
     const ordenado = Object.entries(grafico).sort((a, b) => b[1] - a[1]);
     const secKey = ordenado[1]?.[0] !== resultado ? ordenado[1]?.[0] : null;
@@ -263,7 +290,26 @@ export default function DiscTestPage() {
           </div>
           <p className="text-xs text-blue-200 leading-relaxed mt-3">Nenhum perfil é melhor ou pior. Cada estilo tem pontos fortes únicos e contribui de forma diferente para o sucesso das equipes.</p>
         </Card>
-        <Button className="w-full justify-center" onClick={() => router.push("/portal-estudante")}>Voltar ao Portal →</Button>
+        <div className="flex flex-col sm:flex-row gap-3 mt-2">
+          <Button
+            className="flex-1 justify-center bg-[#0f2a5e] text-white"
+            onClick={() => window.open(`/api/portal/estudante/disc-relatorio`, "_blank")}
+          >
+            📄 Baixar Relatório PDF
+          </Button>
+          <Button
+            className="flex-1 justify-center bg-white text-[#0f2a5e] border-2 border-[#0f2a5e] hover:bg-slate-50"
+            onClick={() => { setRefazer(true); setRespostas({}); }}
+          >
+            🔄 Refazer Teste
+          </Button>
+          <Button
+            className="flex-1 justify-center bg-slate-100 text-slate-700 hover:bg-slate-200"
+            onClick={() => router.push("/portal-estudante")}
+          >
+            ← Voltar ao Portal
+          </Button>
+        </div>
       </div>
     );
   }
@@ -272,7 +318,17 @@ export default function DiscTestPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-slate-800">Teste DISC</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-black text-slate-800">Teste DISC</h1>
+          {refazer && resultado && (
+            <button
+              onClick={() => { setRefazer(false); setRespostas({}); }}
+              className="text-xs text-slate-400 hover:text-[#0f2a5e] font-medium transition-colors"
+            >
+              ← Voltar ao relatório salvo
+            </button>
+          )}
+        </div>
         <p className="text-slate-500 text-sm mt-1">Descubra seu perfil comportamental profissional. {progresso}/{QUESTOES.length} respondidas.</p>
         <div className="h-2 bg-slate-100 rounded-full mt-3">
           <div className="h-2 bg-[#0f2a5e] rounded-full transition-all" style={{ width: `${(progresso / QUESTOES.length) * 100}%` }} />
