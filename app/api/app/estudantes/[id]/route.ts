@@ -54,6 +54,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ ok: true });
   }
 
+  // Reativar / alterar status — requer FRANQUEADORA
+  if (body.status !== undefined) {
+    if (session?.user?.role !== "FRANQUEADORA") {
+      return NextResponse.json({ error: "Apenas FRANQUEADORA pode alterar o status do estudante" }, { status: 403 });
+    }
+  }
+
   // Atualização geral de dados do estudante
   const estudante = await prisma.student.update({ where: { id: params.id }, data: body });
   return NextResponse.json({ estudante });

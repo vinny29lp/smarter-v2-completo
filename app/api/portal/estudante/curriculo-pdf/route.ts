@@ -108,7 +108,7 @@ export async function GET(req: Request) {
   </div>` : ""}
 
   <p style="margin-top:30px;font-size:9px;color:#9ca3af;text-align:center">
-    Currículo gerado via Smarter Estágios — ${new Date().toLocaleDateString("pt-BR")}
+    Currículo gerado via Sistema Smarter — ${new Date().toLocaleDateString("pt-BR")}
   </p>
 </div></body></html>`;
 

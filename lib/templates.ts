@@ -46,7 +46,13 @@ body{background:#f1f5f9}
 .pagebreak{page-break-before:always;padding-top:18mm}
 .footer-line{position:absolute;bottom:12mm;left:20mm;right:20mm;border-top:1px solid #e5e7eb;
   padding-top:4px;display:flex;justify-content:space-between;font-size:9px;color:#9ca3af}
-@media print{.doc{box-shadow:none;margin:0}}
+@page{size:A4 portrait;margin:0}
+@media print{
+  html,body{margin:0!important;padding:0!important;background:white!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .doc{width:100%!important;max-width:100%!important;margin:0!important;box-shadow:none!important;min-height:0!important}
+  .assinaturas,.assinaturas-2,.grid2{break-inside:avoid;page-break-inside:avoid}
+}
 `;
 
 function f(label: string, value: string, full?: boolean): string {

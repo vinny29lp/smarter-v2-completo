@@ -22,15 +22,12 @@ export async function POST(req: Request) {
     franchiseId = f?.id;
   }
 
+  // Instituição: apenas vincula se já existir — NUNCA cria automaticamente.
+  // Cadastro de instituições é feito manualmente na aba Instituição.
   let institutionId: string | undefined;
   if (body.institutionNome) {
-    let inst = await prisma.institution.findFirst({ where: { name: { contains: body.institutionNome } } });
-    if (!inst) {
-      inst = await prisma.institution.create({
-        data: { name: body.institutionNome, cidade: body.cidade, uf: body.uf, cursos: [body.curso], tipo: "auto" },
-      });
-    }
-    institutionId = inst.id;
+    const inst = await prisma.institution.findFirst({ where: { name: { contains: body.institutionNome } } });
+    if (inst) institutionId = inst.id;
   }
 
   const senha = Math.random().toString(36).slice(-6).toUpperCase() + Math.floor(10+Math.random()*90);

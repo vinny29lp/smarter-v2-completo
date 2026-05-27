@@ -71,7 +71,11 @@ export function ContratoForm({ franchiseId, students, companies, institutions }:
         institutionId: form.institutionId || null,
       });
       router.push("/dashboard/contratos"); router.refresh();
-    } catch(e:any) { setError("Erro ao criar contrato. Verifique os dados."); }
+    } catch(e:any) {
+      // Mostrar mensagem específica do servidor quando disponível
+      const msg = e?.message || String(e) || "";
+      setError(msg ? `Erro: ${msg}` : "Erro inesperado ao criar contrato. Tente novamente.");
+    }
     setLoading(false);
   };
 

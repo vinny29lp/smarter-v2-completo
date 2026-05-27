@@ -68,7 +68,7 @@ export default function VagaPublicaPage() {
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 bg-white/10 text-white px-3 py-1.5 rounded-full text-sm mb-3">
-            <span className="font-black text-[#f5c400]">S</span> Smarter Estágios
+            <span className="font-black text-[#f5c400]">S</span> Sistema Smarter
           </div>
           <h1 className="text-2xl font-black text-white">{vaga.titulo}</h1>
           <p className="text-white/70 mt-1">{vaga.company?.name} • {vaga.cidade}/{vaga.uf}</p>
@@ -146,7 +146,7 @@ export default function VagaPublicaPage() {
             </div>
           </Card>
         )}
-        <p className="text-white/30 text-xs text-center mt-4">Smarter Estágios</p>
+        <p className="text-white/30 text-xs text-center mt-4">Sistema Smarter</p>
       </div>
     </div>
   );

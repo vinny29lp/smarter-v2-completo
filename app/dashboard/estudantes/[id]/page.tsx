@@ -128,6 +128,17 @@ export default function EstudanteDetailPage() {
           )}
           <Button variant="secondary" onClick={()=>window.open(`/api/app/estudantes/${student.id}/curriculo`, "_blank")}>📄 Baixar Currículo + DISC (PDF)</Button>
           <Button onClick={()=>setProcessoModal(true)}>+ Enviar para Vaga</Button>
+          {isFranqueadora && student.status === "INATIVO" && (
+            <Button variant="secondary" size="sm" onClick={async () => {
+              const res = await fetch(`/api/app/estudantes/${student.id}`, {
+                method: "PATCH", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "DISPONIVEL" }),
+              });
+              const data = await res.json();
+              if (data.error) { setMsg("❌ " + data.error); }
+              else { setMsg("✅ Estudante reativado!"); loadStudent(); }
+            }}>♻️ Reativar</Button>
+          )}
           {isFranqueadora && (
             <Button variant="danger" size="sm" onClick={() => setDeleteModal(true)}>🗑️ Excluir</Button>
           )}

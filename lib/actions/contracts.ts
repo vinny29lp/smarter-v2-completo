@@ -46,6 +46,27 @@ export async function getContract(id: string) {
 }
 
 export async function createContract(data: any) {
+  // ── Validações antecipadas com mensagens legíveis ──────────────
+  if (!data.studentId)   throw new Error("Selecione o Estudante antes de continuar.");
+  if (!data.companyId)   throw new Error("Selecione a Empresa antes de continuar.");
+  if (!data.franchiseId) throw new Error("Franquia não identificada. Recarregue a página e tente novamente.");
+  if (!data.bolsa || isNaN(Number(data.bolsa)))
+    throw new Error("Informe um valor de Bolsa válido.");
+  if (!data.dataInicio || isNaN(new Date(data.dataInicio).getTime()))
+    throw new Error("Data de Início inválida ou ausente.");
+  if (!data.dataFim || isNaN(new Date(data.dataFim).getTime()))
+    throw new Error("Data de Término inválida ou ausente.");
+  if (new Date(data.dataFim) <= new Date(data.dataInicio))
+    throw new Error("A Data de Término deve ser posterior à Data de Início.");
+
+  // Confirmar que estudante e empresa existem
+  const [student, company] = await Promise.all([
+    prisma.student.findUnique({ where: { id: data.studentId }, select: { id: true, name: true } }),
+    prisma.company.findUnique({ where: { id: data.companyId }, select: { id: true, name: true } }),
+  ]);
+  if (!student) throw new Error(`Estudante não encontrado (id: ${data.studentId}). Recarregue a lista.`);
+  if (!company) throw new Error(`Empresa não encontrada (id: ${data.companyId}). Recarregue a lista.`);
+
   // Sanitizar — remover campos que não existem no schema Contract
   const {
     // Extraímos apenas os campos válidos do schema para evitar erros do Prisma
@@ -91,9 +112,22 @@ export async function createContract(data: any) {
   // Gerar número automático se não fornecido
   const numero = _numero || await gerarNumeroContrato(franchiseId);
 
-  const contract = await prisma.contract.create({
-    data: { ...safeData, numero },
-  });
+  let contract;
+  try {
+    contract = await prisma.contract.create({
+      data: { ...safeData, numero },
+    });
+  } catch (dbErr: any) {
+    // Traduzir erros comuns do Prisma para mensagens legíveis
+    const raw: string = dbErr?.message || String(dbErr);
+    if (raw.includes("Unique constraint")) {
+      throw new Error("Já existe um contrato com esses dados. Verifique duplicatas.");
+    }
+    if (raw.includes("Foreign key constraint")) {
+      throw new Error("Referência inválida: verifique se Estudante, Empresa e Instituição ainda existem no sistema.");
+    }
+    throw new Error(`Erro ao salvar no banco de dados: ${raw.slice(0, 200)}`);
+  }
 
   // Criar 11 documentos automaticamente
   const docTipos = [

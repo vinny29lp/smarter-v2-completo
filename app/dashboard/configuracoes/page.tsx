@@ -19,8 +19,8 @@ export default function ConfiguracoesPage() {
   const [cfg, setCfg]       = useState<any>({
     razaoSocial: "", cnpj: "", endereco: "", cidade: "", uf: "SP",
     telefone: "", email: "", responsavel: "", pix: "", apolice: "", seguradora: "",
-    nomeFantasia: "Smarter Estágios", slogan: "Gestão completa de estágios",
-    loginTitulo: "Smarter Estágios", loginSubtitulo: "Sistema de Gestão de Estágios",
+    nomeFantasia: "Sistema Smarter", slogan: "Gestão completa de estágios",
+    loginTitulo: "Sistema Smarter", loginSubtitulo: "Sistema de Gestão de Estágios",
     loginSlogan: "Plataforma completa para franqueadoras, franqueados, empresas e estudantes.",
     loginLogoUrl: "", loginBgUrl: "",
     logoDocUrl: "", watermarkUrl: "", watermarkText: "SMARTER",
@@ -106,7 +106,7 @@ export default function ConfiguracoesPage() {
             <h3 className="text-sm font-bold text-slate-700 mb-1">Identidade do Sistema</h3>
             <p className="text-xs text-slate-400 mb-4">Esses dados aparecem no sidebar, header e documentos.</p>
             <div className="space-y-3">
-              <Input label="Nome do Sistema" value={cfg.nomeFantasia} onChange={e=>set("nomeFantasia",e.target.value)} readOnly={ReadOnly} placeholder="Smarter Estágios"/>
+              <Input label="Nome do Sistema" value={cfg.nomeFantasia} onChange={e=>set("nomeFantasia",e.target.value)} readOnly={ReadOnly} placeholder="Sistema Smarter"/>
               <Input label="Slogan / Frase curta" value={cfg.slogan} onChange={e=>set("slogan",e.target.value)} readOnly={ReadOnly} placeholder="Gestão completa de estágios"/>
             </div>
           </Card>
@@ -121,7 +121,7 @@ export default function ConfiguracoesPage() {
             <h3 className="text-sm font-bold text-slate-700 mb-1">Tela de Login</h3>
             <p className="text-xs text-slate-400 mb-4">Personalize o visual da tela de acesso ao sistema.</p>
             <div className="space-y-3">
-              <Input label="Título principal" value={cfg.loginTitulo} onChange={e=>set("loginTitulo",e.target.value)} readOnly={ReadOnly} placeholder="Smarter Estágios"/>
+              <Input label="Título principal" value={cfg.loginTitulo} onChange={e=>set("loginTitulo",e.target.value)} readOnly={ReadOnly} placeholder="Sistema Smarter"/>
               <Input label="Subtítulo" value={cfg.loginSubtitulo} onChange={e=>set("loginSubtitulo",e.target.value)} readOnly={ReadOnly} placeholder="Sistema de Gestão de Estágios"/>
               <div>
                 <label className="text-xs font-bold text-slate-600 block mb-1">Slogan / Texto de apoio</label>

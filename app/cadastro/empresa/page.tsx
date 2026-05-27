@@ -55,7 +55,7 @@ function CadastroContent() {
       <div className="max-w-lg w-full">
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 bg-white/10 text-white px-3 py-1.5 rounded-full text-sm mb-3">
-            <span className="font-black text-[#f5c400]">S</span> Smarter Estágios
+            <span className="font-black text-[#f5c400]">S</span> Sistema Smarter
           </div>
           <h1 className="text-2xl font-black text-white">Cadastro de Empresa</h1>
           <p className="text-white/70 text-sm mt-1">Preencha os dados para se tornar empresa parceira</p>
@@ -119,7 +119,7 @@ function CadastroContent() {
           </div>
         </Card>
 
-        <p className="text-white/40 text-xs text-center mt-4">Smarter Estágios — Sistema de Gestão de Estágios</p>
+        <p className="text-white/40 text-xs text-center mt-4">Sistema Smarter — Sistema de Gestão de Estágios</p>
       </div>
     </div>
   );

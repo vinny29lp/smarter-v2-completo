@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <Sidebar/>
       <div className="flex-1 flex flex-col overflow-hidden ml-60">
         <header className="sticky top-0 bg-white border-b border-slate-100 h-14 flex items-center justify-between px-7 z-30 shadow-sm">
-          <h1 className="text-[16px] font-bold text-slate-800">Smarter One V2</h1>
+          <h1 className="text-[16px] font-bold text-slate-800">Sistema Smarter</h1>
           <div className="flex items-center gap-3">
             <span className="text-xs bg-[#f5c400] text-[#0f2a5e] font-bold px-3 py-1.5 rounded-xl">
               {session.user.role}

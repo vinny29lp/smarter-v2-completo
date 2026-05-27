@@ -133,7 +133,14 @@ body{background:#e5e7eb;font-family:Arial,Helvetica,sans-serif}
 .seg-box{display:flex;align-items:center;gap:8px;background:#fef3c7;
   border:1px solid #fcd34d;border-radius:4px;padding:6px 10px;margin-top:6px;font-size:9.5px;color:#92400e}
 .pagebreak{page-break-before:always;padding-top:12mm}
-@media print{body{background:white}.doc{box-shadow:none;margin:0}}
+@page{size:A4 portrait;margin:0}
+@media print{
+  html,body{margin:0!important;padding:0!important;background:white!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .doc{width:100%!important;max-width:100%!important;margin:0!important;box-shadow:none!important;min-height:0!important}
+  .sec,.fg,.cls-block,.info-bar{break-inside:avoid;page-break-inside:avoid}
+  h2,h3,.sec-head,.dh{break-after:avoid;page-break-after:avoid}
+}
 `;
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────

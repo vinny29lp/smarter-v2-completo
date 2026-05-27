@@ -136,6 +136,19 @@ export default async function DashboardPage() {
   const franquias   = isMaster ? await getFranquias()         : null;
   const franqueados = isMaster ? await getFranqueadosResumo() : [];
 
+  // Solicitações de estagiário não lidas (para FRANQUEADO / FUNCIONARIO / FRANQUEADORA)
+  const solicitations = (role === "FRANQUEADO" || role === "FUNCIONARIO" || role === "FRANQUEADORA")
+    ? await prisma.notification.findMany({
+        where: {
+          userId: (session!.user as any).id,
+          tipo: "SOLICITACAO_ESTAGIARIO",
+          lida: false,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      })
+    : [];
+
   const fmt  = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
   const hoje = new Date();
 
@@ -154,6 +167,40 @@ export default async function DashboardPage() {
             : `Sua unidade — ${session?.user?.name}`}
         </p>
       </div>
+
+      {/* ── Solicitações de Estagiário ── */}
+      {solicitations.length > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-black text-slate-700">🎯 Solicitações de Estagiário</h2>
+            <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">{solicitations.length} nova{solicitations.length !== 1 ? "s" : ""}</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {solicitations.map(s => {
+              // link is like /dashboard/empresas/:id
+              const href = s.link || "/dashboard/empresas";
+              const dt   = new Date(s.createdAt);
+              return (
+                <Link key={s.id} href={href}>
+                  <Card className="p-4 border-l-4 border-blue-400 hover:shadow-md transition-shadow cursor-pointer">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-blue-700 mb-1">{s.titulo}</p>
+                        <pre className="text-[11px] text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">
+                          {s.mensagem}
+                        </pre>
+                      </div>
+                      <span className="text-[10px] text-slate-400 flex-shrink-0">
+                        {dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                      </span>
+                    </div>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── KPIs exclusivos da Franqueadora ── */}
       {isMaster && franquias && (

@@ -108,6 +108,18 @@ export default function FranqueadoDetailPage() {
                 <span className="text-slate-400">{l}</span><span className="font-medium">{v||"—"}</span>
               </div>
             ))}
+            {/* Toggle cobrar mensalidade */}
+            <div className="flex items-center justify-between py-2 mt-1">
+              <div>
+                <p className="text-sm font-medium text-slate-700">Cobrar Mensalidade</p>
+                <p className="text-[11px] text-slate-400">R$200/mês no fechamento do dia 23</p>
+              </div>
+              <button
+                onClick={() => action({action:"toggle_mensalidade"}).then(()=>setMsg((data.cobrarMensalidade??true)?"Mensalidade desativada":"Mensalidade ativada!"))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(data.cobrarMensalidade??true)?"bg-[#0f2a5e]":"bg-slate-200"}`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(data.cobrarMensalidade??true)?"translate-x-6":"translate-x-1"}`}/>
+              </button>
+            </div>
           </Card>
           <Card className="p-5">
             <h3 className="text-sm font-bold mb-3">Acesso ao Sistema</h3>

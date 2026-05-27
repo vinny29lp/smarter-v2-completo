@@ -2,10 +2,10 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-// Todos estudantes são visíveis para todos os franqueados (aba pública)
-export async function getStudents(_franchiseId?: string) {
+// FRANQUEADO vê apenas estudantes da sua unidade; FRANQUEADORA vê todos
+export async function getStudents(franchiseId?: string) {
   return prisma.student.findMany({
-    where: {},
+    where: franchiseId ? { franchiseId } : {},
     include: {
       user: true,
       institution: true,

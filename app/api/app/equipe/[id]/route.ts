@@ -37,6 +37,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     userUpdates.email = email;
   }
   if (novaSenha) {
+    // Apenas FRANQUEADORA e FRANQUEADO podem alterar senhas de colaboradores
+    if (!["FRANQUEADORA", "FRANQUEADO"].includes(session.user.role || "")) {
+      return NextResponse.json({ error: "Apenas FRANQUEADORA ou FRANQUEADO podem alterar senhas" }, { status: 403 });
+    }
     if (novaSenha.length < 6) return NextResponse.json({ error: "Senha deve ter pelo menos 6 caracteres" }, { status: 400 });
     userUpdates.password = await bcrypt.hash(novaSenha, 10);
   }

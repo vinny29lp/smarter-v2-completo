@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+// Mapa: prefixo de rota → chave de permissão necessária (para FUNCIONARIO)
+const FUNCIONARIO_ROUTE_PERMS: Record<string, string> = {
+  "/dashboard/financeiro":    "financeiro",
+  "/dashboard/contratos":     "contratos",
+  "/dashboard/estudantes":    "estudantes",
+  "/dashboard/empresas":      "empresas",
+  "/dashboard/vagas":         "vagas",
+  "/dashboard/processos":     "processos",
+  "/dashboard/crm":           "crm",
+  "/dashboard/instituicoes":  "instituicoes",
+  "/dashboard/configuracoes": "configuracoes",
+  "/dashboard/assinaturas":   "assinaturas",
+};
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -18,7 +32,22 @@ export async function middleware(req: NextRequest) {
   if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
     if (role === "EMPRESA")   return NextResponse.redirect(new URL("/portal-empresa",   req.url));
     if (role === "ESTUDANTE") return NextResponse.redirect(new URL("/portal-estudante", req.url));
-    return NextResponse.next(); // FRANQUEADO / FRANQUEADORA / FUNCIONARIO: ok
+
+    // FUNCIONARIO: verifica se tem permissão para a rota acessada
+    if (role === "FUNCIONARIO") {
+      const permissoes: string[] = (token.permissoes as string[]) ?? [];
+      // /dashboard (raiz) sempre permitido
+      if (pathname !== "/dashboard") {
+        const requiredPerm = Object.entries(FUNCIONARIO_ROUTE_PERMS).find(
+          ([route]) => pathname === route || pathname.startsWith(route + "/")
+        )?.[1];
+        if (requiredPerm && !permissoes.includes(requiredPerm)) {
+          return NextResponse.redirect(new URL("/dashboard", req.url));
+        }
+      }
+    }
+
+    return NextResponse.next(); // FRANQUEADO / FRANQUEADORA / FUNCIONARIO autorizado: ok
   }
 
   // ── /portal-empresa (raiz e sub-rotas) ───────────────────────────────

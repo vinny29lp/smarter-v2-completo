@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Card }    from "@/components/ui/Card";
 import { Badge }   from "@/components/ui/Badge";
 import { Button }  from "@/components/ui/Button";
@@ -12,6 +13,8 @@ const STATUS_V: Record<string,"green"|"yellow"|"red"> = {
 const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits:2 });
 
 export default function FinanceiroPage() {
+  const { data: session } = useSession();
+  const isFranqueadora = session?.user?.role === "FRANQUEADORA";
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [config, setConfig]           = useState<any>(null);
   const [configModal, setConfigModal] = useState(false);
@@ -23,6 +26,12 @@ export default function FinanceiroPage() {
   const [histLogs, setHistLogs]       = useState<any[]>([]);
   const [filtro, setFiltro]           = useState("TODOS");
   const [loading, setLoading]         = useState(false);
+  // Cobrança de franquias
+  const [franquiasPreview, setFranquiasPreview] = useState<any[]>([]);
+  const [franquiasTotal, setFranquiasTotal]     = useState(0);
+  const [fechandoMes, setFechandoMes]           = useState(false);
+  const [fechamentoResult, setFechamentoResult] = useState<any>(null);
+  const [fechamentoModal, setFechamentoModal]   = useState(false);
   const [form, setForm] = useState({
     descricao:"", tipo:"entrada", valor:"", categoria:"Empresa",
     status:"PENDENTE", recorrente:false, diaVencimento:"", vencimentoAt:"",
@@ -38,7 +47,16 @@ export default function FinanceiroPage() {
       if (d.config) setConfigForm({ chavePix: d.config.chavePix || "", linkPagamento: d.config.linkPagamento || "", instrucaoPagamento: d.config.instrucaoPagamento || "" });
     });
 
+  const loadFranquiasPreview = () => {
+    if (!isFranqueadora) return;
+    fetch("/api/app/financeiro/fechar-mes")
+      .then(r => r.json())
+      .then(d => { setFranquiasPreview(d.preview || []); setFranquiasTotal(d.totalGeral || 0); })
+      .catch(() => {});
+  };
+
   useEffect(() => { load(); loadConfig(); }, []);
+  useEffect(() => { if (isFranqueadora) loadFranquiasPreview(); }, [isFranqueadora]);
 
   const filtrados = filtro === "TODOS" ? lancamentos : lancamentos.filter(l => l.status === filtro);
   const entradas  = lancamentos.filter(l => l.tipo==="entrada" && l.status==="PAGO").reduce((a,b)=>a+b.valor,0);
@@ -117,6 +135,21 @@ export default function FinanceiroPage() {
     setCobrModal(null); setLoading(false); load();
   };
 
+  const fecharMes = async (force = false) => {
+    setFechandoMes(true);
+    const url = "/api/app/financeiro/fechar-mes" + (force ? "?force=true" : "");
+    const res = await fetch(url, { method: "POST" });
+    const data = await res.json();
+    setFechamentoResult(data);
+    setFechamentoModal(true);
+    setFechandoMes(false);
+    if (data.ok) { load(); loadFranquiasPreview(); }
+  };
+
+  const hoje = new Date();
+  const diaAtual = hoje.getDate();
+  const podeFecha = diaAtual >= 23;
+
   return (
     <div>
       {/* Header */}
@@ -154,6 +187,70 @@ export default function FinanceiroPage() {
           <p className="text-2xl font-black text-amber-600 mt-1">{fmt(pendentes)}</p>
         </Card>
       </div>
+
+      {/* Cobrança de Franquias — só visível para FRANQUEADORA */}
+      {isFranqueadora && (
+        <Card className="mb-5 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <div>
+              <h2 className="text-sm font-black text-slate-800">🏢 Cobrança de Franquias</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Mensalidade + taxa administrativa por estagiário ativo</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-xs text-slate-400">Total previsto</p>
+                <p className="text-lg font-black text-[#0f2a5e]">{fmt(franquiasTotal)}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Button
+                  onClick={() => fecharMes(false)}
+                  disabled={fechandoMes || !podeFecha}
+                  variant={podeFecha ? "primary" : "secondary"}
+                  size="sm">
+                  {fechandoMes ? "Fechando..." : podeFecha ? "📅 Fechar Mês" : `Disponível dia 23 (hoje: ${diaAtual})`}
+                </Button>
+                {!podeFecha && (
+                  <button onClick={() => fecharMes(true)} disabled={fechandoMes}
+                    className="text-[10px] text-slate-400 hover:text-slate-600 underline text-center">
+                    Forçar agora (admin)
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          {franquiasPreview.length === 0 ? (
+            <div className="px-5 py-6 text-center text-sm text-slate-400">Nenhum franqueado ativo encontrado.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    {["Franqueado","Estag. Ativos","Taxa Admin","Mensalidade","Total","Cobrar Mens."].map(h => (
+                      <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wide px-4 py-2">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {franquiasPreview.map((f: any) => (
+                    <tr key={f.franchiseId} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
+                      <td className="px-4 py-2 text-sm font-semibold">{f.nome}</td>
+                      <td className="px-4 py-2 text-sm text-center">{f.ativosCount}</td>
+                      <td className="px-4 py-2 text-sm text-emerald-600 font-medium">{fmt(f.taxaAdmin)}</td>
+                      <td className="px-4 py-2 text-sm">{fmt(f.mensalidade)}</td>
+                      <td className="px-4 py-2 text-sm font-black text-[#0f2a5e]">{fmt(f.total)}</td>
+                      <td className="px-4 py-2">
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${f.cobrarMensalidade ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
+                          {f.cobrarMensalidade ? "Sim" : "Não"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Filtros */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-4 w-fit">
@@ -308,6 +405,35 @@ export default function FinanceiroPage() {
               <Button variant="secondary" onClick={() => setEditModal(null)}>Cancelar</Button>
               <Button onClick={salvarEdicao}>Salvar</Button>
             </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal Resultado Fechamento */}
+      <Modal open={fechamentoModal} onClose={() => setFechamentoModal(false)} title="📅 Resultado do Fechamento">
+        {fechamentoResult && (
+          <div className="space-y-3">
+            {fechamentoResult.ok ? (
+              <>
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-medium">
+                  ✅ {fechamentoResult.message}
+                </div>
+                <p className="text-xs text-slate-500">Vencimento: <strong>{fechamentoResult.vencimento}</strong> — Referência: <strong>{fechamentoResult.mesRef}</strong></p>
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {(fechamentoResult.results || []).map((r: any, i: number) => (
+                    <div key={i} className={`flex justify-between items-center p-2.5 rounded-lg text-sm ${r.skipped ? "bg-slate-50 text-slate-400" : "bg-emerald-50 text-emerald-800"}`}>
+                      <span className="font-medium">{r.franchise}</span>
+                      <span className="font-bold">{r.skipped ? r.reason : fmt(r.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
+                ⚠️ {fechamentoResult.error}
+              </div>
+            )}
+            <Button onClick={() => setFechamentoModal(false)} variant="secondary" className="w-full">Fechar</Button>
           </div>
         )}
       </Modal>

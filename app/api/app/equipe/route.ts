@@ -5,12 +5,29 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { enviarBoasVindasColaborador } from "@/lib/email";
 
-export async function GET() {
+// Retorna o franchiseId efetivo para a sessão:
+// - FRANQUEADO/FUNCIONARIO: usa o da sessão
+// - FRANQUEADORA: usa o que vier no body, ou o primeiro franchise disponível
+async function getEffectiveFranchiseId(session: any, bodyFranchiseId?: string): Promise<string | null> {
+  if (session?.user?.franchiseId) return session.user.franchiseId;
+  if (session?.user?.role === "FRANQUEADORA") {
+    if (bodyFranchiseId) return bodyFranchiseId;
+    // Pega o primeiro franchise disponível
+    const first = await prisma.franchise.findFirst({ orderBy: { createdAt: "asc" } });
+    return first?.id ?? null;
+  }
+  return null;
+}
+
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.franchiseId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const franchiseId = await getEffectiveFranchiseId(session);
+  if (!franchiseId) return NextResponse.json({ error: "Nenhuma unidade encontrada" }, { status: 400 });
 
   const employees = await prisma.employee.findMany({
-    where: { franchiseId: session.user.franchiseId },
+    where: { franchiseId },
     include: { user: { select: { id: true, name: true, email: true, active: true, role: true, createdAt: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -20,10 +37,16 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.franchiseId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  if (!["FRANQUEADORA","FRANQUEADO"].includes(session.user.role || "")) {
+    return NextResponse.json({ error: "Sem permissão para cadastrar equipe" }, { status: 403 });
+  }
 
   const body = await req.json();
-  const { name, email, cargo, permissoes = [], senha } = body;
+  const { name, email, cargo, permissoes = [], senha, franchiseId: bodyFranchiseId } = body;
+
+  const franchiseId = await getEffectiveFranchiseId(session, bodyFranchiseId);
+  if (!franchiseId) return NextResponse.json({ error: "Unidade não identificada. Selecione uma unidade." }, { status: 400 });
 
   if (!name || !email) return NextResponse.json({ error: "Nome e e-mail são obrigatórios" }, { status: 400 });
   if (!senha || senha.length < 6) return NextResponse.json({ error: "Senha deve ter pelo menos 6 caracteres" }, { status: 400 });
@@ -31,6 +54,7 @@ export async function POST(req: Request) {
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) return NextResponse.json({ error: "E-mail já cadastrado no sistema" }, { status: 409 });
 
+  let createdUserId: string | null = null;
   try {
     const hash = await bcrypt.hash(senha, 10);
 
@@ -40,35 +64,35 @@ export async function POST(req: Request) {
         email,
         password: hash,
         role: "FUNCIONARIO" as any,
-        franchiseId: session.user.franchiseId,
+        franchiseId,
         active: true,
       },
     });
+    createdUserId = user.id;
 
     const employee = await prisma.employee.create({
       data: {
         userId: user.id,
-        franchiseId: session.user.franchiseId as string,
+        franchiseId,
         cargo: cargo || "Colaborador",
-        permissoes: permissoes || [],
+        permissoes: Array.isArray(permissoes) ? permissoes : [],
       },
       include: { user: { select: { id: true, name: true, email: true, active: true, role: true, createdAt: true } } },
     });
 
-    // Send welcome email to collaborator (non-blocking)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://smarter-v2-completo.vercel.app";
+    // Enviar boas-vindas (non-blocking)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
     enviarBoasVindasColaborador({ email, nome: name, senha, loginUrl: appUrl })
       .catch(e => console.warn("[email] Falha boas-vindas equipe:", e));
 
     return NextResponse.json({ employee }, { status: 201 });
   } catch (err: any) {
     console.error("[equipe POST] erro:", err);
-    // Se o usuário foi criado mas employee falhou, tenta limpar
-    if (err?.message?.includes("employee")) {
-      await prisma.user.deleteMany({ where: { email } }).catch(() => {});
+    // Limpar usuário criado se employee falhou
+    if (createdUserId) {
+      await prisma.user.delete({ where: { id: createdUserId } }).catch(() => {});
     }
-    return NextResponse.json({
-      error: err?.meta?.cause || err?.message || "Erro ao criar colaborador. Verifique os dados.",
-    }, { status: 500 });
+    const msg = err?.meta?.cause || err?.meta?.message || err?.message || "Erro ao criar colaborador";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

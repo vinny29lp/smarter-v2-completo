@@ -56,6 +56,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ ok: true });
   }
 
+  // Toggle cobrarMensalidade
+  if (body.action === "toggle_mensalidade") {
+    const current = await prisma.franchise.findUnique({ where: { id: params.id }, select: { cobrarMensalidade: true } });
+    const franchise = await prisma.franchise.update({
+      where: { id: params.id },
+      data: { cobrarMensalidade: !(current?.cobrarMensalidade ?? true) },
+    });
+    return NextResponse.json({ franchise, cobrarMensalidade: franchise.cobrarMensalidade });
+  }
+
   // Atualizar dados da franquia
   const franchise = await prisma.franchise.update({
     where: { id: params.id },
@@ -64,6 +74,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       responsavel: body.responsavel, email: body.email, telefone: body.telefone,
       cidade: body.cidade, uf: body.uf, endereco: body.endereco,
       mensalidade: body.mensalidade ? parseFloat(body.mensalidade) : undefined,
+      cobrarMensalidade: body.cobrarMensalidade !== undefined ? body.cobrarMensalidade : undefined,
       status: body.status,
     },
   });
