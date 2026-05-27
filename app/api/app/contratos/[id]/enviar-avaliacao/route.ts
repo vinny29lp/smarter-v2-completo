@@ -26,7 +26,7 @@ export async function POST(
     return NextResponse.json({ error: "A empresa não tem e-mail cadastrado." }, { status: 400 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
 
   const ok = await enviarAvaliacaoLink({
     email: emailDestino,

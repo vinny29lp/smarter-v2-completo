@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     });
 
     // Enviar boas-vindas (non-blocking)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
     enviarBoasVindasColaborador({ email, nome: name, senha, loginUrl: appUrl })
       .catch(e => console.warn("[email] Falha boas-vindas equipe:", e));
 

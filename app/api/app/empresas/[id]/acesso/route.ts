@@ -48,7 +48,7 @@ export async function POST(
     });
 
     // Send welcome email (non-blocking)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://smarter-v2-completo.vercel.app";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://sistema.smarterestagios.com.br";
     enviarBoasVindasEmpresa({
       email: empresa.email,
       nomeEmpresa: empresa.name,

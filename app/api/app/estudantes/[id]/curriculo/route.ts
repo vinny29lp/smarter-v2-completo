@@ -148,7 +148,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 </head><body><div class="doc">
 
 <div class="dh">
-  <div class="dh-logo"><img src="${process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app"}/logo-sistema.png" alt="Sistema Smarter"/></div>
+  <div class="dh-logo"><img src="${process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br"}/logo-sistema.png" alt="Sistema Smarter"/></div>
   <div class="dh-center">
     <div class="dh-name">${s.name}</div>
     <div class="dh-sub">${s.curso || "—"} · ${s.periodo || "—"}° Período · ${s.institution?.name || "—"}</div>
@@ -221,7 +221,7 @@ ${disc ? `
 <div style="page-break-before:always;padding-top:10mm">
 
 <div class="dh" style="background:linear-gradient(135deg,${disc.cor}cc,${disc.cor}99)">
-  <div class="dh-logo"><img src="${process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app"}/logo-sistema.png" alt="Sistema Smarter"/></div>
+  <div class="dh-logo"><img src="${process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br"}/logo-sistema.png" alt="Sistema Smarter"/></div>
   <div class="dh-center">
     <div style="color:rgba(255,255,255,.8);font-size:9px;text-transform:uppercase;letter-spacing:1px">Relatório DISC Comportamental</div>
     <div class="dh-name">${s.name}</div>

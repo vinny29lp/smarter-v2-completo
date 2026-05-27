@@ -73,7 +73,7 @@ function base(titulo: string, corpo: string): string {
 export async function enviarBoasVindasEstudante(params: {
   email: string; nome: string; senha: string; curso: string; loginUrl?: string;
 }): Promise<boolean> {
-  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
+  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Seu acesso ao portal de estágio foi criado.</p>
     <div class="box">
@@ -93,7 +93,7 @@ export async function enviarBoasVindasEstudante(params: {
 export async function enviarBoasVindasEmpresa(params: {
   email: string; nomeEmpresa: string; nomeResponsavel: string; senha: string; loginUrl?: string;
 }): Promise<boolean> {
-  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
+  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nomeResponsavel}</strong>! O acesso da empresa <strong>${params.nomeEmpresa}</strong> foi criado.</p>
     <div class="box">
@@ -159,7 +159,7 @@ export async function enviarAvaliacaoLink(params: {
   contratoId: string;
   loginUrl?: string;
 }): Promise<boolean> {
-  const appUrl = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
+  const appUrl = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
   const link = `${appUrl}/portal-empresa/avaliacoes?contrato=${params.contratoId}`;
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nomeEmpresa}</strong>!</p>
@@ -180,7 +180,7 @@ export async function enviarAvaliacaoLink(params: {
 export async function enviarBoasVindasColaborador(params: {
   email: string; nome: string; senha: string; loginUrl?: string;
 }): Promise<boolean> {
-  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
+  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Seu acesso à equipe Smarter Estágios foi criado.</p>
     <div class="box">

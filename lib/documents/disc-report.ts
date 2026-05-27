@@ -306,7 +306,7 @@ export function gerarRelatorioDisc(profile: DiscProfile): string {
 <div class="doc">
   <div class="watermark">SMARTER</div>
   <div class="header">
-    <div><img src="https://smarter-v2-completo.vercel.app/logo-sistema.png" alt="Sistema Smarter" style="height:36px;object-fit:contain"/></div>
+    <div><img src="https://sistema.smarterestagios.com.br/logo-sistema.png" alt="Sistema Smarter" style="height:36px;object-fit:contain"/></div>
     <div class="title-area"><div class="doc-title">RELATÓRIO DISC COMPORTAMENTAL</div><div class="doc-sub">Análise Completa de Perfil</div></div>
   </div>
 

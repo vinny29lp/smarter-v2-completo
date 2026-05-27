@@ -5,6 +5,10 @@ import { Providers } from "./providers";
 export const metadata: Metadata = {
   title: "Sistema Smarter",
   description: "Sistema de Gestao de Estagios",
+  icons: {
+    icon: "/favicon-smarter.png",
+    apple: "/favicon-smarter.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

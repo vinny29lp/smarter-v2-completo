@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { wrapParaPDF } from "@/lib/pdf-wrapper";
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://smarter-v2-completo.vercel.app";
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
 
 function gerarHtmlCPS(empresa: any, franchise: any, valorGestao: number): string {
   const hoje = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });

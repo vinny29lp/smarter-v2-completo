@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       data: { password: hash },
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://smarter-v2-completo.vercel.app";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://sistema.smarterestagios.com.br";
 
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#f8fafc;padding:32px;border-radius:16px;">

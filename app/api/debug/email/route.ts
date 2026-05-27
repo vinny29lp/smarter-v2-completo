@@ -107,7 +107,7 @@ export async function POST() {
       <div><span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase">Senha temporária: </span><span style="font-weight:600;color:#1e293b">Smarter@2026</span></div>
     </div>
     <p style="color:#475569;font-size:13px">Através do portal você pode gerenciar estagiários, assinar documentos e acompanhar o financeiro.</p>
-    <a href="https://smarter-v2-completo.vercel.app/login"
+    <a href="https://sistema.smarterestagios.com.br/login"
        style="display:inline-block;background:#0f2a5e;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-top:8px">
       Acessar Portal da Empresa →
     </a>

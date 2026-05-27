@@ -204,7 +204,7 @@ function actItem(n: number, text: string): string {
 }
 function docHeader(tceNum: string, mainTitle: string, subTitle: string, badge: string = "DOCUMENTO ATIVO"): string {
   return `<div class="dh">
-    <div class="dh-logo"><img src="https://smarter-v2-completo.vercel.app/logo-sistema.png" alt="Sistema Smarter"/></div>
+    <div class="dh-logo"><img src="https://sistema.smarterestagios.com.br/logo-sistema.png" alt="Sistema Smarter"/></div>
     <div class="dh-center">
       <div class="dh-type">TCE · Nº ${tceNum}</div>
       <div class="dh-title">${mainTitle}</div>
@@ -548,7 +548,7 @@ ${pageFooter(c.numero, did, sm)}
 // ── HELPERS COMPARTILHADOS ─────────────────────────────────────────────────────
 function premiumHeader(titulo: string, subtitulo: string, numero: string, sm: ContratoData["smarter"]): string {
   return `<div class="dh">
-    <div class="dh-logo"><img src="https://smarter-v2-completo.vercel.app/logo-sistema.png" alt="Sistema Smarter"/></div>
+    <div class="dh-logo"><img src="https://sistema.smarterestagios.com.br/logo-sistema.png" alt="Sistema Smarter"/></div>
     <div class="dh-center">
       <div class="dh-type">Documento Nº ${numero}</div>
       <div class="dh-title">${titulo}</div>
