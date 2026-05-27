@@ -285,11 +285,13 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
               {checkingStatus ? "Verificando..." : "🔄 Verificar Assinaturas"}
             </Button>
           )}
-          {assinado && doc?.signedUrl && (
+          {assinado && (
             <>
-              <Button variant="secondary" onClick={visualizarAssinado}>
-                👁 Visualizar Assinado
-              </Button>
+              {doc?.signedUrl && (
+                <Button variant="secondary" onClick={visualizarAssinado}>
+                  👁 Visualizar Assinado
+                </Button>
+              )}
               <Button onClick={downloadAssinado}>
                 ⬇ Baixar Assinado (PDF)
               </Button>
@@ -323,14 +325,16 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                 Status das Assinaturas
                 {isTce && <span className="ml-2 text-[#0f2a5e] normal-case font-normal">(3 obrigatórias para ativar o estágio)</span>}
               </p>
-              {assinado && doc?.signedUrl && (
+              {assinado && (
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={visualizarAssinado}
-                    className="text-xs text-slate-500 font-bold hover:underline flex items-center gap-1"
-                  >
-                    👁 Visualizar
-                  </button>
+                  {doc?.signedUrl && (
+                    <button
+                      onClick={visualizarAssinado}
+                      className="text-xs text-slate-500 font-bold hover:underline flex items-center gap-1"
+                    >
+                      👁 Visualizar
+                    </button>
+                  )}
                   <button
                     onClick={downloadAssinado}
                     className="text-xs text-[#0f2a5e] font-bold hover:underline flex items-center gap-1"
