@@ -104,41 +104,26 @@ export async function POST(req: Request) {
       continue;
     }
 
-    const lancamentos: any[] = [];
+    // Monta descrição detalhada: "Sistema R$200 + 3 estag. (R$39) — Unidade X — junho 2026"
+    const partes: string[] = [];
+    if (cobrarMens && mensalidade > 0)
+      partes.push(`Sistema R$${mensalidade.toFixed(0).replace(".", ",")}`);
+    if (ativos > 0)
+      partes.push(`${ativos} estag. (R$${taxaAdmin.toFixed(0)})`);
+    const descricao = `${partes.join(" + ")} — ${f.name} — ${mesRef}`;
 
-    // Entrada 1: Mensalidade (se cobrar)
-    if (cobrarMens && mensalidade > 0) {
-      const lanc = await prisma.financial.create({
-        data: {
-          descricao: `Mensalidade — ${f.name} — ${mesRef}`,
-          tipo: "entrada",
-          valor: mensalidade,
-          categoria: "Franquia",
-          status: "PENDENTE",
-          vencimentoAt: proximoMes,
-          franchiseId: f.id,
-          recorrente: false,
-        } as any,
-      });
-      lancamentos.push(lanc);
-    }
-
-    // Entrada 2: Taxa Admin por estagiários ativos
-    if (ativos > 0) {
-      const lanc = await prisma.financial.create({
-        data: {
-          descricao: `Taxa Admin ${ativos} estag. — ${f.name} — ${mesRef}`,
-          tipo: "entrada",
-          valor: taxaAdmin,
-          categoria: "Franquia",
-          status: "PENDENTE",
-          vencimentoAt: proximoMes,
-          franchiseId: f.id,
-          recorrente: false,
-        } as any,
-      });
-      lancamentos.push(lanc);
-    }
+    const lancamento = await prisma.financial.create({
+      data: {
+        descricao,
+        tipo: "entrada",
+        valor: total,
+        categoria: "Franquia",
+        status: "PENDENTE",
+        vencimentoAt: proximoMes,
+        franchiseId: f.id,
+        recorrente: false,
+      } as any,
+    });
 
     results.push({
       franchise: f.name,
@@ -147,7 +132,7 @@ export async function POST(req: Request) {
       mensalidade,
       taxaAdmin,
       total,
-      lancamentos: lancamentos.map(l => l.id),
+      lancamentoId: lancamento.id,
     });
     totalGeral += total;
   }
