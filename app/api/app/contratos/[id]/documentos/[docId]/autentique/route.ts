@@ -150,7 +150,7 @@ export async function GET(
           ...(franchiseId && !isMaster ? { franchiseId } : {}),
         },
       },
-      include: { contract: true },
+      include: { contract: { include: { student: true } } },
     });
 
     if (!document) {
@@ -198,6 +198,15 @@ export async function GET(
           data: { status: "ATIVO" },
         });
         contratoAtivado = true;
+
+        // Garantir estudante como EM_ESTAGIO
+        const studentId = (document.contract as any)?.student?.id || (document.contract as any)?.studentId;
+        if (studentId) {
+          await prisma.student.update({
+            where: { id: studentId },
+            data: { status: "EM_ESTAGIO" },
+          }).catch(() => {});
+        }
 
         // ── Lançamento automático de Taxa de Administração ──────────────────
         try {
@@ -247,6 +256,15 @@ export async function GET(
           data: { status: "INATIVO" as any },
         });
         contratoInativado = true;
+
+        // Rescisão: estudante volta a ficar disponível
+        const studentId = (document.contract as any)?.student?.id || (document.contract as any)?.studentId;
+        if (studentId) {
+          await prisma.student.update({
+            where: { id: studentId },
+            data: { status: "DISPONIVEL" },
+          }).catch(() => {});
+        }
 
         // ── Regra de rescisão: dia 10 ────────────────────────────────────────
         // Se rescisão APÓS dia 10: cobrança do próximo mês ainda será feita (mantém pendentes)

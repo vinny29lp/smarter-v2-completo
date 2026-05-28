@@ -186,7 +186,24 @@ export async function updateContractStatus(id: string, status: string) {
     where: { id },
     data: { status: status as any },
   });
+
+  // Sincronizar status do estudante conforme o novo status do contrato
+  if (status === "INATIVO") {
+    // Rescisão: estudante volta a ficar disponível
+    await prisma.student.update({
+      where: { id: contract.studentId },
+      data: { status: "DISPONIVEL" },
+    }).catch(() => {});
+  } else if (status === "FINALIZADO") {
+    // Término natural: marca estudante como finalizado
+    await prisma.student.update({
+      where: { id: contract.studentId },
+      data: { status: "FINALIZADO" },
+    }).catch(() => {});
+  }
+
   revalidatePath("/dashboard/contratos");
+  revalidatePath("/dashboard/estudantes");
   return contract;
 }
 

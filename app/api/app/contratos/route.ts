@@ -7,14 +7,11 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // FRANQUEADORA (admin) vê tudo; FRANQUEADO não vê contratos INATIVO
-  const isAdmin = session.user.role === "FRANQUEADORA";
-  const hideInativo = !isAdmin;
-
+  // Todos os roles veem todos os status (inclusive INATIVO)
   const contratos = await getContracts(
     session?.user?.franchiseId,
     session?.user?.companyId,
-    hideInativo,
+    false,
   );
   return NextResponse.json({ contratos });
 }
