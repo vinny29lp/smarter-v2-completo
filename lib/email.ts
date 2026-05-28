@@ -1,11 +1,21 @@
 // ── Email via Resend HTTP API ────────────────────────────────────
 // Token: env RESEND_API_KEY (priority) or SystemConfig.resendApiKey (fallback DB)
+//
+// DOMÍNIO: Para enviar para qualquer email, o domínio smarterestagios.com.br
+// deve estar verificado em resend.com/domains com os registros DNS abaixo:
+//
+//   Tipo   Nome                        Valor
+//   TXT    _resend.smarterestagios.com.br    v=DMARC1; p=none
+//   MX     send.smarterestagios.com.br       feedback-smtp.us-east-1.amazonses.com
+//   TXT    resend._domainkey.smarterestagios.com.br  (chave DKIM fornecida pelo Resend)
+//
+// Após verificar, configurar em Vercel:
+//   RESEND_FROM = Smarter Estágios <financeiro@smarterestagios.com.br>
 
 import { getSystemConfig } from "./getConfig";
 
 const RESEND_URL = "https://api.resend.com/emails";
-// Use RESEND_FROM env var for verified domain, fallback to Resend test sender
-const FROM = process.env.RESEND_FROM || "Smarter Estágios <onboarding@resend.dev>";
+const FROM = process.env.RESEND_FROM || "Smarter Estágios <financeiro@smarterestagios.com.br>";
 
 async function getApiKey(): Promise<string | null> {
   if (process.env.RESEND_API_KEY) return process.env.RESEND_API_KEY;
@@ -13,17 +23,56 @@ async function getApiKey(): Promise<string | null> {
   return cfg?.resendApiKey || null;
 }
 
-export async function sendMail(to: string, subject: string, html: string): Promise<boolean> {
+// ── Inline attachment type (CID) ─────────────────────────────────
+type EmailAttachment = {
+  filename: string;
+  content: string;   // base64
+  content_id: string;
+};
+
+// ── Extract base64 from data URI or fetch from URL ───────────────
+async function resolveQrCode(qrCodePixUrl: string): Promise<EmailAttachment | null> {
+  try {
+    // data URI: data:image/png;base64,XXXX
+    if (qrCodePixUrl.startsWith("data:")) {
+      const match = qrCodePixUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return null;
+      const ext = match[1].split("/")[1] || "png";
+      return { filename: `qrcode.${ext}`, content: match[2], content_id: "qrcode-pix" };
+    }
+
+    // External URL: fetch and convert to base64
+    const res = await fetch(qrCodePixUrl, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const buffer = await res.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+    const ct = res.headers.get("content-type") || "image/png";
+    const ext = ct.split("/")[1]?.split(";")[0] || "png";
+    return { filename: `qrcode.${ext}`, content: base64, content_id: "qrcode-pix" };
+  } catch {
+    return null;
+  }
+}
+
+export async function sendMail(
+  to: string,
+  subject: string,
+  html: string,
+  attachments?: EmailAttachment[],
+): Promise<boolean> {
   const apiKey = await getApiKey();
   if (!apiKey) {
     console.warn("[Email] RESEND_API_KEY não configurado — email não enviado.");
     return false;
   }
   try {
+    const body: Record<string, unknown> = { from: FROM, to: [to], subject, html };
+    if (attachments?.length) body.attachments = attachments;
+
     const res = await fetch(RESEND_URL, {
       method: "POST",
       headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: FROM, to: [to], subject, html }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const err = await res.text();
@@ -71,7 +120,7 @@ function base(titulo: string, corpo: string): string {
     <div class="divider"></div>
     ${corpo}
   </div>
-  <div class="footer">Smarter Estágios — Sistema de Gestão de Estágios<br>Este é um email automático, não responda.</div>
+  <div class="footer">Smarter Estágios — Sistema de Gestão de Estágios<br>Este é um email automático, por favor não responda.<br>financeiro@smarterestagios.com.br</div>
 </div>
 </body></html>`;
 }
@@ -79,7 +128,7 @@ function base(titulo: string, corpo: string): string {
 export async function enviarBoasVindasEstudante(params: {
   email: string; nome: string; senha: string; curso: string; loginUrl?: string;
 }): Promise<boolean> {
-  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
+  const url = params.loginUrl || APP_URL;
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Seu acesso ao portal de estágio foi criado.</p>
     <div class="box">
@@ -99,7 +148,7 @@ export async function enviarBoasVindasEstudante(params: {
 export async function enviarBoasVindasEmpresa(params: {
   email: string; nomeEmpresa: string; nomeResponsavel: string; senha: string; loginUrl?: string;
 }): Promise<boolean> {
-  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
+  const url = params.loginUrl || APP_URL;
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nomeResponsavel}</strong>! O acesso da empresa <strong>${params.nomeEmpresa}</strong> foi criado.</p>
     <div class="box">
@@ -123,13 +172,19 @@ export async function enviarCobranca(params: {
   const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
   const venc = params.vencimento ? new Date(params.vencimento).toLocaleDateString("pt-BR") : "—";
 
+  // Resolve QR code como inline attachment CID (funciona em qualquer cliente de email)
+  let qrAttachment: EmailAttachment | null = null;
+  if (params.qrCodePixUrl) {
+    qrAttachment = await resolveQrCode(params.qrCodePixUrl);
+  }
+
   let pagamentoHtml = "";
 
-  // Bloco PIX: chave + QR code + instrução de cópia
   if (params.chavePix) {
-    const qrImg = params.qrCodePixUrl
-      ? `<img src="${params.qrCodePixUrl}" alt="QR Code PIX" class="pix-qr" width="180"/><br>
-         <p style="color:#065f46;font-size:12px;margin:4px 0 12px">📱 Aponte a câmera do celular para o QR Code acima ou copie a chave abaixo</p>`
+    // Se tiver QR code resolvido, usa CID reference; senão, omite a imagem
+    const qrImg = qrAttachment
+      ? `<img src="cid:qrcode-pix" alt="QR Code PIX" class="pix-qr" width="180" style="max-width:180px;border-radius:8px;border:4px solid #d1fae5;display:block;margin:12px auto"/><br>
+         <p style="color:#065f46;font-size:12px;margin:4px 0 12px">📱 Aponte a câmera do celular para o QR Code ou copie a chave abaixo</p>`
       : "";
     pagamentoHtml += `
       <div class="pix-box">
@@ -161,7 +216,14 @@ export async function enviarCobranca(params: {
     ${params.mensagemPersonalizada ? `<p style="color:#475569;font-size:13px;font-style:italic;padding:10px 14px;background:#f8fafc;border-radius:8px;border-left:3px solid #cbd5e1">${params.mensagemPersonalizada}</p>` : ""}
     ${pagamentoHtml || `<p style="color:#64748b;font-size:13px">Entre em contato para informações de pagamento.</p>`}
   `;
-  return sendMail(params.email, `Cobrança Smarter Estágios — ${params.descricao}`, base("Cobrança Pendente", corpo));
+
+  const attachments = qrAttachment ? [qrAttachment] : undefined;
+  return sendMail(
+    params.email,
+    `Cobrança Smarter Estágios — ${params.descricao}`,
+    base("Cobrança Pendente", corpo),
+    attachments,
+  );
 }
 
 export async function enviarNotificacaoAssinatura(params: {
@@ -182,7 +244,7 @@ export async function enviarAvaliacaoLink(params: {
   contratoId: string;
   loginUrl?: string;
 }): Promise<boolean> {
-  const appUrl = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
+  const appUrl = params.loginUrl || APP_URL;
   const link = `${appUrl}/portal-empresa/avaliacoes?contrato=${params.contratoId}`;
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nomeEmpresa}</strong>!</p>
@@ -203,7 +265,7 @@ export async function enviarAvaliacaoLink(params: {
 export async function enviarBoasVindasColaborador(params: {
   email: string; nome: string; senha: string; loginUrl?: string;
 }): Promise<boolean> {
-  const url = params.loginUrl || process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
+  const url = params.loginUrl || APP_URL;
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Seu acesso à equipe Smarter Estágios foi criado.</p>
     <div class="box">

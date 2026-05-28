@@ -838,24 +838,54 @@ export default function FinanceiroPage() {
             <>
               <div className="border-t border-slate-200 pt-3">
                 <p className="text-xs font-black text-slate-600 uppercase tracking-wide mb-2">🏢 Cobranças para Franqueados</p>
-                <p className="text-xs text-slate-400 mb-3">Estes dados são usados no e-mail de cobrança enviado às unidades franqueadas.</p>
+                <p className="text-xs text-slate-400 mb-3">Estes dados são incluídos no e-mail de cobrança enviado às unidades franqueadas.</p>
               </div>
+
+              {/* QR Code — upload de arquivo (converte para base64 e embute no email) */}
               <div>
-                <Input label="URL do QR Code PIX (para e-mail)" value={configForm.qrCodePixUrl}
-                  onChange={e => setConfigForm(p => ({...p, qrCodePixUrl: e.target.value}))}
-                  placeholder="https://...imagem-qrcode.png"/>
-                {configForm.qrCodePixUrl && (
-                  <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-xl text-center">
-                    <p className="text-[10px] text-green-600 font-semibold mb-2">Prévia do QR Code:</p>
-                    <img
-                      src={configForm.qrCodePixUrl}
-                      alt="QR Code PIX"
-                      className="max-w-[140px] max-h-[140px] mx-auto rounded-lg border-2 border-green-200 object-contain"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
+                <label className="text-xs font-bold text-slate-600 block mb-1">QR Code PIX (imagem para o e-mail)</label>
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <label className={`flex items-center gap-2 px-4 py-2.5 border-2 border-dashed rounded-xl cursor-pointer text-sm font-medium transition-all ${
+                      configForm.qrCodePixUrl ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-slate-300 bg-slate-50 text-slate-500 hover:border-[#0f2a5e]"
+                    }`}>
+                      <span>{configForm.qrCodePixUrl ? "✓ QR Code carregado — clique para trocar" : "📤 Clique para enviar a imagem do QR Code"}</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                        className="hidden"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = ev => {
+                            const dataUrl = ev.target?.result as string;
+                            setConfigForm(p => ({...p, qrCodePixUrl: dataUrl}));
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                    <p className="text-[10px] text-slate-400 mt-1">PNG ou JPG recomendado. A imagem será embutida diretamente no e-mail.</p>
                   </div>
-                )}
+                  {/* Preview */}
+                  {configForm.qrCodePixUrl && (
+                    <div className="relative shrink-0">
+                      <img
+                        src={configForm.qrCodePixUrl}
+                        alt="QR Code"
+                        className="w-20 h-20 rounded-lg border-2 border-emerald-300 object-contain bg-white"
+                      />
+                      <button
+                        onClick={() => setConfigForm(p => ({...p, qrCodePixUrl: ""}))}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center hover:bg-red-600"
+                        title="Remover"
+                      >×</button>
+                    </div>
+                  )}
+                </div>
               </div>
+
               <div>
                 <label className="text-xs font-bold text-slate-600 block mb-1">Mensagem padrão para franqueados (opcional)</label>
                 <textarea className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-16 resize-none outline-none focus:border-[#0f2a5e]"
