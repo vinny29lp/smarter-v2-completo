@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         orderBy: { createdAt: "desc" },
       },
       financials: { orderBy: { createdAt: "desc" }, take: 30 },
-      _count: { select: { companies: true, students: true, contracts: true } },
+      _count: { select: { companies: true, students: { where: { status: "EM_ESTAGIO" } }, contracts: true } },
     },
   });
   if (!franchise) return NextResponse.json({ error: "Nao encontrado" }, { status: 404 });

@@ -15,7 +15,7 @@ export async function GET() {
         where: { role: "FRANQUEADO" },
         select: { id: true, name: true, email: true, active: true, lastLoginAt: true, createdAt: true },
       },
-      _count: { select: { companies: true, students: true, contracts: true } },
+      _count: { select: { companies: true, students: { where: { status: "EM_ESTAGIO" } }, contracts: true } },
     },
     orderBy: { createdAt: "desc" },
   });

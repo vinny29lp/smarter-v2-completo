@@ -17,7 +17,7 @@ export default async function FranqueadosPage() {
         select: { id: true, name: true, email: true, active: true, lastLoginAt: true },
         take: 1,
       },
-      _count: { select: { companies: true, students: true, contracts: true } },
+      _count: { select: { companies: true, students: { where: { status: "EM_ESTAGIO" } }, contracts: true } },
     },
     orderBy: { pontuacao: "desc" },
   });
