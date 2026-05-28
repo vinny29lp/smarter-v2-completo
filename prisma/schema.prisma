@@ -521,6 +521,12 @@ model SystemConfig {
   watermarkText    String?   @default("SMARTER")
   autentiqueToken  String?   @default("")
   resendApiKey     String?   @default("")
+  // Configurações de pagamento da Franqueadora (para cobrar os Franqueados)
+  chavePix                   String?  @default("")
+  linkPagamento              String?  @default("")
+  instrucaoPagamento         String?  @default("")
+  qrCodePixUrl               String?  @default("")
+  mensagemCobrancaFranqueado String?  @default("")
   updatedAt        DateTime? @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@map("system_configs")

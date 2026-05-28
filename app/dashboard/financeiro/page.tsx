@@ -88,7 +88,7 @@ export default function FinanceiroPage() {
   const [lancamentos, setLancamentos]         = useState<any[]>([]);
   const [config, setConfig]                   = useState<any>(null);
   const [configModal, setConfigModal]         = useState(false);
-  const [configForm, setConfigForm]           = useState({ chavePix:"", linkPagamento:"", instrucaoPagamento:"" });
+  const [configForm, setConfigForm]           = useState({ chavePix:"", linkPagamento:"", instrucaoPagamento:"", qrCodePixUrl:"", mensagemCobrancaFranqueado:"" });
   const [novoModal, setNovoModal]             = useState(false);
   const [editModal, setEditModal]             = useState<any>(null);
   const [cobrModal, setCobrModal]             = useState<any>(null);
@@ -119,6 +119,8 @@ export default function FinanceiroPage() {
         chavePix: d.config.chavePix || "",
         linkPagamento: d.config.linkPagamento || "",
         instrucaoPagamento: d.config.instrucaoPagamento || "",
+        qrCodePixUrl: d.config.qrCodePixUrl || "",
+        mensagemCobrancaFranqueado: d.config.mensagemCobrancaFranqueado || "",
       });
     });
 
@@ -162,9 +164,9 @@ export default function FinanceiroPage() {
     .filter(l => l.tipo === "saida" && l.status === "PAGO" && isPaidMes(l))
     .reduce((a, b) => a + b.valor, 0);
 
-  // A RECEBER: pendentes (entradas sem baixa — não altera até dar baixa)
+  // A RECEBER: pendentes (entradas sem baixa — exclui Franquia para FRANQUEADO, pois são despesas)
   const aReceber = lancamentos
-    .filter(l => l.tipo === "entrada" && l.status === "PENDENTE")
+    .filter(l => l.tipo === "entrada" && l.status === "PENDENTE" && (isFranqueadora || l.categoria !== "Franquia"))
     .reduce((a, b) => a + b.valor, 0);
 
   // CAIXA: acumulado total (todas entradas pagas − todas saídas pagas)
@@ -338,7 +340,7 @@ export default function FinanceiroPage() {
             <Button size="sm" variant="secondary" onClick={() => setCobrModal({
               ...l,
               emailDestino: l.franchise?.email || l.company?.emailFinanceiro || l.company?.email || "",
-              mensagemPersonalizada: "",
+              mensagemPersonalizada: l.categoria === "Franquia" ? (config?.mensagemCobrancaFranqueado || "") : "",
             })}>📧 Cobrar</Button>
           )}
         </>
@@ -405,6 +407,72 @@ export default function FinanceiroPage() {
           <p className={`text-2xl font-black ${caixa >= 0 ? "text-[#0f2a5e]" : "text-red-600"}`}>{fmt(caixa)}</p>
         </Card>
       </div>
+
+      {/* ── Taxa de Desenvolvimento (só FRANQUEADO) ─────────────────────────── */}
+      {!isFranqueadora && lancamentosFranquia.length > 0 && (
+        <Card className="mb-5 overflow-hidden border-l-4 border-[#0f2a5e]">
+          <div className="px-5 py-4 bg-gradient-to-r from-[#0f2a5e]/5 to-transparent border-b border-slate-100">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-black text-[#0f2a5e] flex items-center gap-2">
+                  🏛️ Taxa de Desenvolvimento de Rede
+                </h2>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-lg">
+                  Manter sua Taxa de Desenvolvimento em dia é o que garante o suporte técnico, marketing e crescimento da rede Smarter Estágios. Unidades adimplentes crescem mais rápido e têm acesso prioritário a recursos e novos recursos do sistema.
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Total em aberto</p>
+                <p className="text-xl font-black text-[#0f2a5e]">
+                  {fmt(lancamentosFranquia.filter(l => l.status === "PENDENTE").reduce((a,b) => a+b.valor,0))}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  {["Referência","Valor","Vencimento","Status","Ações"].map(h => (
+                    <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wide px-4 py-2">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lancamentosFranquia.map(l => {
+                  const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
+                  return (
+                    <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado ? "opacity-40" : ""}`}>
+                      <td className="px-4 py-2.5 text-sm font-medium max-w-xs">{l.descricao}</td>
+                      <td className="px-4 py-2.5 text-sm font-bold text-red-600 whitespace-nowrap">− {fmt(l.valor)}</td>
+                      <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">
+                        {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR") : "—"}
+                        {vencido && <span className="ml-1 text-red-500 font-bold">⚠️</span>}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Badge variant={STATUS_V[l.status] || "gray"}>{l.status}</Badge>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {l.status === "PENDENTE" && (
+                          <Button size="sm" variant="secondary" onClick={() => darBaixa(l.id)}>✓ Registrar Pagamento</Button>
+                        )}
+                        {l.status === "PAGO" && (
+                          <span className="text-xs text-emerald-600 font-semibold">✓ Pago</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-5 py-3 bg-blue-50 border-t border-blue-100">
+            <p className="text-xs text-blue-700 font-medium">
+              💡 <strong>Como é calculado:</strong> R$ 200,00 (sistema) + R$ 13,00 × estagiários ativos. Pagamento em dia = rede forte!
+            </p>
+          </div>
+        </Card>
+      )}
 
       {/* ── Cobrança de Franquias (só FRANQUEADORA) ─────────────────────────── */}
       {isFranqueadora && (
@@ -749,6 +817,40 @@ export default function FinanceiroPage() {
               onChange={e => setConfigForm(p => ({...p, instrucaoPagamento: e.target.value}))}
               placeholder="Ex: Transferência Banco Itaú, Ag 0001, CC 12345-6"/>
           </div>
+
+          {/* Campos exclusivos da FRANQUEADORA */}
+          {isFranqueadora && (
+            <>
+              <div className="border-t border-slate-200 pt-3">
+                <p className="text-xs font-black text-slate-600 uppercase tracking-wide mb-2">🏢 Cobranças para Franqueados</p>
+                <p className="text-xs text-slate-400 mb-3">Estes dados são usados no e-mail de cobrança enviado às unidades franqueadas.</p>
+              </div>
+              <div>
+                <Input label="URL do QR Code PIX (para e-mail)" value={configForm.qrCodePixUrl}
+                  onChange={e => setConfigForm(p => ({...p, qrCodePixUrl: e.target.value}))}
+                  placeholder="https://...imagem-qrcode.png"/>
+                {configForm.qrCodePixUrl && (
+                  <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-xl text-center">
+                    <p className="text-[10px] text-green-600 font-semibold mb-2">Prévia do QR Code:</p>
+                    <img
+                      src={configForm.qrCodePixUrl}
+                      alt="QR Code PIX"
+                      className="max-w-[140px] max-h-[140px] mx-auto rounded-lg border-2 border-green-200 object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Mensagem padrão para franqueados (opcional)</label>
+                <textarea className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-16 resize-none outline-none focus:border-[#0f2a5e]"
+                  value={configForm.mensagemCobrancaFranqueado}
+                  onChange={e => setConfigForm(p => ({...p, mensagemCobrancaFranqueado: e.target.value}))}
+                  placeholder="Ex: Em caso de dúvidas, entre em contato pelo WhatsApp (11) 99999-9999."/>
+              </div>
+            </>
+          )}
+
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" onClick={() => setConfigModal(false)}>Cancelar</Button>
             <Button onClick={salvarConfig}>Salvar Configuração</Button>

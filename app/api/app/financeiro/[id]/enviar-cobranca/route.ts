@@ -14,33 +14,70 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const lancamento = await prisma.financial.findUnique({
       where: { id: params.id },
-      include: { company: true },
+      include: { company: true, franchise: true },
     });
 
     if (!lancamento) return NextResponse.json({ error: "Lançamento não encontrado." }, { status: 404 });
 
-    // Determinar email de destino
+    // Email de destino: body → empresa → franqueado (para cobranças de franquia)
     const email = emailDestino
       || lancamento.company?.emailFinanceiro
-      || lancamento.company?.email;
+      || lancamento.company?.email
+      || lancamento.franchise?.email;
 
     if (!email) {
-      return NextResponse.json({ error: "Nenhum email de cobrança configurado para esta empresa." }, { status: 400 });
+      return NextResponse.json({ error: "Nenhum email de cobrança configurado." }, { status: 400 });
+    }
+
+    // Nome do destinatário
+    const nomeDestino = lancamento.company?.name || lancamento.franchise?.name || "Cliente";
+
+    // PIX: usa o do lançamento, senão busca da config do remetente
+    let chavePix     = lancamento.chavePix     || body.chavePix     || undefined;
+    let instrucao    = lancamento.instrucaoPagamento || body.instrucaoPagamento || undefined;
+    let linkBoleto   = lancamento.linkPagamento || body.linkPagamento || undefined;
+    let qrCodePixUrl = body.qrCodePixUrl || undefined;
+
+    // Se não veio na request, busca da config do remetente
+    if (!chavePix || !qrCodePixUrl) {
+      const isFranqueadora = session.user.role === "FRANQUEADORA";
+      if (isFranqueadora) {
+        const cfg = await prisma.systemConfig.findUnique({
+          where: { id: "default" },
+          select: { chavePix: true, instrucaoPagamento: true, linkPagamento: true, qrCodePixUrl: true },
+        });
+        if (cfg) {
+          if (!chavePix)     chavePix     = cfg.chavePix     || undefined;
+          if (!instrucao)    instrucao    = cfg.instrucaoPagamento || undefined;
+          if (!linkBoleto)   linkBoleto   = cfg.linkPagamento || undefined;
+          if (!qrCodePixUrl) qrCodePixUrl = cfg.qrCodePixUrl || undefined;
+        }
+      } else if (session.user.franchiseId) {
+        const fr = await prisma.franchise.findUnique({
+          where: { id: session.user.franchiseId },
+          select: { chavePix: true, instrucaoPagamento: true, linkPagamento: true },
+        });
+        if (fr) {
+          if (!chavePix)   chavePix   = fr.chavePix   || undefined;
+          if (!instrucao)  instrucao  = fr.instrucaoPagamento || undefined;
+          if (!linkBoleto) linkBoleto = fr.linkPagamento || undefined;
+        }
+      }
     }
 
     const enviado = await enviarCobranca({
       email,
-      nomeEmpresa: lancamento.company?.name || "Empresa",
+      nomeEmpresa: nomeDestino,
       descricao: lancamento.descricao,
       valor: lancamento.valor,
       vencimento: lancamento.vencimentoAt?.toISOString(),
-      chavePix: lancamento.chavePix || undefined,
-      instrucao: lancamento.instrucaoPagamento || undefined,
-      linkBoleto: lancamento.linkPagamento || undefined,
+      chavePix,
+      instrucao,
+      linkBoleto,
+      qrCodePixUrl,
       mensagemPersonalizada,
     });
 
-    // Salvar log de envio
     await prisma.financialSendLog.create({
       data: {
         financialId: params.id,
