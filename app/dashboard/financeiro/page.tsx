@@ -593,24 +593,30 @@ export default function FinanceiroPage() {
                             <Badge variant={STATUS_V[l.status] || "gray"}>{l.status}</Badge>
                           </td>
                           <td className="px-4 py-2.5">
-                            {l.status === "PENDENTE" && !l.cancelado && (
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                onClick={() => darBaixa(l.id)}
-                              >
-                                💰 Dar Baixa
-                              </Button>
-                            )}
-                            {l.status === "PAGO" && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-emerald-600 font-bold">✓ Recebido</span>
-                                <Button size="sm" variant="ghost" onClick={() => reverter(l.id)}>↩ Reverter</Button>
-                              </div>
-                            )}
-                            {l.status !== "PENDENTE" && l.status !== "PAGO" && (
-                              <RowActions l={l} />
-                            )}
+                            <div className="flex gap-1 flex-wrap items-center">
+                              {l.status === "PENDENTE" && !l.cancelado && (
+                                <>
+                                  <Button size="sm" variant="primary" onClick={() => darBaixa(l.id)}>
+                                    💰 Dar Baixa
+                                  </Button>
+                                  <Button size="sm" variant="secondary" onClick={() => setCobrModal({
+                                    ...l,
+                                    emailDestino: l.franchise?.email || "",
+                                    mensagemPersonalizada: config?.mensagemCobrancaFranqueado || "",
+                                  })}>📧 Cobrar</Button>
+                                </>
+                              )}
+                              {l.status === "PAGO" && (
+                                <>
+                                  <span className="text-xs text-emerald-600 font-bold">✓ Recebido</span>
+                                  <Button size="sm" variant="ghost" onClick={() => reverter(l.id)}>↩ Reverter</Button>
+                                </>
+                              )}
+                              {!l.cancelado && (
+                                <Button size="sm" variant="ghost" onClick={() => setEditModal({...l})}>✏️</Button>
+                              )}
+                              <Button size="sm" variant="ghost" onClick={() => { if(confirm("Excluir?")) excluir(l.id); }}>🗑</Button>
+                            </div>
                           </td>
                         </tr>
                       );
