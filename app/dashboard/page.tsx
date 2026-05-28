@@ -115,7 +115,15 @@ async function getContratacoesRecentes(franchiseId?: string) {
 
 async function getFranqueadosResumo() {
   return prisma.franchise.findMany({
-    include: { _count: { select: { companies: true, students: true, contracts: true } } },
+    include: {
+      _count: {
+        select: {
+          companies: true,
+          students: { where: { status: "EM_ESTAGIO" } },
+          contracts: { where: { status: "ATIVO" } },
+        },
+      },
+    },
     orderBy: { pontuacao: "desc" },
     take: 10,
   });
@@ -476,7 +484,7 @@ export default async function DashboardPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                {["Unidade","Empresas","Estudantes","Contratos","Status"].map(h => (
+                {["Unidade","Empresas","Em Estágio","Contratos Ativos","Status"].map(h => (
                   <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase px-3 py-2">{h}</th>
                 ))}
               </tr>

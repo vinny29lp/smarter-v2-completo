@@ -32,6 +32,8 @@ export default async function PortalEmpresaHome() {
     c.documents.filter(d => d.status === "AGUARDANDO_ASSINATURA")
   );
 
+  const contrAtivos = contratos.filter(c => c.status === "ATIVO");
+
   return (
     <div>
       <div className="mb-8">
@@ -42,7 +44,7 @@ export default async function PortalEmpresaHome() {
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Estagiários Ativos", value: contratos.filter(c => c.status === "ATIVO").length, color: "text-emerald-600", href: "/portal-empresa/estagiarios" },
+          { label: "Estagiários Ativos", value: contrAtivos.length, color: "text-emerald-600", href: "/portal-empresa/estagiarios" },
           { label: "Docs para Assinar", value: docsAguardando.length, color: docsAguardando.length > 0 ? "text-amber-600" : "text-slate-400", href: "/portal-empresa/documentos" },
           { label: "Avaliações Pendentes", value: avaliacoesPendentes.length, color: avaliacoesPendentes.length > 0 ? "text-blue-600" : "text-slate-400", href: "/portal-empresa/avaliacoes" },
           { label: "Contas a Pagar", value: financeiros.length, color: financeiros.length > 0 ? "text-red-500" : "text-slate-400", href: "/portal-empresa/financeiro" },
@@ -87,7 +89,7 @@ export default async function PortalEmpresaHome() {
           <h2 className="text-sm font-bold text-slate-700">Estagiários Ativos</h2>
           <Link href="/portal-empresa/estagiarios" className="text-xs text-blue-500 hover:underline">Ver todos</Link>
         </div>
-        {contratos.length === 0 ? (
+        {contrAtivos.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-slate-400 text-sm mb-3">Nenhum estagiário ativo no momento.</p>
             <Link href="/portal-empresa/vagas"
@@ -97,7 +99,7 @@ export default async function PortalEmpresaHome() {
           </div>
         ) : (
           <div className="space-y-3">
-            {contratos.slice(0, 4).map(c => (
+            {contrAtivos.slice(0, 4).map(c => (
               <div key={c.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                 <div>
                   <p className="text-sm font-semibold">{c.student.name}</p>
