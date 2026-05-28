@@ -213,16 +213,21 @@ export async function GET(
               where: { contractId: params.id, categoria: "Taxa Admin" },
             });
             if (!jaExiste) {
-              const mesAtual = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+              const hoje = new Date();
+              const diaVenc = contrato.vencimento || 5;
+              const vencimentoAt = new Date(hoje.getFullYear(), hoje.getMonth() + 1, diaVenc);
+              const mesRef = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
+                .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
               await prisma.financial.create({
                 data: {
-                  descricao: `Taxa Admin — ${contrato.student?.name} — ${mesAtual}`,
+                  descricao: `Taxa Admin — ${contrato.student?.name} — ${mesRef}`,
                   tipo: "entrada",
                   valor: contrato.valorEmpresa,
                   categoria: "Taxa Admin",
                   status: "PENDENTE",
                   recorrente: true,
-                  diaVencimento: contrato.vencimento || 5,
+                  diaVencimento: diaVenc,
+                  vencimentoAt,
                   contractId: params.id,
                   companyId: contrato.companyId,
                   franchiseId: contrato.franchiseId,
