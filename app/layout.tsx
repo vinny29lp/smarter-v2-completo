@@ -4,11 +4,22 @@ import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Sistema Smarter",
-  description: "Sistema de Gestao de Estagios",
-  icons: {
-    icon: "/favicon-smarter.png",
-    apple: "/favicon-smarter.png",
+  description: "Plataforma de gestão de estágios Smarter Estágios",
+  applicationName: "Sistema Smarter",
+  appleWebApp: {
+    title: "Sistema Smarter",
+    statusBarStyle: "default",
   },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  themeColor: "#1e3a5f",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
