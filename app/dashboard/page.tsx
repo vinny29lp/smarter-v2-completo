@@ -29,7 +29,14 @@ async function getFranquias() {
 }
 
 async function getFinanceiro(franchiseId?: string) {
-  const w = franchiseId ? { franchiseId } : {};
+  // Mesma regra do /api/app/financeiro:
+  // FRANQUEADO: apenas lançamentos da sua unidade
+  // FRANQUEADORA: apenas lançamentos próprios (sem franchiseId) + cobranças de franquia (categoria "Franquia")
+  //               → NUNCA puxa Taxa Admin ou outros lançamentos internos das unidades
+  const w: any = franchiseId
+    ? { franchiseId }
+    : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
+
   const [pago, pendente] = await Promise.all([
     prisma.financial.aggregate({ where: { ...w, status: "PAGO",    tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
     prisma.financial.aggregate({ where: { ...w, status: "PENDENTE",                 cancelado: false }, _sum: { valor: true } }),
