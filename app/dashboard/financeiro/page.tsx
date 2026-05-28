@@ -154,53 +154,67 @@ export default function FinanceiroPage() {
     return d.getFullYear() === anoAtual && d.getMonth() === mesAtual;
   };
 
-  // ENTRADAS: receitas recebidas ESTE MÊS
-  // Para FRANQUEADORA: inclui cobranças de Franquia pagas (são receitas dela, mesmo sendo tipo "saida" no DB)
-  // Para FRANQUEADO: apenas entradas pagas normais
+  // ─── Classificador central: usa categoria "Franquia" como regra, não o tipo ────
+  // Isso garante compatibilidade com registros antigos (tipo:"entrada") e novos (tipo:"saida")
+  const isFranquia = (l: any) => l.categoria === "Franquia";
+
+  // ENTRADAS MÊS (receitas recebidas)
+  // Franqueado:    entradas pagas no mês, exceto Franquia (Franquia = despesa, não receita)
+  // Franqueadora:  suas próprias entradas + cobranças de Franquia coletadas (= receita da rede)
   const entradasMes = lancamentos
     .filter(l => l.status === "PAGO" && isPaidMes(l) && (
-      l.tipo === "entrada" ||
-      (isFranqueadora && l.tipo === "saida" && l.categoria === "Franquia")
+      isFranqueadora
+        ? (l.tipo === "entrada" || isFranquia(l))
+        : (l.tipo === "entrada" && !isFranquia(l))
     ))
     .reduce((a, b) => a + b.valor, 0);
 
-  // SAÍDAS PAGAS: despesas pagas ESTE MÊS
-  // Para FRANQUEADORA: exclui Franquia (são receitas dela, não despesas)
-  // Para FRANQUEADO: inclui tudo (Franquia paga = saída real da unidade)
+  // SAÍDAS PAGAS MÊS (despesas pagas)
+  // Franqueado:    saídas + Franquia pagas no mês (qualquer tipo, por compat. com DB antigo)
+  // Franqueadora:  apenas saídas próprias (Franquia = receita dela, não despesa)
   const saidasMes = lancamentos
-    .filter(l => l.tipo === "saida" && l.status === "PAGO" && isPaidMes(l) &&
-      (!isFranqueadora || l.categoria !== "Franquia"))
+    .filter(l => l.status === "PAGO" && isPaidMes(l) && (
+      isFranqueadora
+        ? (l.tipo === "saida" && !isFranquia(l))
+        : (l.tipo === "saida" || isFranquia(l))
+    ))
     .reduce((a, b) => a + b.valor, 0);
 
-  // A RECEBER: entradas pendentes.
-  // Para FRANQUEADORA: inclui também saídas categoria "Franquia" (são cobranças que a rede lhe deve)
-  // Para FRANQUEADO: inclui apenas entradas que NÃO sejam "Franquia" (taxas são despesas, não receitas)
+  // A RECEBER (pendentes a receber)
+  // Franqueado:    entradas pendentes normais — Franquia é despesa (contas a pagar), não receita
+  // Franqueadora:  suas entradas + cobranças de Franquia pendentes (são recebíveis da rede)
   const aReceber = lancamentos
     .filter(l => l.status === "PENDENTE" && (
-      (l.tipo === "entrada" && (isFranqueadora || l.categoria !== "Franquia")) ||
-      (isFranqueadora && l.tipo === "saida" && l.categoria === "Franquia")
+      isFranqueadora
+        ? (l.tipo === "entrada" || isFranquia(l))
+        : (l.tipo === "entrada" && !isFranquia(l))
     ))
     .reduce((a, b) => a + b.valor, 0);
 
-  // CONTAS A PAGAR: saídas pendentes.
-  // Para FRANQUEADORA: exclui "Franquia" (pois são recebíveis, não despesas dela)
-  // Para FRANQUEADO: inclui tudo (inclusive taxa Franquia que é despesa da unidade)
+  // CONTAS A PAGAR (pendentes a pagar)
+  // Franqueado:    saídas normais + Franquia pendente (qualquer tipo — cobra de rede é despesa da unidade)
+  // Franqueadora:  apenas saídas próprias (Franquia = recebível, não despesa)
   const contasAPagar = lancamentos
-    .filter(l => l.tipo === "saida" && l.status === "PENDENTE" &&
-      (!isFranqueadora || l.categoria !== "Franquia"))
+    .filter(l => l.status === "PENDENTE" && (
+      isFranqueadora
+        ? (l.tipo === "saida" && !isFranquia(l))
+        : (l.tipo === "saida" || isFranquia(l))
+    ))
     .reduce((a, b) => a + b.valor, 0);
 
-  // CAIXA: acumulado total (todas receitas recebidas − todas despesas pagas)
-  // Para FRANQUEADORA: Franquia PAGO conta como receita, não como despesa
+  // CAIXA: total receitas recebidas − total despesas pagas (acumulado)
   const totalEntradasPago = lancamentos
     .filter(l => l.status === "PAGO" && (
-      l.tipo === "entrada" ||
-      (isFranqueadora && l.tipo === "saida" && l.categoria === "Franquia")
+      isFranqueadora
+        ? (l.tipo === "entrada" || isFranquia(l))
+        : (l.tipo === "entrada" && !isFranquia(l))
     )).reduce((a, b) => a + b.valor, 0);
   const totalSaidasPago = lancamentos
-    .filter(l => l.tipo === "saida" && l.status === "PAGO" &&
-      (!isFranqueadora || l.categoria !== "Franquia"))
-    .reduce((a, b) => a + b.valor, 0);
+    .filter(l => l.status === "PAGO" && (
+      isFranqueadora
+        ? (l.tipo === "saida" && !isFranquia(l))
+        : (l.tipo === "saida" || isFranquia(l))
+    )).reduce((a, b) => a + b.valor, 0);
   const caixa = totalEntradasPago - totalSaidasPago;
 
   // Split para exibição

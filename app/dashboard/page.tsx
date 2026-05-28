@@ -33,52 +33,58 @@ async function getFinanceiro(franchiseId?: string) {
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
   if (!franchiseId) {
-    // ── FRANQUEADORA ──────────────────────────────────────────────────
-    // Franquia records (tipo "saida" categoria "Franquia") são RECEITA para ela, não despesa
-    const [entProprias, franqRecebidas, saiProprias, aRecProprio, aRecFranquia, caPagar, totEntradas, totSaidas] =
-      await Promise.all([
-        // Entradas próprias pagas no mês
-        prisma.financial.aggregate({ where: { franchiseId: null, status: "PAGO", tipo: "entrada", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
-        // Franquias pagas no mês (receita da rede)
-        prisma.financial.aggregate({ where: { categoria: "Franquia", status: "PAGO", tipo: "saida", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
-        // Saídas próprias pagas no mês (excluindo Franquia)
-        prisma.financial.aggregate({ where: { franchiseId: null, status: "PAGO", tipo: "saida", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
-        // A Receber: entradas próprias pendentes
-        prisma.financial.aggregate({ where: { franchiseId: null, status: "PENDENTE", tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
-        // A Receber: franquias pendentes
-        prisma.financial.aggregate({ where: { categoria: "Franquia", status: "PENDENTE", tipo: "saida", cancelado: false }, _sum: { valor: true } }),
-        // Contas a Pagar: saídas próprias pendentes (sem Franquia)
-        prisma.financial.aggregate({ where: { franchiseId: null, status: "PENDENTE", tipo: "saida", cancelado: false }, _sum: { valor: true } }),
-        // Caixa: total entradas PAGO (próprias + franquias)
-        prisma.financial.aggregate({ where: { OR: [{ franchiseId: null, status: "PAGO", tipo: "entrada" }, { categoria: "Franquia", status: "PAGO", tipo: "saida" }], cancelado: false }, _sum: { valor: true } }),
-        // Caixa: total saídas PAGO (próprias, sem Franquia)
-        prisma.financial.aggregate({ where: { franchiseId: null, status: "PAGO", tipo: "saida", cancelado: false }, _sum: { valor: true } }),
-      ]);
+    // ── FRANQUEADORA ─────────────────────────────────────────────────
+    // Franquia = receita para a Franqueadora (independente do tipo guardado no DB)
+    const [entMes, franqMes, saiMes, aRecProp, aRecFranq, caPagar, totEnt, totSai] = await Promise.all([
+      // Entradas próprias pagas no mês
+      prisma.financial.aggregate({ where: { franchiseId: null, status: "PAGO", tipo: "entrada", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
+      // Franquias recebidas no mês (receita da rede — qualquer tipo)
+      prisma.financial.aggregate({ where: { categoria: "Franquia", status: "PAGO", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
+      // Saídas próprias pagas no mês (excluindo Franquia)
+      prisma.financial.aggregate({ where: { franchiseId: null, status: "PAGO", tipo: "saida", NOT: { categoria: "Franquia" }, cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
+      // A Receber: entradas próprias pendentes
+      prisma.financial.aggregate({ where: { franchiseId: null, status: "PENDENTE", tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
+      // A Receber: cobranças de Franquia pendentes (qualquer tipo)
+      prisma.financial.aggregate({ where: { categoria: "Franquia", status: "PENDENTE", cancelado: false }, _sum: { valor: true } }),
+      // Contas a Pagar: saídas próprias pendentes (excluindo Franquia)
+      prisma.financial.aggregate({ where: { franchiseId: null, status: "PENDENTE", tipo: "saida", NOT: { categoria: "Franquia" }, cancelado: false }, _sum: { valor: true } }),
+      // Caixa: total receitas (entradas próprias + franquias coletadas)
+      prisma.financial.aggregate({ where: { OR: [{ franchiseId: null, tipo: "entrada" }, { categoria: "Franquia" }], status: "PAGO", cancelado: false }, _sum: { valor: true } }),
+      // Caixa: total despesas (saídas próprias, sem Franquia)
+      prisma.financial.aggregate({ where: { franchiseId: null, tipo: "saida", NOT: { categoria: "Franquia" }, status: "PAGO", cancelado: false }, _sum: { valor: true } }),
+    ]);
     return {
-      entradasMes:  (entProprias._sum.valor || 0) + (franqRecebidas._sum.valor || 0),
-      saidasMes:    saiProprias._sum.valor || 0,
-      aReceber:     (aRecProprio._sum.valor || 0) + (aRecFranquia._sum.valor || 0),
+      entradasMes:  (entMes._sum.valor || 0) + (franqMes._sum.valor || 0),
+      saidasMes:    saiMes._sum.valor  || 0,
+      aReceber:     (aRecProp._sum.valor || 0) + (aRecFranq._sum.valor || 0),
       contasAPagar: caPagar._sum.valor || 0,
-      caixa:        (totEntradas._sum.valor || 0) - (totSaidas._sum.valor || 0),
+      caixa:        (totEnt._sum.valor || 0) - (totSai._sum.valor || 0),
     };
   }
 
-  // ── FRANQUEADO ──────────────────────────────────────────────────────
-  // Franquia records (tipo "saida" PENDENTE) = Contas a Pagar; quando PAGO = Saída Paga
-  const [entradasMes, saidasMes, aReceber, contasAPagar, totEntradas, totSaidas] = await Promise.all([
-    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "entrada", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
-    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "saida",   cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
-    prisma.financial.aggregate({ where: { franchiseId, status: "PENDENTE", tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
-    prisma.financial.aggregate({ where: { franchiseId, status: "PENDENTE", tipo: "saida",   cancelado: false }, _sum: { valor: true } }),
-    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
-    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "saida",   cancelado: false }, _sum: { valor: true } }),
+  // ── FRANQUEADO ───────────────────────────────────────────────────────
+  // Franquia (categoria "Franquia") = DESPESA da unidade, independente do tipo no DB
+  // Compatível com registros antigos (tipo:"entrada") e novos (tipo:"saida")
+  const [entMes, saiMes, aRec, caPagar, totEnt, totSai] = await Promise.all([
+    // Entradas pagas no mês — exclui Franquia (despesa, não receita)
+    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "entrada", NOT: { categoria: "Franquia" }, cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
+    // Saídas pagas no mês + Franquia paga (qualquer tipo)
+    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", cancelado: false, paidAt: { gte: inicioMes }, OR: [{ tipo: "saida" }, { categoria: "Franquia" }] }, _sum: { valor: true } }),
+    // A Receber: entradas pendentes — exclui Franquia
+    prisma.financial.aggregate({ where: { franchiseId, status: "PENDENTE", tipo: "entrada", NOT: { categoria: "Franquia" }, cancelado: false }, _sum: { valor: true } }),
+    // Contas a Pagar: saídas pendentes + Franquia pendente (qualquer tipo)
+    prisma.financial.aggregate({ where: { franchiseId, status: "PENDENTE", cancelado: false, OR: [{ tipo: "saida" }, { categoria: "Franquia" }] }, _sum: { valor: true } }),
+    // Caixa total: entradas pagas (sem Franquia)
+    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "entrada", NOT: { categoria: "Franquia" }, cancelado: false }, _sum: { valor: true } }),
+    // Caixa total: saídas pagas + Franquia paga
+    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", cancelado: false, OR: [{ tipo: "saida" }, { categoria: "Franquia" }] }, _sum: { valor: true } }),
   ]);
   return {
-    entradasMes:  entradasMes._sum.valor  || 0,
-    saidasMes:    saidasMes._sum.valor    || 0,
-    aReceber:     aReceber._sum.valor     || 0,
-    contasAPagar: contasAPagar._sum.valor || 0,
-    caixa:        (totEntradas._sum.valor || 0) - (totSaidas._sum.valor || 0),
+    entradasMes:  entMes._sum.valor  || 0,
+    saidasMes:    saiMes._sum.valor  || 0,
+    aReceber:     aRec._sum.valor    || 0,
+    contasAPagar: caPagar._sum.valor || 0,
+    caixa:        (totEnt._sum.valor || 0) - (totSai._sum.valor || 0),
   };
 }
 
