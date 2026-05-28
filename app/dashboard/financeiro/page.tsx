@@ -169,6 +169,11 @@ export default function FinanceiroPage() {
     .filter(l => l.tipo === "entrada" && l.status === "PENDENTE" && (isFranqueadora || l.categoria !== "Franquia"))
     .reduce((a, b) => a + b.valor, 0);
 
+  // CONTAS A PAGAR: todas as saídas pendentes (sem baixa)
+  const contasAPagar = lancamentos
+    .filter(l => l.tipo === "saida" && l.status === "PENDENTE")
+    .reduce((a, b) => a + b.valor, 0);
+
   // CAIXA: acumulado total (todas entradas pagas − todas saídas pagas)
   const totalEntradasPago = lancamentos
     .filter(l => l.tipo === "entrada" && l.status === "PAGO").reduce((a, b) => a + b.valor, 0);
@@ -307,16 +312,20 @@ export default function FinanceiroPage() {
     if (!cobrModal) return;
     setLoading(true);
     const payload = {
-      email: cobrModal.emailDestino || cobrModal.company?.emailFinanceiro || cobrModal.company?.email || "",
-      mensagem: cobrModal.mensagemPersonalizada || "",
+      emailDestino: cobrModal.emailDestino || cobrModal.company?.emailFinanceiro || cobrModal.company?.email || "",
+      mensagemPersonalizada: cobrModal.mensagemPersonalizada || "",
       chavePix: cobrModal.chavePix || config?.chavePix || "",
       linkPagamento: cobrModal.linkPagamento || config?.linkPagamento || "",
       instrucaoPagamento: cobrModal.instrucaoPagamento || config?.instrucaoPagamento || "",
     };
-    await fetch(`/api/app/financeiro/${cobrModal.id}/enviar-cobranca`, {
+    const res = await fetch(`/api/app/financeiro/${cobrModal.id}/enviar-cobranca`, {
       method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload),
     });
-    setCobrModal(null); setLoading(false); load();
+    const data = await res.json();
+    setCobrModal(null); setLoading(false);
+    if (!res.ok) alert("Erro ao enviar: " + (data.error || "Verifique as configurações."));
+    else alert("✅ E-mail enviado para " + payload.emailDestino);
+    load();
   };
 
   const fecharMes = async (force = false) => {
@@ -380,24 +389,30 @@ export default function FinanceiroPage() {
         </div>
       </div>
 
-      {/* ── KPIs — 4 cards (Ponto 3) ───────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+      {/* ── KPIs — 5 cards ───────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
         {/* ENTRADAS */}
         <Card className="p-5 border-l-4 border-emerald-400">
           <p className="text-xs font-semibold text-slate-500">↑ Entradas</p>
           <p className="text-[10px] text-slate-400 mb-1">recebidas no mês</p>
           <p className="text-2xl font-black text-emerald-600">{fmt(entradasMes)}</p>
         </Card>
-        {/* SAÍDAS */}
+        {/* SAÍDAS PAGAS */}
         <Card className="p-5 border-l-4 border-red-400">
           <p className="text-xs font-semibold text-slate-500">↓ Saídas Pagas</p>
           <p className="text-[10px] text-slate-400 mb-1">pagas no mês</p>
           <p className="text-2xl font-black text-red-600">{fmt(saidasMes)}</p>
         </Card>
+        {/* CONTAS A PAGAR */}
+        <Card className={`p-5 border-l-4 ${contasAPagar > 0 ? "border-orange-400" : "border-slate-200"}`}>
+          <p className="text-xs font-semibold text-slate-500">📋 Contas a Pagar</p>
+          <p className="text-[10px] text-slate-400 mb-1">saídas pendentes</p>
+          <p className={`text-2xl font-black ${contasAPagar > 0 ? "text-orange-600" : "text-slate-400"}`}>{fmt(contasAPagar)}</p>
+        </Card>
         {/* A RECEBER */}
         <Card className="p-5 border-l-4 border-amber-400">
           <p className="text-xs font-semibold text-slate-500">⏳ A Receber</p>
-          <p className="text-[10px] text-slate-400 mb-1">pendentes sem baixa</p>
+          <p className="text-[10px] text-slate-400 mb-1">entradas pendentes</p>
           <p className="text-2xl font-black text-amber-600">{fmt(aReceber)}</p>
         </Card>
         {/* CAIXA */}

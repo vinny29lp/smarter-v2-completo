@@ -37,11 +37,31 @@ async function getFinanceiro(franchiseId?: string) {
     ? { franchiseId }
     : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
 
-  const [pago, pendente] = await Promise.all([
-    prisma.financial.aggregate({ where: { ...w, status: "PAGO",    tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
-    prisma.financial.aggregate({ where: { ...w, status: "PENDENTE",                 cancelado: false }, _sum: { valor: true } }),
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+  const [entradasMes, aReceber, contasAPagar] = await Promise.all([
+    // Entradas pagas no mês atual (= "Entradas" do financeiro)
+    prisma.financial.aggregate({
+      where: { ...w, status: "PAGO", tipo: "entrada", cancelado: false, paidAt: { gte: inicioMes } },
+      _sum: { valor: true },
+    }),
+    // A Receber: entradas pendentes sem baixa
+    prisma.financial.aggregate({
+      where: { ...w, status: "PENDENTE", tipo: "entrada", cancelado: false },
+      _sum: { valor: true },
+    }),
+    // Contas a Pagar: saídas pendentes sem baixa
+    prisma.financial.aggregate({
+      where: { ...w, status: "PENDENTE", tipo: "saida", cancelado: false },
+      _sum: { valor: true },
+    }),
   ]);
-  return { pago: pago._sum.valor || 0, pendente: pendente._sum.valor || 0 };
+  return {
+    entradasMes:  entradasMes._sum.valor  || 0,
+    aReceber:     aReceber._sum.valor     || 0,
+    contasAPagar: contasAPagar._sum.valor || 0,
+  };
 }
 
 async function getProximos5Dias(franchiseId?: string) {
@@ -224,7 +244,7 @@ export default async function DashboardPage() {
             { label: "Franquias Ativas",   value: franquias.ativas,   color: "text-emerald-600", href: "/dashboard/franqueados" },
             { label: "Franquias Inativas", value: franquias.inativas,  color: franquias.inativas > 0 ? "text-red-500" : "text-slate-400", href: "/dashboard/franqueados" },
             { label: "Leads CRM (rede)",   value: kpis.leads,          color: "text-blue-600",   href: "/dashboard/crm" },
-            { label: "Financeiro Aberto",  value: fmt(fin.pendente),   color: fin.pendente > 0 ? "text-amber-600" : "text-slate-400", href: "/dashboard/financeiro" },
+            { label: "Financeiro Aberto",  value: fmt(fin.aReceber),   color: fin.aReceber > 0 ? "text-amber-600" : "text-slate-400", href: "/dashboard/financeiro" },
           ].map(k => (
             <Link key={k.label} href={k.href}>
               <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer">
@@ -416,14 +436,21 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Financeiro resumido ── */}
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-3 gap-4 mb-5">
         <Card className="p-4 border-l-4 border-emerald-400">
-          <p className="text-xs text-slate-400">{isMaster ? "Receita da Rede (entradas pagas)" : "Receita Recebida"}</p>
-          <p className="text-xl font-black text-emerald-600">{fmt(fin.pago)}</p>
+          <p className="text-xs text-slate-400">{isMaster ? "Receita da Rede" : "Receita Recebida"}</p>
+          <p className="text-[10px] text-slate-400">entradas pagas no mês</p>
+          <p className="text-xl font-black text-emerald-600 mt-1">{fmt(fin.entradasMes)}</p>
         </Card>
         <Card className="p-4 border-l-4 border-amber-400">
-          <p className="text-xs text-slate-400">{isMaster ? "A Receber (rede inteira)" : "A Receber (sua unidade)"}</p>
-          <p className="text-xl font-black text-amber-600">{fmt(fin.pendente)}</p>
+          <p className="text-xs text-slate-400">{isMaster ? "A Receber (rede)" : "A Receber"}</p>
+          <p className="text-[10px] text-slate-400">entradas pendentes</p>
+          <p className="text-xl font-black text-amber-600 mt-1">{fmt(fin.aReceber)}</p>
+        </Card>
+        <Card className={`p-4 border-l-4 ${fin.contasAPagar > 0 ? "border-orange-400" : "border-slate-200"}`}>
+          <p className="text-xs text-slate-400">{isMaster ? "Contas a Pagar (rede)" : "Contas a Pagar"}</p>
+          <p className="text-[10px] text-slate-400">saídas pendentes</p>
+          <p className={`text-xl font-black mt-1 ${fin.contasAPagar > 0 ? "text-orange-600" : "text-slate-400"}`}>{fmt(fin.contasAPagar)}</p>
         </Card>
       </div>
 
