@@ -9,14 +9,28 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
+  const role = session.user.role;
 
   // Reverter baixa
   if (body.action === "reverter") {
+    // Só FRANQUEADORA pode reverter baixa em cobranças de Franquia
+    const existing = await prisma.financial.findUnique({ where: { id: params.id }, select: { categoria: true } });
+    if (existing?.categoria === "Franquia" && role !== "FRANQUEADORA") {
+      return NextResponse.json({ error: "Apenas a Franqueadora pode reverter cobranças de rede." }, { status: 403 });
+    }
     const fin = await prisma.financial.update({
       where: { id: params.id },
       data: { status: "PENDENTE", paidAt: null },
     });
     return NextResponse.json({ fin });
+  }
+
+  // Dar baixa (status PAGO) em cobranças de Franquia: apenas FRANQUEADORA
+  if (body.status === "PAGO") {
+    const existing = await prisma.financial.findUnique({ where: { id: params.id }, select: { categoria: true } });
+    if (existing?.categoria === "Franquia" && role !== "FRANQUEADORA") {
+      return NextResponse.json({ error: "Apenas a Franqueadora pode confirmar o pagamento de cobranças de rede." }, { status: 403 });
+    }
   }
 
   const fin = await prisma.financial.update({

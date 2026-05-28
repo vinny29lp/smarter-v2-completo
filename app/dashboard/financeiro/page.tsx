@@ -154,14 +154,22 @@ export default function FinanceiroPage() {
     return d.getFullYear() === anoAtual && d.getMonth() === mesAtual;
   };
 
-  // ENTRADAS: dado baixa como entrada ESTE MÊS
+  // ENTRADAS: receitas recebidas ESTE MÊS
+  // Para FRANQUEADORA: inclui cobranças de Franquia pagas (são receitas dela, mesmo sendo tipo "saida" no DB)
+  // Para FRANQUEADO: apenas entradas pagas normais
   const entradasMes = lancamentos
-    .filter(l => l.tipo === "entrada" && l.status === "PAGO" && isPaidMes(l))
+    .filter(l => l.status === "PAGO" && isPaidMes(l) && (
+      l.tipo === "entrada" ||
+      (isFranqueadora && l.tipo === "saida" && l.categoria === "Franquia")
+    ))
     .reduce((a, b) => a + b.valor, 0);
 
-  // SAÍDAS PAGAS: dado baixa como saída ESTE MÊS
+  // SAÍDAS PAGAS: despesas pagas ESTE MÊS
+  // Para FRANQUEADORA: exclui Franquia (são receitas dela, não despesas)
+  // Para FRANQUEADO: inclui tudo (Franquia paga = saída real da unidade)
   const saidasMes = lancamentos
-    .filter(l => l.tipo === "saida" && l.status === "PAGO" && isPaidMes(l))
+    .filter(l => l.tipo === "saida" && l.status === "PAGO" && isPaidMes(l) &&
+      (!isFranqueadora || l.categoria !== "Franquia"))
     .reduce((a, b) => a + b.valor, 0);
 
   // A RECEBER: entradas pendentes.
@@ -182,11 +190,17 @@ export default function FinanceiroPage() {
       (!isFranqueadora || l.categoria !== "Franquia"))
     .reduce((a, b) => a + b.valor, 0);
 
-  // CAIXA: acumulado total (todas entradas pagas − todas saídas pagas)
+  // CAIXA: acumulado total (todas receitas recebidas − todas despesas pagas)
+  // Para FRANQUEADORA: Franquia PAGO conta como receita, não como despesa
   const totalEntradasPago = lancamentos
-    .filter(l => l.tipo === "entrada" && l.status === "PAGO").reduce((a, b) => a + b.valor, 0);
+    .filter(l => l.status === "PAGO" && (
+      l.tipo === "entrada" ||
+      (isFranqueadora && l.tipo === "saida" && l.categoria === "Franquia")
+    )).reduce((a, b) => a + b.valor, 0);
   const totalSaidasPago = lancamentos
-    .filter(l => l.tipo === "saida" && l.status === "PAGO").reduce((a, b) => a + b.valor, 0);
+    .filter(l => l.tipo === "saida" && l.status === "PAGO" &&
+      (!isFranqueadora || l.categoria !== "Franquia"))
+    .reduce((a, b) => a + b.valor, 0);
   const caixa = totalEntradasPago - totalSaidasPago;
 
   // Split para exibição
@@ -477,10 +491,12 @@ export default function FinanceiroPage() {
                       </td>
                       <td className="px-4 py-2.5">
                         {l.status === "PENDENTE" && (
-                          <Button size="sm" variant="secondary" onClick={() => darBaixa(l.id)}>✓ Registrar Pagamento</Button>
+                          <span className="text-[11px] text-slate-400 italic flex items-center gap-1">
+                            🔒 Aguardando confirmação da Franqueadora
+                          </span>
                         )}
                         {l.status === "PAGO" && (
-                          <span className="text-xs text-emerald-600 font-semibold">✓ Pago</span>
+                          <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">✓ Pago</span>
                         )}
                       </td>
                     </tr>
@@ -563,7 +579,24 @@ export default function FinanceiroPage() {
                             <Badge variant={STATUS_V[l.status] || "gray"}>{l.status}</Badge>
                           </td>
                           <td className="px-4 py-2.5">
-                            <RowActions l={l} />
+                            {l.status === "PENDENTE" && !l.cancelado && (
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                onClick={() => darBaixa(l.id)}
+                              >
+                                💰 Dar Baixa
+                              </Button>
+                            )}
+                            {l.status === "PAGO" && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-emerald-600 font-bold">✓ Recebido</span>
+                                <Button size="sm" variant="ghost" onClick={() => reverter(l.id)}>↩ Reverter</Button>
+                              </div>
+                            )}
+                            {l.status !== "PENDENTE" && l.status !== "PAGO" && (
+                              <RowActions l={l} />
+                            )}
                           </td>
                         </tr>
                       );

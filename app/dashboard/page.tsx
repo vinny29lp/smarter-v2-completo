@@ -29,60 +29,56 @@ async function getFranquias() {
 }
 
 async function getFinanceiro(franchiseId?: string) {
-  // Mesma regra do /api/app/financeiro:
-  // FRANQUEADO: apenas lançamentos da sua unidade
-  // FRANQUEADORA: apenas lançamentos próprios (sem franchiseId) + cobranças de franquia (categoria "Franquia")
-  //               → NUNCA puxa Taxa Admin ou outros lançamentos internos das unidades
-  const isFranqueadora = !franchiseId;
-  const w: any = franchiseId
-    ? { franchiseId }
-    : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
-
   const hoje = new Date();
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
-  // Para Franqueadora:
-  //   A Receber = entradas próprias + cobranças de Franquia (tipo "saida" categoria "Franquia")
-  //   Contas a Pagar = apenas saídas próprias (sem franchiseId), excluindo Franquia
-  // Para Franqueado:
-  //   A Receber = entradas pendentes da unidade
-  //   Contas a Pagar = saídas pendentes da unidade
-  const aReceberWhere: any = isFranqueadora
-    ? {
-        status: "PENDENTE",
-        cancelado: false,
-        OR: [
-          { tipo: "entrada", franchiseId: null },
-          { tipo: "saida",   categoria: "Franquia" },
-        ],
-      }
-    : { franchiseId, status: "PENDENTE", tipo: "entrada", cancelado: false };
+  if (!franchiseId) {
+    // ── FRANQUEADORA ──────────────────────────────────────────────────
+    // Franquia records (tipo "saida" categoria "Franquia") são RECEITA para ela, não despesa
+    const [entProprias, franqRecebidas, saiProprias, aRecProprio, aRecFranquia, caPagar, totEntradas, totSaidas] =
+      await Promise.all([
+        // Entradas próprias pagas no mês
+        prisma.financial.aggregate({ where: { franchiseId: null, status: "PAGO", tipo: "entrada", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
+        // Franquias pagas no mês (receita da rede)
+        prisma.financial.aggregate({ where: { categoria: "Franquia", status: "PAGO", tipo: "saida", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
+        // Saídas próprias pagas no mês (excluindo Franquia)
+        prisma.financial.aggregate({ where: { franchiseId: null, status: "PAGO", tipo: "saida", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
+        // A Receber: entradas próprias pendentes
+        prisma.financial.aggregate({ where: { franchiseId: null, status: "PENDENTE", tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
+        // A Receber: franquias pendentes
+        prisma.financial.aggregate({ where: { categoria: "Franquia", status: "PENDENTE", tipo: "saida", cancelado: false }, _sum: { valor: true } }),
+        // Contas a Pagar: saídas próprias pendentes (sem Franquia)
+        prisma.financial.aggregate({ where: { franchiseId: null, status: "PENDENTE", tipo: "saida", cancelado: false }, _sum: { valor: true } }),
+        // Caixa: total entradas PAGO (próprias + franquias)
+        prisma.financial.aggregate({ where: { OR: [{ franchiseId: null, status: "PAGO", tipo: "entrada" }, { categoria: "Franquia", status: "PAGO", tipo: "saida" }], cancelado: false }, _sum: { valor: true } }),
+        // Caixa: total saídas PAGO (próprias, sem Franquia)
+        prisma.financial.aggregate({ where: { franchiseId: null, status: "PAGO", tipo: "saida", cancelado: false }, _sum: { valor: true } }),
+      ]);
+    return {
+      entradasMes:  (entProprias._sum.valor || 0) + (franqRecebidas._sum.valor || 0),
+      saidasMes:    saiProprias._sum.valor || 0,
+      aReceber:     (aRecProprio._sum.valor || 0) + (aRecFranquia._sum.valor || 0),
+      contasAPagar: caPagar._sum.valor || 0,
+      caixa:        (totEntradas._sum.valor || 0) - (totSaidas._sum.valor || 0),
+    };
+  }
 
-  const contasAPagarWhere: any = isFranqueadora
-    ? { franchiseId: null, status: "PENDENTE", tipo: "saida", cancelado: false }
-    : { franchiseId, status: "PENDENTE", tipo: "saida", cancelado: false };
-
-  const [entradasMes, aReceber, contasAPagar] = await Promise.all([
-    // Entradas pagas no mês atual (= "Entradas" do financeiro)
-    prisma.financial.aggregate({
-      where: { ...w, status: "PAGO", tipo: "entrada", cancelado: false, paidAt: { gte: inicioMes } },
-      _sum: { valor: true },
-    }),
-    // A Receber: veja lógica acima
-    prisma.financial.aggregate({
-      where: aReceberWhere,
-      _sum: { valor: true },
-    }),
-    // Contas a Pagar: veja lógica acima
-    prisma.financial.aggregate({
-      where: contasAPagarWhere,
-      _sum: { valor: true },
-    }),
+  // ── FRANQUEADO ──────────────────────────────────────────────────────
+  // Franquia records (tipo "saida" PENDENTE) = Contas a Pagar; quando PAGO = Saída Paga
+  const [entradasMes, saidasMes, aReceber, contasAPagar, totEntradas, totSaidas] = await Promise.all([
+    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "entrada", cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
+    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "saida",   cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
+    prisma.financial.aggregate({ where: { franchiseId, status: "PENDENTE", tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
+    prisma.financial.aggregate({ where: { franchiseId, status: "PENDENTE", tipo: "saida",   cancelado: false }, _sum: { valor: true } }),
+    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
+    prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "saida",   cancelado: false }, _sum: { valor: true } }),
   ]);
   return {
     entradasMes:  entradasMes._sum.valor  || 0,
+    saidasMes:    saidasMes._sum.valor    || 0,
     aReceber:     aReceber._sum.valor     || 0,
     contasAPagar: contasAPagar._sum.valor || 0,
+    caixa:        (totEntradas._sum.valor || 0) - (totSaidas._sum.valor || 0),
   };
 }
 
@@ -477,24 +473,36 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Financeiro resumido ── */}
-      <div className="grid grid-cols-3 gap-4 mb-5">
-        <Card className="p-4 border-l-4 border-emerald-400">
-          <p className="text-xs text-slate-400">{isMaster ? "Receita da Rede" : "Receita Recebida"}</p>
-          <p className="text-[10px] text-slate-400">entradas pagas no mês</p>
-          <p className="text-xl font-black text-emerald-600 mt-1">{fmt(fin.entradasMes)}</p>
-        </Card>
-        <Card className="p-4 border-l-4 border-amber-400">
-          <p className="text-xs text-slate-400">{isMaster ? "A Receber (rede)" : "A Receber"}</p>
-          <p className="text-[10px] text-slate-400">entradas pendentes</p>
-          <p className="text-xl font-black text-amber-600 mt-1">{fmt(fin.aReceber)}</p>
-        </Card>
-        <Card className={`p-4 border-l-4 ${fin.contasAPagar > 0 ? "border-orange-400" : "border-slate-200"}`}>
-          <p className="text-xs text-slate-400">{isMaster ? "Contas a Pagar (rede)" : "Contas a Pagar"}</p>
-          <p className="text-[10px] text-slate-400">saídas pendentes</p>
-          <p className={`text-xl font-black mt-1 ${fin.contasAPagar > 0 ? "text-orange-600" : "text-slate-400"}`}>{fmt(fin.contasAPagar)}</p>
-        </Card>
-      </div>
+      {/* ── Financeiro resumido (5 KPIs — igual à página Financeiro) ── */}
+      <Link href="/dashboard/financeiro">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5 cursor-pointer group">
+          <Card className="p-4 border-l-4 border-emerald-400 group-hover:shadow-md transition-shadow">
+            <p className="text-xs text-slate-400">{isMaster ? "↑ Receita da Rede" : "↑ Entradas"}</p>
+            <p className="text-[10px] text-slate-400">pagas no mês</p>
+            <p className="text-xl font-black text-emerald-600 mt-1">{fmt(fin.entradasMes)}</p>
+          </Card>
+          <Card className="p-4 border-l-4 border-red-300 group-hover:shadow-md transition-shadow">
+            <p className="text-xs text-slate-400">↓ Saídas Pagas</p>
+            <p className="text-[10px] text-slate-400">pagas no mês</p>
+            <p className="text-xl font-black text-red-500 mt-1">{fmt(fin.saidasMes)}</p>
+          </Card>
+          <Card className={`p-4 border-l-4 group-hover:shadow-md transition-shadow ${fin.contasAPagar > 0 ? "border-orange-400" : "border-slate-200"}`}>
+            <p className="text-xs text-slate-400">📋 Contas a Pagar</p>
+            <p className="text-[10px] text-slate-400">saídas pendentes</p>
+            <p className={`text-xl font-black mt-1 ${fin.contasAPagar > 0 ? "text-orange-600" : "text-slate-400"}`}>{fmt(fin.contasAPagar)}</p>
+          </Card>
+          <Card className="p-4 border-l-4 border-amber-400 group-hover:shadow-md transition-shadow">
+            <p className="text-xs text-slate-400">⏳ A Receber</p>
+            <p className="text-[10px] text-slate-400">entradas pendentes</p>
+            <p className="text-xl font-black text-amber-600 mt-1">{fmt(fin.aReceber)}</p>
+          </Card>
+          <Card className={`p-4 border-l-4 group-hover:shadow-md transition-shadow ${fin.caixa >= 0 ? "border-blue-500" : "border-red-500"}`}>
+            <p className="text-xs text-slate-400">💵 Caixa</p>
+            <p className="text-[10px] text-slate-400">entradas − saídas (total)</p>
+            <p className={`text-xl font-black mt-1 ${fin.caixa >= 0 ? "text-[#0f2a5e]" : "text-red-600"}`}>{fmt(fin.caixa)}</p>
+          </Card>
+        </div>
+      </Link>
 
       <div className="grid grid-cols-2 gap-5">
         {/* ── Últimos contratos ── */}
