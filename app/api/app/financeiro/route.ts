@@ -7,7 +7,7 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   const where = session?.user?.franchiseId ? { franchiseId: session.user.franchiseId } : {};
   const lancamentos = await prisma.financial.findMany({
-    where, include: { company: true, contract: { include: { student: true } } },
+    where, include: { company: true, contract: { include: { student: true } }, franchise: true },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ lancamentos });

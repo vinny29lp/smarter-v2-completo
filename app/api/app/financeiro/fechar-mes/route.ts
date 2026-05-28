@@ -104,23 +104,41 @@ export async function POST(req: Request) {
       continue;
     }
 
-    const descricao = [
-      cobrarMens ? `Mensalidade (R$${mensalidade.toFixed(0)})` : null,
-      ativos > 0 ? `Taxa Admin ${ativos} estag. (R$${taxaAdmin.toFixed(0)})` : null,
-    ].filter(Boolean).join(" + ");
+    const lancamentos: any[] = [];
 
-    const lancamento = await prisma.financial.create({
-      data: {
-        descricao: `${descricao} — ${f.name} — ${mesRef}`,
-        tipo: "entrada",
-        valor: total,
-        categoria: "Franquia",
-        status: "PENDENTE",
-        vencimentoAt: proximoMes,
-        franchiseId: f.id,
-        recorrente: false,
-      } as any,
-    });
+    // Entrada 1: Mensalidade (se cobrar)
+    if (cobrarMens && mensalidade > 0) {
+      const lanc = await prisma.financial.create({
+        data: {
+          descricao: `Mensalidade — ${f.name} — ${mesRef}`,
+          tipo: "entrada",
+          valor: mensalidade,
+          categoria: "Franquia",
+          status: "PENDENTE",
+          vencimentoAt: proximoMes,
+          franchiseId: f.id,
+          recorrente: false,
+        } as any,
+      });
+      lancamentos.push(lanc);
+    }
+
+    // Entrada 2: Taxa Admin por estagiários ativos
+    if (ativos > 0) {
+      const lanc = await prisma.financial.create({
+        data: {
+          descricao: `Taxa Admin ${ativos} estag. — ${f.name} — ${mesRef}`,
+          tipo: "entrada",
+          valor: taxaAdmin,
+          categoria: "Franquia",
+          status: "PENDENTE",
+          vencimentoAt: proximoMes,
+          franchiseId: f.id,
+          recorrente: false,
+        } as any,
+      });
+      lancamentos.push(lanc);
+    }
 
     results.push({
       franchise: f.name,
@@ -129,7 +147,7 @@ export async function POST(req: Request) {
       mensalidade,
       taxaAdmin,
       total,
-      lancamentoId: lancamento.id,
+      lancamentos: lancamentos.map(l => l.id),
     });
     totalGeral += total;
   }

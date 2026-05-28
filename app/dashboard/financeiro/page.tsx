@@ -325,7 +325,11 @@ export default function FinanceiroPage() {
                           <>
                             <Button size="sm" variant="secondary" onClick={() => darBaixa(l.id)}>✓ Baixa</Button>
                             {l.tipo==="entrada" && (
-                              <Button size="sm" variant="secondary" onClick={() => setCobrModal({...l, emailDestino:"", mensagemPersonalizada:""})}>📧 Cobrar</Button>
+                              <Button size="sm" variant="secondary" onClick={() => setCobrModal({
+                                ...l,
+                                emailDestino: l.franchise?.email || l.company?.emailFinanceiro || l.company?.email || "",
+                                mensagemPersonalizada:"",
+                              })}>📧 Cobrar</Button>
                             )}
                           </>
                         )}
