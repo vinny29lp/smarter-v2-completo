@@ -5,7 +5,12 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const where = session?.user?.franchiseId ? { franchiseId: session.user.franchiseId } : {};
+  // FRANQUEADO: vê só os lançamentos da sua unidade
+  // FRANQUEADORA: vê apenas seus próprios lançamentos (sem franchiseId) + cobranças de franquia (categoria "Franquia")
+  //               NÃO vê Taxa Admin ou outros lançamentos internos das unidades
+  const where: any = session?.user?.franchiseId
+    ? { franchiseId: session.user.franchiseId }
+    : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
   const lancamentos = await prisma.financial.findMany({
     where, include: { company: true, contract: { include: { student: true } }, franchise: true },
     orderBy: { createdAt: "desc" },

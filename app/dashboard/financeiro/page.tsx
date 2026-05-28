@@ -65,7 +65,9 @@ export default function FinanceiroPage() {
     return () => window.removeEventListener("focus", onFocus);
   }, [isFranqueadora]);
 
-  const filtrados = filtro === "TODOS" ? lancamentos : lancamentos.filter(l => l.status === filtro);
+  const lancamentosFranquia = lancamentos.filter(l => l.categoria === "Franquia");
+  const lancamentosGerais   = lancamentos.filter(l => l.categoria !== "Franquia");
+  const filtrados = (filtro === "TODOS" ? lancamentosGerais : lancamentosGerais.filter(l => l.status === filtro));
   const entradas  = lancamentos.filter(l => l.tipo==="entrada" && l.status==="PAGO").reduce((a,b)=>a+b.valor,0);
   const saidas    = lancamentos.filter(l => l.tipo==="saida"   && l.status==="PAGO").reduce((a,b)=>a+b.valor,0);
   const pendentes = lancamentos.filter(l => l.status==="PENDENTE").reduce((a,b)=>a+b.valor,0);
@@ -198,6 +200,7 @@ export default function FinanceiroPage() {
       {/* Cobrança de Franquias — só visível para FRANQUEADORA */}
       {isFranqueadora && (
         <Card className="mb-5 overflow-hidden">
+          {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div>
               <h2 className="text-sm font-black text-slate-800">🏢 Cobrança de Franquias</h2>
@@ -205,8 +208,10 @@ export default function FinanceiroPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-xs text-slate-400">Total previsto</p>
-                <p className="text-lg font-black text-[#0f2a5e]">{fmt(franquiasTotal)}</p>
+                <p className="text-xs text-slate-400">A receber de franquias</p>
+                <p className="text-lg font-black text-[#0f2a5e]">
+                  {fmt(lancamentosFranquia.filter(l => l.status === "PENDENTE").reduce((a,b) => a+b.valor, 0))}
+                </p>
               </div>
               <div className="flex flex-col gap-1">
                 <Button
@@ -225,11 +230,71 @@ export default function FinanceiroPage() {
               </div>
             </div>
           </div>
-          {/* Fórmula de cálculo */}
-          <div className="px-5 py-2 bg-blue-50 border-b border-blue-100 flex items-center gap-3 text-xs text-blue-700 font-medium">
-            <span>📐 Fórmula:</span>
-            <span className="font-mono bg-blue-100 px-2 py-0.5 rounded">Mensalidade + (Estag. Ativos × R$ 13,00) = Total a Cobrar</span>
-            <span className="text-blue-400 text-[10px]">Atualiza automaticamente conforme os dados do cadastro</span>
+
+          {/* Lançamentos existentes com ações */}
+          {lancamentosFranquia.length > 0 && (
+            <>
+              <div className="px-5 py-2 bg-slate-50 border-b border-slate-100">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Cobranças Lançadas</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      {["Descrição","Valor","Vencimento","Status","Ações"].map(h => (
+                        <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wide px-4 py-2">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lancamentosFranquia.map(l => {
+                      const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
+                      return (
+                        <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado ? "opacity-40" : ""}`}>
+                          <td className="px-4 py-2.5 text-sm font-medium">{l.descricao}</td>
+                          <td className="px-4 py-2.5 text-sm font-bold text-emerald-600">+ {fmt(l.valor)}</td>
+                          <td className="px-4 py-2.5 text-xs text-slate-400">
+                            {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR") : "—"}
+                            {vencido && <span className="ml-1 text-red-500 font-bold">⚠️</span>}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <Badge variant={STATUS_V[l.status] || "gray"}>{l.status}</Badge>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex gap-1">
+                              {l.status === "PENDENTE" && !l.cancelado && (
+                                <>
+                                  <Button size="sm" variant="secondary" onClick={() => darBaixa(l.id)}>✓ Baixa</Button>
+                                  <Button size="sm" variant="secondary" onClick={() => setCobrModal({
+                                    ...l,
+                                    emailDestino: l.franchise?.email || "",
+                                    mensagemPersonalizada: "",
+                                  })}>📧 Cobrar</Button>
+                                </>
+                              )}
+                              {l.status === "PAGO" && (
+                                <Button size="sm" variant="ghost" onClick={() => reverter(l.id)}>↩</Button>
+                              )}
+                              {!l.cancelado && (
+                                <Button size="sm" variant="ghost" onClick={() => setEditModal({...l})}>✏️</Button>
+                              )}
+                              <Button size="sm" variant="ghost" onClick={() => { if(confirm("Excluir?")) excluir(l.id); }}>🗑</Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* Preview próxima cobrança */}
+          <div className="px-5 py-2 bg-blue-50 border-t border-b border-blue-100 flex items-center gap-3 text-xs text-blue-700 font-medium">
+            <span>📐 Próxima cobrança:</span>
+            <span className="font-mono bg-blue-100 px-2 py-0.5 rounded">Mensalidade + (Estag. Ativos × R$ 13,00)</span>
+            <span className="text-blue-400 text-[10px]">Atualiza automaticamente conforme o cadastro</span>
           </div>
           {franquiasPreview.length === 0 ? (
             <div className="px-5 py-6 text-center text-sm text-slate-400">Nenhum franqueado ativo encontrado.</div>
@@ -238,7 +303,7 @@ export default function FinanceiroPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-100">
-                    {["Franqueado","Estag. Ativos","Mensalidade","Taxa (×R$13)","Fórmula","Total","Cobrar"].map(h => (
+                    {["Franqueado","Estag. Ativos","Mensalidade","Taxa (×R$13)","Total Previsto"].map(h => (
                       <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase tracking-wide px-4 py-2">{h}</th>
                     ))}
                   </tr>
@@ -250,23 +315,14 @@ export default function FinanceiroPage() {
                       <td className="px-4 py-2.5 text-sm text-center font-bold text-slate-700">{f.ativosCount}</td>
                       <td className="px-4 py-2.5 text-sm text-slate-600">{fmt(f.mensalidade)}</td>
                       <td className="px-4 py-2.5 text-sm text-emerald-600 font-medium">{fmt(f.taxaAdmin)}</td>
-                      <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">
-                        {fmt(f.mensalidade)} + {f.ativosCount}×R$13
-                      </td>
                       <td className="px-4 py-2.5 text-sm font-black text-[#0f2a5e]">{fmt(f.total)}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${f.cobrarMensalidade ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
-                          {f.cobrarMensalidade ? "Sim" : "Não"}
-                        </span>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-slate-50 border-t-2 border-slate-200">
-                    <td colSpan={5} className="px-4 py-2.5 text-xs font-bold text-slate-500">TOTAL GERAL A RECEBER</td>
+                    <td colSpan={4} className="px-4 py-2.5 text-xs font-bold text-slate-500">TOTAL PREVISTO</td>
                     <td className="px-4 py-2.5 text-base font-black text-[#0f2a5e]">{fmt(franquiasTotal)}</td>
-                    <td></td>
                   </tr>
                 </tfoot>
               </table>
