@@ -115,7 +115,7 @@ export async function POST(req: Request) {
     const lancamento = await prisma.financial.create({
       data: {
         descricao,
-        tipo: "entrada",
+        tipo: "saida",   // A PAGAR para a unidade; a Franqueadora vê como A RECEBER via categoria "Franquia"
         valor: total,
         categoria: "Franquia",
         status: "PENDENTE",

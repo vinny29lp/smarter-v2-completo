@@ -37,13 +37,13 @@ export async function POST(req: Request) {
     body.observacao ? `Observações: ${body.observacao}` : null,
   ].filter(Boolean).join("\n");
 
-  // Find franchise users to notify (FRANQUEADO + FUNCIONARIO of this franchise, or FRANQUEADORA)
+  // Find franchise users to notify — apenas FRANQUEADO + FUNCIONARIO da unidade que atende a empresa
+  // A FRANQUEADORA não deve receber notificações de solicitação de estagiário
   const franchiseUsers = await prisma.user.findMany({
     where: {
       OR: [
-        { role: "FRANQUEADO", franchiseId: company.franchiseId },
+        { role: "FRANQUEADO",  franchiseId: company.franchiseId },
         { role: "FUNCIONARIO", franchiseId: company.franchiseId },
-        { role: "FRANQUEADORA" },
       ],
     },
     select: { id: true },

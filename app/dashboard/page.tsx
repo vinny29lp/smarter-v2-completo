@@ -33,6 +33,7 @@ async function getFinanceiro(franchiseId?: string) {
   // FRANQUEADO: apenas lançamentos da sua unidade
   // FRANQUEADORA: apenas lançamentos próprios (sem franchiseId) + cobranças de franquia (categoria "Franquia")
   //               → NUNCA puxa Taxa Admin ou outros lançamentos internos das unidades
+  const isFranqueadora = !franchiseId;
   const w: any = franchiseId
     ? { franchiseId }
     : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
@@ -40,20 +41,41 @@ async function getFinanceiro(franchiseId?: string) {
   const hoje = new Date();
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
+  // Para Franqueadora:
+  //   A Receber = entradas próprias + cobranças de Franquia (tipo "saida" categoria "Franquia")
+  //   Contas a Pagar = apenas saídas próprias (sem franchiseId), excluindo Franquia
+  // Para Franqueado:
+  //   A Receber = entradas pendentes da unidade
+  //   Contas a Pagar = saídas pendentes da unidade
+  const aReceberWhere: any = isFranqueadora
+    ? {
+        status: "PENDENTE",
+        cancelado: false,
+        OR: [
+          { tipo: "entrada", franchiseId: null },
+          { tipo: "saida",   categoria: "Franquia" },
+        ],
+      }
+    : { franchiseId, status: "PENDENTE", tipo: "entrada", cancelado: false };
+
+  const contasAPagarWhere: any = isFranqueadora
+    ? { franchiseId: null, status: "PENDENTE", tipo: "saida", cancelado: false }
+    : { franchiseId, status: "PENDENTE", tipo: "saida", cancelado: false };
+
   const [entradasMes, aReceber, contasAPagar] = await Promise.all([
     // Entradas pagas no mês atual (= "Entradas" do financeiro)
     prisma.financial.aggregate({
       where: { ...w, status: "PAGO", tipo: "entrada", cancelado: false, paidAt: { gte: inicioMes } },
       _sum: { valor: true },
     }),
-    // A Receber: entradas pendentes sem baixa
+    // A Receber: veja lógica acima
     prisma.financial.aggregate({
-      where: { ...w, status: "PENDENTE", tipo: "entrada", cancelado: false },
+      where: aReceberWhere,
       _sum: { valor: true },
     }),
-    // Contas a Pagar: saídas pendentes sem baixa
+    // Contas a Pagar: veja lógica acima
     prisma.financial.aggregate({
-      where: { ...w, status: "PENDENTE", tipo: "saida", cancelado: false },
+      where: contasAPagarWhere,
       _sum: { valor: true },
     }),
   ]);
@@ -171,8 +193,9 @@ export default async function DashboardPage() {
   const franquias   = isMaster ? await getFranquias()         : null;
   const franqueados = isMaster ? await getFranqueadosResumo() : [];
 
-  // Solicitações de estagiário não lidas (para FRANQUEADO / FUNCIONARIO / FRANQUEADORA)
-  const solicitations = (role === "FRANQUEADO" || role === "FUNCIONARIO" || role === "FRANQUEADORA")
+  // Solicitações de estagiário não lidas (apenas FRANQUEADO e FUNCIONARIO da unidade)
+  // A FRANQUEADORA não recebe estas notificações
+  const solicitations = (role === "FRANQUEADO" || role === "FUNCIONARIO")
     ? await prisma.notification.findMany({
         where: {
           userId: (session!.user as any).id,
@@ -212,25 +235,44 @@ export default async function DashboardPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {solicitations.map(s => {
-              // link is like /dashboard/empresas/:id
-              const href = s.link || "/dashboard/empresas";
-              const dt   = new Date(s.createdAt);
+              const dt = new Date(s.createdAt);
               return (
-                <Link key={s.id} href={href}>
-                  <Card className="p-4 border-l-4 border-blue-400 hover:shadow-md transition-shadow cursor-pointer">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-blue-700 mb-1">{s.titulo}</p>
-                        <pre className="text-[11px] text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">
-                          {s.mensagem}
-                        </pre>
-                      </div>
-                      <span className="text-[10px] text-slate-400 flex-shrink-0">
-                        {dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-                      </span>
+                <Card key={s.id} className="p-4 border-l-4 border-blue-400 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-blue-700 mb-1">{s.titulo}</p>
+                      <pre className="text-[11px] text-slate-600 whitespace-pre-wrap font-sans leading-relaxed line-clamp-5">
+                        {s.mensagem}
+                      </pre>
                     </div>
-                  </Card>
-                </Link>
+                    <span className="text-[10px] text-slate-400 flex-shrink-0">
+                      {dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 mt-3 pt-2 border-t border-slate-100">
+                    <Link
+                      href={`/dashboard/solicitacao/${s.id}`}
+                      className="text-[11px] bg-blue-600 text-white px-3 py-1 rounded font-bold hover:bg-blue-700 transition-colors"
+                    >
+                      Abrir
+                    </Link>
+                    <a
+                      href={`/api/app/notificacao/${s.id}/pdf`}
+                      target="_blank"
+                      className="text-[11px] bg-slate-100 text-slate-700 px-3 py-1 rounded font-bold hover:bg-slate-200 transition-colors"
+                    >
+                      Baixar PDF
+                    </a>
+                    {s.link && (
+                      <Link
+                        href={s.link}
+                        className="text-[11px] text-blue-500 px-3 py-1 rounded font-bold hover:underline ml-auto"
+                      >
+                        Ver empresa →
+                      </Link>
+                    )}
+                  </div>
+                </Card>
               );
             })}
           </div>

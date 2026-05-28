@@ -164,14 +164,22 @@ export default function FinanceiroPage() {
     .filter(l => l.tipo === "saida" && l.status === "PAGO" && isPaidMes(l))
     .reduce((a, b) => a + b.valor, 0);
 
-  // A RECEBER: pendentes (entradas sem baixa — exclui Franquia para FRANQUEADO, pois são despesas)
+  // A RECEBER: entradas pendentes.
+  // Para FRANQUEADORA: inclui também saídas categoria "Franquia" (são cobranças que a rede lhe deve)
+  // Para FRANQUEADO: inclui apenas entradas que NÃO sejam "Franquia" (taxas são despesas, não receitas)
   const aReceber = lancamentos
-    .filter(l => l.tipo === "entrada" && l.status === "PENDENTE" && (isFranqueadora || l.categoria !== "Franquia"))
+    .filter(l => l.status === "PENDENTE" && (
+      (l.tipo === "entrada" && (isFranqueadora || l.categoria !== "Franquia")) ||
+      (isFranqueadora && l.tipo === "saida" && l.categoria === "Franquia")
+    ))
     .reduce((a, b) => a + b.valor, 0);
 
-  // CONTAS A PAGAR: todas as saídas pendentes (sem baixa)
+  // CONTAS A PAGAR: saídas pendentes.
+  // Para FRANQUEADORA: exclui "Franquia" (pois são recebíveis, não despesas dela)
+  // Para FRANQUEADO: inclui tudo (inclusive taxa Franquia que é despesa da unidade)
   const contasAPagar = lancamentos
-    .filter(l => l.tipo === "saida" && l.status === "PENDENTE")
+    .filter(l => l.tipo === "saida" && l.status === "PENDENTE" &&
+      (!isFranqueadora || l.categoria !== "Franquia"))
     .reduce((a, b) => a + b.valor, 0);
 
   // CAIXA: acumulado total (todas entradas pagas − todas saídas pagas)
