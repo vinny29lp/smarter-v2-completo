@@ -13,6 +13,7 @@ export async function getStudents(franchiseId?: string) {
       contracts: { include: { company: true }, take: 1, orderBy: { createdAt: "desc" } },
     },
     orderBy: { createdAt: "desc" },
+    take: 500,
   });
 }
 

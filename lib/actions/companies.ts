@@ -10,6 +10,7 @@ export async function getCompanies(franchiseId?: string) {
       _count: { select: { contracts: true, vacancies: true } },
     },
     orderBy: { createdAt: "desc" },
+    take: 500,
   });
 }
 

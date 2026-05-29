@@ -14,6 +14,7 @@ export async function GET() {
   const lancamentos = await prisma.financial.findMany({
     where, include: { company: true, contract: { include: { student: true } }, franchise: true },
     orderBy: { createdAt: "desc" },
+    take: 500,
   });
   return NextResponse.json({ lancamentos });
 }

@@ -27,6 +27,7 @@ export async function getContracts(franchiseId?: string, companyId?: string, hid
       _count: { select: { documents: true } },
     },
     orderBy: { createdAt: "desc" },
+    take: 500,
   });
 }
 
