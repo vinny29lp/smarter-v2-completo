@@ -19,8 +19,12 @@ const STATUS_LABEL: Record<string,string> = {
 const EXTRA_FIELDS: Record<string, {label:string;key:string;type?:string;options?:string[]}[]> = {
   rpb: [{ label:"Mês de Referência", key:"mesRef", type:"text" }],
   tr: [
-    { label:"Último Dia de Estágio", key:"ultimoDia", type:"date" },
-    { label:"Motivo da Rescisão", key:"motivo", type:"text" },
+    { label:"Tipo de Rescisão *", key:"tipoRescisao", type:"select", options:[
+      "Pedido do Estagiário","Pedido da Empresa","Término do Contrato",
+      "Conclusão do Curso","Trancamento de Matrícula","Desligamento Disciplinar","Outro",
+    ]},
+    { label:"Último Dia de Estágio *", key:"ultimoDia", type:"date" },
+    { label:"Motivo / Observações", key:"motivo", type:"text" },
   ],
   rr: [
     { label:"Dias de Bolsa", key:"diasBolsa", type:"number" },

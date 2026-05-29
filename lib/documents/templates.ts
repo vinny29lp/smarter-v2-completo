@@ -1,5 +1,5 @@
 import type { ContratoData } from "./types";
-import { valorExtenso, dataExtenso } from "./utils";
+import { valorExtenso, numeroExtenso, dataExtenso } from "./utils";
 
 // ── PREMIUM CSS ───────────────────────────────────────────────────────────────
 const CSS = `
@@ -316,7 +316,7 @@ ${clause(2, "Vigência e Rescisão",
   "Art. 11 e 12, Lei 11.788/2008")}
 
 ${clause(3, "Jornada e Compatibilidade Escolar",
-  `As atividades de estágio serão realizadas <strong>${jornadaDesc}</strong>, perfazendo <strong>${est.chSemanal} (${valorExtenso ? valorExtenso(est.chSemanal) : est.chSemanal}) horas semanais</strong> e <strong>${est.chDiaria} (${valorExtenso ? valorExtenso(est.chDiaria) : est.chDiaria}) horas diárias</strong>, compatíveis com o horário escolar do(a) ESTAGIÁRIO(A). Durante férias ou recessos escolares, outra jornada poderá ser estabelecida entre as partes, respeitando os limites legais.`,
+  `As atividades de estágio serão realizadas <strong>${jornadaDesc}</strong>, perfazendo <strong>${est.chSemanal} (${numeroExtenso(est.chSemanal)}) horas semanais</strong> e <strong>${est.chDiaria} (${numeroExtenso(est.chDiaria)}) horas diárias</strong>, compatíveis com o horário escolar do(a) ESTAGIÁRIO(A). Durante férias ou recessos escolares, outra jornada poderá ser estabelecida entre as partes, respeitando os limites legais.`,
   "Art. 10, Lei 11.788/2008")}
 
 ${clause(4, "Redução de Jornada em Período de Avaliação",
@@ -630,7 +630,7 @@ ${docFooter("Recibo de Pagamento de Bolsa-Auxílio", c.numero, sm)}`);
 }
 
 // ── RESCISÃO AO TCE ────────────────────────────────────────────────────────────
-export function gerarRescisao(c: ContratoData, ultimoDia: string, motivo: string): string {
+export function gerarRescisao(c: ContratoData, ultimoDia: string, motivo: string, tipoRescisao?: string): string {
   const { estudante: e, empresa: emp, instituicao: ies, smarter: sm, estagio: est } = c;
   const hoje = new Date().toLocaleDateString("pt-BR");
   return wrap(`
@@ -639,7 +639,7 @@ ${infoBar([
   {l:"Estagiário(a)", v: e.nome},
   {l:"Empresa", v: emp.nomeFan},
   {l:"Último Dia de Estágio", v: ultimoDia || "—"},
-  {l:"Data", v: hoje},
+  {l:"Tipo de Rescisão", v: tipoRescisao || "—"},
 ])}
 
 <div class="sec" style="margin-top:12px">${secHead("R", "Dados da Rescisão")}
@@ -648,11 +648,12 @@ ${fld("Empresa Concedente", emp.razaoSocial)}${fld("CNPJ", emp.cnpj)}
 ${fld("Representante", emp.representante)}${fld("Cargo", emp.cargoRepresentante)}
 ${fld("Estagiário(a)", e.nome)}${fld("CPF", e.cpf)}
 ${fld("Início do Estágio", est.dataInicio)}${fld("Último Dia de Estágio", ultimoDia || "—")}
-${motivo ? fld("Motivo da Rescisão", motivo, true) : ""}
+${fld("Tipo de Rescisão", tipoRescisao || "—", true)}
+${motivo ? fld("Motivo / Observações", motivo, true) : ""}
 </div></div>
 
 <div class="obj-box" style="margin:14px 0">
-  A empresa <strong>${emp.razaoSocial}</strong>, CNPJ: <strong>${emp.cnpj}</strong>, denominada <strong>UNIDADE CONCEDENTE</strong>, por seu representante <strong>${emp.representante}</strong>, e de outro lado o(a) ESTAGIÁRIO(A) <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, rescindem o Termo de Compromisso de Estágio firmado em <strong>${est.dataInicio}</strong>, sendo o último dia de estágio em <strong>${ultimoDia||"—"}</strong>. As partes conferem-se plena, total e irrevogável quitação de todas as obrigações legais assumidas.
+  A empresa <strong>${emp.razaoSocial}</strong>, CNPJ: <strong>${emp.cnpj}</strong>, denominada <strong>UNIDADE CONCEDENTE</strong>, por seu representante <strong>${emp.representante}</strong>, e de outro lado o(a) ESTAGIÁRIO(A) <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, rescindem de comum acordo o Termo de Compromisso de Estágio firmado em <strong>${est.dataInicio}</strong>, sendo o último dia de estágio em <strong>${ultimoDia||"—"}</strong>, em razão de <strong>${tipoRescisao||"rescisão das partes"}</strong>. As partes conferem-se plena, total e irrevogável quitação de todas as obrigações legais assumidas, conforme art. 11 da Lei 11.788/2008.
 </div>
 
 <p style="text-align:right;font-size:10px;margin:14px 0">${c.cidadeAssinatura}, ${hoje}</p>
@@ -730,7 +731,7 @@ ${fld("Início do Recesso", dataIni || "—")}${fld("Fim do Recesso", dataFim ||
 </div></div>
 
 <div class="obj-box" style="margin:14px 0">
-  Eu, <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, estagiário(a) da empresa <strong>${emp.razaoSocial}</strong>, solicito autorização para recesso remunerado de <strong>${diasRecesso} dia(s)</strong>, de <strong>${dataIni||"—"}</strong> a <strong>${dataFim||"—"}</strong>, referente ao período <strong>${periodo||"—"}</strong> efetivamente cumprido, conforme art. 13 da Lei 11.788/2008.
+  As partes acordam a concessão do recesso remunerado de <strong>${diasRecesso} dia(s)</strong> ao(à) estagiário(a) <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, da empresa <strong>${emp.razaoSocial}</strong>, a ser gozado de <strong>${dataIni||"—"}</strong> a <strong>${dataFim||"—"}</strong>, referente ao período aquisitivo <strong>${periodo||"—"}</strong> efetivamente cumprido. O recesso remunerado é garantido pelo art. 13 da Lei 11.788/2008, sendo devida a bolsa-auxílio integral durante o período.
 </div>
 
 <p style="text-align:right;font-size:10px;margin:14px 0">${c.cidadeAssinatura}, ${hoje}</p>
@@ -856,8 +857,11 @@ ${clause(3, "Do Pagamento", `No dia 05 de cada mês via PIX (CNPJ: ${sm.cnpj}) o
 ${clause(4, "Obrigações da CONTRATANTE", "a) Informar requisitos do cargo; b) Comunicar aprovação de candidatos; c) Comunicar vínculo CLT; d) Fornecer materiais; e) Informar aprovação em 5 dias úteis.", "")}
 ${clause(5, "Obrigações da CONTRATADA", "a) Realizar seleção; b) Disponibilizar sistema de gestão; c) Apresentar candidatos em 15 dias úteis; d) Manter documentação em dia.", "")}
 ${clause(6, "Da Vigência e Rescisão", "Vigência por prazo indeterminado. Rescisão por descumprimento ou aviso prévio de 60 dias. Estagiários ativos: CONTRATANTE continua pagando até fim dos contratos.", "")}
-${clause(7, "Da Confidencialidade", `Sigilo absoluto das informações. Violação: multa de R$ 5.000,00.`, "")}
-${clause(8, "Disposições Gerais", `Não constitui vínculo trabalhista. Alterações somente por escrito. Foro: Comarca de ${sm.cidade}.`, "")}
+${clause(7, "Da Confidencialidade", `Sigilo absoluto das informações trocadas entre as partes. Violação: multa de R$ 5.000,00 (cinco mil reais), sem prejuízo de perdas e danos adicionais comprovados.`, "")}
+${clause(8, "Da Inadimplência", `O não pagamento das mensalidades no prazo estipulado implicará: (a) multa moratória de 2% (dois por cento) sobre o valor em atraso; (b) juros de mora de 1% (um por cento) ao mês, calculados pro rata die; (c) suspensão dos serviços de recrutamento e gestão após 15 (quinze) dias de inadimplência; e (d) bloqueio total do sistema e dos documentos após 30 (trinta) dias de atraso. A regularização dos débitos restabelece os serviços em até 48 horas úteis.`, "Código Civil, arts. 389 e 395")}
+${clause(9, "Da Limitação de Responsabilidade", `A CONTRATADA — <strong>${sm.razaoSocial}</strong> — atua exclusivamente como Agente de Integração, nos termos do art. 5° da Lei 11.788/2008. Não possui vínculo empregatício com o(a) estagiário(a) nem é responsável pelo desempenho técnico, conduta ou resultados do estágio. Eventuais danos decorrentes da relação entre CONTRATANTE e estagiário(a) são de inteira responsabilidade da CONTRATANTE. A responsabilidade da CONTRATADA limita-se à gestão documental e administrativa do processo de estágio.`, "Art. 5°, Lei 11.788/2008")}
+${clause(10, "Da Proteção de Dados — LGPD", `Em conformidade com a Lei n° 13.709/2018 (Lei Geral de Proteção de Dados), as partes comprometem-se a: (a) tratar os dados pessoais dos estagiários e colaboradores estritamente para as finalidades previstas neste contrato; (b) adotar medidas técnicas e organizacionais adequadas para proteger os dados contra acessos não autorizados, perdas ou vazamentos; (c) não compartilhar dados pessoais com terceiros não envolvidos na execução do contrato, salvo obrigação legal; (d) comunicar à outra parte qualquer incidente de segurança que afete dados pessoais no prazo máximo de 72 (setenta e duas) horas. A CONTRATADA atua como Operadora de Dados, sob as instruções da CONTRATANTE, que figura como Controladora. O término deste contrato implica a exclusão ou devolução dos dados pessoais tratados, salvo obrigação legal de retenção.`, "Lei 13.709/2018 — LGPD")}
+${clause(11, "Disposições Gerais", `Não constitui vínculo trabalhista entre as partes. Alterações somente por escrito mediante aditivo contratual. Foro eleito: Comarca de <strong>${sm.cidade}</strong>, com renúncia expressa a qualquer outro.`, "")}
 </div>
 
 <p style="text-align:right;font-size:10px;margin:14px 0">${sm.cidade}, ${hoje}</p>
@@ -1093,7 +1097,11 @@ body{background:#e5e7eb;font-family:Arial,Helvetica,sans-serif}
     <p style="font-size:11px;font-weight:700;color:${corMedia}">${conceitoMedia}</p>
   </div>
 </div>
-${observacoes ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:14px"><p style="font-size:10px;font-weight:900;color:#374151;margin-bottom:6px">Observacoes e Feedback</p><p style="font-size:10px;color:#475569;line-height:1.7;font-style:italic">"${observacoes}"</p></div>` : ""}
+${respostas.pontosFortes ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;margin-bottom:10px"><p style="font-size:10px;font-weight:900;color:#15803d;margin-bottom:4px">✅ Pontos Fortes</p><p style="font-size:10px;color:#374151;line-height:1.6">${respostas.pontosFortes}</p></div>` : ""}
+${respostas.pontosMelhoria ? `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:10px"><p style="font-size:10px;font-weight:900;color:#b45309;margin-bottom:4px">⚠️ Pontos de Melhoria</p><p style="font-size:10px;color:#374151;line-height:1.6">${respostas.pontosMelhoria}</p></div>` : ""}
+${respostas.parecerFinal ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:10px"><p style="font-size:10px;font-weight:900;color:#374151;margin-bottom:4px">📋 Parecer Final do Supervisor</p><p style="font-size:10px;color:#475569;line-height:1.7;font-style:italic">"${respostas.parecerFinal}"</p></div>` : ""}
+${respostas.recomendacao ? `<div style="background:${respostas.recomendacao==="Encerrar"?"#fef2f2":respostas.recomendacao==="Renovar"?"#eff6ff":"#f0fdf4"};border:2px solid ${respostas.recomendacao==="Encerrar"?"#fca5a5":respostas.recomendacao==="Renovar"?"#bfdbfe":"#86efac"};border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px"><span style="font-size:18px">${respostas.recomendacao==="Encerrar"?"❌":respostas.recomendacao==="Renovar"?"🔄":"✅"}</span><div><p style="font-size:9px;font-weight:900;text-transform:uppercase;color:#6b7280;margin-bottom:2px">Recomendação do Supervisor</p><p style="font-size:14px;font-weight:900;color:${respostas.recomendacao==="Encerrar"?"#dc2626":respostas.recomendacao==="Renovar"?"#2563eb":"#16a34a"}">${respostas.recomendacao}</p></div></div>` : ""}
+${observacoes ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:14px"><p style="font-size:10px;font-weight:900;color:#374151;margin-bottom:6px">Observações Adicionais</p><p style="font-size:10px;color:#475569;line-height:1.7;font-style:italic">"${observacoes}"</p></div>` : ""}
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px">
   <div style="text-align:center;border-top:2px solid #1e293b;padding-top:8px">
     <p style="font-size:10px;font-weight:700;color:#1e293b">${supervisor || nomeEmpresa}</p>

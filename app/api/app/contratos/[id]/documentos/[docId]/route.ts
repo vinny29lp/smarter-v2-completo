@@ -77,7 +77,7 @@ export async function POST(
       html = gerarReciboBolsa(contratoData, body.mesRef || new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" }));
       break;
     case "tr":
-      html = gerarRescisao(contratoData, body.ultimoDia || "—", body.motivo || "");
+      html = gerarRescisao(contratoData, body.ultimoDia || "—", body.motivo || "", body.tipoRescisao || "");
       break;
     case "rr":
       html = gerarReciboRescisao(contratoData, body.diasBolsa || 30, body.mesesRecesso || 1, body.descontos || 0);
@@ -109,7 +109,7 @@ export async function POST(
   const updated = await saveDocumentHtml(params.docId, html);
 
   // Para TR: salvar ultimoDia e motivo no metaData (contrato fica INATIVO apenas ao ENVIAR para assinatura)
-  if (doc.tipo === "tr" && (body.ultimoDia || body.motivo)) {
+  if (doc.tipo === "tr" && (body.ultimoDia || body.motivo || body.tipoRescisao)) {
     await prisma.internshipDocument.update({
       where: { id: params.docId },
       data: {
@@ -117,6 +117,7 @@ export async function POST(
           ...((doc.metaData as any) || {}),
           ultimoDia: body.ultimoDia || null,
           motivo: body.motivo || null,
+          tipoRescisao: body.tipoRescisao || null,
         },
       },
     });

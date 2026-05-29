@@ -1,3 +1,8 @@
+/** Número por extenso SEM sufixo monetário — use para horas, dias, unidades */
+export function numeroExtenso(v: number): string {
+  return valorExtenso(v).replace(/ reais$/, "");
+}
+
 export function valorExtenso(v: number): string {
   if (v === 0) return "zero reais";
   if (v < 0) return "menos " + valorExtenso(-v);

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import Link from "next/link";
+import { validarCNPJ, validarEmail, validarTelefone, validarCEP, formatarCNPJ, formatarCEP, formatarTelefone, buscarCEP } from "@/lib/validations";
 
 export default function NovoFranqueadoPage() {
   const router = useRouter();
@@ -17,9 +18,26 @@ export default function NovoFranqueadoPage() {
     mensalidade:"200", plano:"completo", senha:"",
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
+  const [cepLoading, setCepLoading] = useState(false);
+
+  const handleCEPBlur = async () => {
+    if (!form.cep) return;
+    const fmt = formatarCEP(form.cep);
+    set("cep", fmt);
+    if (validarCEP(fmt)) {
+      setCepLoading(true);
+      const addr = await buscarCEP(fmt);
+      setCepLoading(false);
+      if (addr) setForm(p => ({ ...p, endereco: addr.logradouro||p.endereco, cidade: addr.localidade||p.cidade, uf: addr.uf||p.uf, cep: fmt }));
+    }
+  };
 
   const handleSubmit = async () => {
+    setError("");
     if (!form.name||!form.responsavel||!form.email) { setError("Preencha: Nome, Responsável e E-mail."); return; }
+    if (!validarEmail(form.email)) { setError("E-mail inválido."); return; }
+    if (form.cnpj && !validarCNPJ(form.cnpj)) { setError("CNPJ inválido."); return; }
+    if (form.telefone && !validarTelefone(form.telefone)) { setError("Telefone inválido."); return; }
     setLoading(true); setError("");
     const res = await fetch("/api/app/franqueados", {
       method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(form),
@@ -94,7 +112,11 @@ export default function NovoFranqueadoPage() {
             <div className="col-span-2"><Input label="Endereço" value={form.endereco} onChange={e=>set("endereco",e.target.value)} placeholder="Av. Rio Branco, 1"/></div>
             <Input label="Cidade *" value={form.cidade} onChange={e=>set("cidade",e.target.value)} placeholder="Rio de Janeiro"/>
             <Input label="UF" value={form.uf} onChange={e=>set("uf",e.target.value)} placeholder="RJ"/>
-            <Input label="CEP" value={form.cep} onChange={e=>set("cep",e.target.value)} placeholder="20090-003"/>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">CEP {cepLoading && <span className="text-[#0f2a5e] font-normal ml-1">Buscando...</span>}</label>
+              <input type="text" className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+                value={form.cep} onChange={e=>set("cep",e.target.value)} onBlur={handleCEPBlur} placeholder="20090-003" maxLength={9}/>
+            </div>
           </div>
         </Card>
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">

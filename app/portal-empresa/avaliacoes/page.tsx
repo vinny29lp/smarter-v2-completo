@@ -21,11 +21,15 @@ function AvaliacoesContent() {
 
   const [contratos, setContratos] = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
-  const [avalModal, setAvalModal] = useState<string|null>(null);
-  const [form, setForm]           = useState<Record<string,number>>({});
-  const [obs, setObs]             = useState("");
-  const [saving, setSaving]       = useState(false);
-  const [msg, setMsg]             = useState("");
+  const [avalModal, setAvalModal]   = useState<string|null>(null);
+  const [form, setForm]             = useState<Record<string,number>>({});
+  const [obs, setObs]               = useState("");
+  const [pontosFortes, setPontosFortes]   = useState("");
+  const [pontosMelhoria, setPontosMelhoria] = useState("");
+  const [parecerFinal, setParecerFinal]   = useState("");
+  const [recomendacao, setRecomendacao]   = useState("Manter");
+  const [saving, setSaving]         = useState(false);
+  const [msg, setMsg]               = useState("");
 
   const load = () => {
     setLoading(true);
@@ -48,15 +52,26 @@ function AvaliacoesContent() {
     setAvalModal(contratoId);
     setForm(Object.fromEntries(CRITERIOS.map(c => [c.key, 3])));
     setObs("");
+    setPontosFortes("");
+    setPontosMelhoria("");
+    setParecerFinal("");
+    setRecomendacao("Manter");
   };
 
   const salvar = async () => {
     if (!avalModal) return;
     setSaving(true);
+    const respostasCompletas = {
+      ...form,
+      pontosFortes,
+      pontosMelhoria,
+      parecerFinal,
+      recomendacao,
+    };
     const res = await fetch("/api/portal/empresa/avaliacoes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contratoId: avalModal, respostas: form, observacoes: obs }),
+      body: JSON.stringify({ contratoId: avalModal, respostas: respostasCompletas, observacoes: obs }),
     });
     if (res.ok) {
       setMsg("Avaliação enviada! ✓");
@@ -183,15 +198,53 @@ function AvaliacoesContent() {
             </div>
           ))}
           <div>
-            <label className="text-xs font-bold text-slate-600 block mb-1">Observações gerais</label>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Pontos Fortes *</label>
+            <textarea
+              className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-16 resize-none outline-none focus:border-[#0f2a5e]"
+              value={pontosFortes} onChange={e => setPontosFortes(e.target.value)}
+              placeholder="Descreva os principais pontos fortes do estagiário..."/>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Pontos de Melhoria *</label>
+            <textarea
+              className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-16 resize-none outline-none focus:border-[#0f2a5e]"
+              value={pontosMelhoria} onChange={e => setPontosMelhoria(e.target.value)}
+              placeholder="Áreas onde o estagiário deve desenvolver e melhorar..."/>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Parecer Final do Supervisor *</label>
             <textarea
               className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-20 resize-none outline-none focus:border-[#0f2a5e]"
+              value={parecerFinal} onChange={e => setParecerFinal(e.target.value)}
+              placeholder="Avaliação geral do desempenho, comprometimento e evolução profissional..."/>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Recomendação *</label>
+            <div className="flex gap-3">
+              {["Manter","Renovar","Encerrar"].map(op => (
+                <button key={op} onClick={() => setRecomendacao(op)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition-colors ${
+                    recomendacao === op
+                      ? op === "Encerrar" ? "bg-red-600 border-red-600 text-white" : "bg-[#0f2a5e] border-[#0f2a5e] text-white"
+                      : "border-slate-200 text-slate-500 hover:border-slate-300"
+                  }`}>
+                  {op === "Manter" ? "✅ Manter" : op === "Renovar" ? "🔄 Renovar" : "❌ Encerrar"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Observações Adicionais</label>
+            <textarea
+              className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-16 resize-none outline-none focus:border-[#0f2a5e]"
               value={obs} onChange={e => setObs(e.target.value)}
-              placeholder="Pontos fortes, áreas de melhoria..."/>
+              placeholder="Observações complementares (opcional)..."/>
           </div>
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setAvalModal(null)}>Cancelar</Button>
-            <Button onClick={salvar} disabled={saving}>{saving ? "Enviando..." : "Enviar Avaliação ✓"}</Button>
+            <Button onClick={salvar} disabled={saving || !pontosFortes || !pontosMelhoria || !parecerFinal}>
+              {saving ? "Enviando..." : "Enviar Avaliação ✓"}
+            </Button>
           </div>
         </div>
       </Modal>

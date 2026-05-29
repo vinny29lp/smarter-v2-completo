@@ -4,14 +4,20 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import {
+  validarCPF, validarEmail, validarTelefone, validarCEP,
+  formatarCPF, formatarCEP, formatarTelefone,
+  buscarCEP,
+} from "@/lib/validations";
 
 interface Props { franchiseId: string; institutions: any[]; }
 
 export function EstudanteForm({ franchiseId, institutions }: Props) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [etapa, setEtapa] = useState(1);
+  const [loading, setLoading]       = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [error, setError]           = useState("");
+  const [etapa, setEtapa]           = useState(1);
   const [form, setForm] = useState({
     nome:"", cpf:"", rg:"", dataNasc:"", sexo:"F",
     email:"", celular:"", telefone:"",
@@ -21,8 +27,39 @@ export function EstudanteForm({ franchiseId, institutions }: Props) {
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
 
+  // ── Formatação ao sair do campo ───────────────────────────────────────────
+  const handleCPFBlur    = () => { if (form.cpf) set("cpf", formatarCPF(form.cpf)); };
+  const handleCelularBlur = () => { if (form.celular) set("celular", formatarTelefone(form.celular)); };
+  const handleCEPBlur    = () => {
+    if (form.cep) {
+      const fmt = formatarCEP(form.cep);
+      set("cep", fmt);
+      if (validarCEP(fmt)) lookupCEP(fmt);
+    }
+  };
+
+  const lookupCEP = async (cep: string) => {
+    setCepLoading(true);
+    const addr = await buscarCEP(cep);
+    setCepLoading(false);
+    if (addr) {
+      setForm(p => ({
+        ...p,
+        endereco: addr.logradouro || p.endereco,
+        bairro:   addr.bairro    || p.bairro,
+        cidade:   addr.localidade || p.cidade,
+        uf:       addr.uf        || p.uf,
+      }));
+    }
+  };
+
   const handleSubmit = async () => {
+    setError("");
     if (!form.nome||!form.email||!form.curso) { setError("Preencha: Nome, E-mail e Curso."); return; }
+    if (!validarEmail(form.email)) { setError("E-mail inválido."); return; }
+    if (form.cpf && !validarCPF(form.cpf)) { setError("CPF inválido. Verifique o número digitado."); return; }
+    if (form.celular && !validarTelefone(form.celular)) { setError("Celular inválido. Informe DDD + número."); return; }
+    if (form.cep && !validarCEP(form.cep)) { setError("CEP inválido. Use o formato 00000-000."); return; }
     setLoading(true); setError("");
     try {
       const res = await fetch("/api/app/estudantes", {
@@ -80,7 +117,7 @@ export function EstudanteForm({ franchiseId, institutions }: Props) {
           <h3 className="text-sm font-bold text-slate-700 mb-4">Dados Pessoais</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2"><Input label="Nome Completo *" value={form.nome} onChange={e=>set("nome",e.target.value)} placeholder="Ana Lima"/></div>
-            <Input label="CPF" value={form.cpf} onChange={e=>set("cpf",e.target.value)} placeholder="000.000.000-00"/>
+            <Input label="CPF" value={form.cpf} onChange={e=>set("cpf",e.target.value)} onBlur={handleCPFBlur} placeholder="000.000.000-00"/>
             <Input label="RG" value={form.rg} onChange={e=>set("rg",e.target.value)} placeholder="00.000.000-0"/>
             <Input label="Data de Nascimento" type="date" value={form.dataNasc} onChange={e=>set("dataNasc",e.target.value)}/>
             <div>
@@ -90,12 +127,22 @@ export function EstudanteForm({ franchiseId, institutions }: Props) {
               </select>
             </div>
             <Input label="E-mail *" type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="ana@email.com"/>
-            <Input label="Celular" value={form.celular} onChange={e=>set("celular",e.target.value)} placeholder="(11) 98888-1111"/>
+            <Input label="Celular" value={form.celular} onChange={e=>set("celular",e.target.value)} onBlur={handleCelularBlur} placeholder="(11) 98888-1111"/>
+            {/* CEP com lookup automático */}
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">
+                CEP {cepLoading && <span className="text-[#0f2a5e] font-normal ml-1">Buscando...</span>}
+              </label>
+              <input type="text"
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+                value={form.cep} onChange={e=>set("cep",e.target.value)} onBlur={handleCEPBlur}
+                placeholder="01310-000" maxLength={9}/>
+            </div>
+            <div/>
             <div className="col-span-2"><Input label="Endereço" value={form.endereco} onChange={e=>set("endereco",e.target.value)} placeholder="Rua das Flores, 100"/></div>
             <Input label="Bairro" value={form.bairro} onChange={e=>set("bairro",e.target.value)} placeholder="Jardim Paulista"/>
             <Input label="Cidade" value={form.cidade} onChange={e=>set("cidade",e.target.value)} placeholder="São Paulo"/>
-            <Input label="UF" value={form.uf} onChange={e=>set("uf",e.target.value)} placeholder="SP"/>
-            <Input label="CEP" value={form.cep} onChange={e=>set("cep",e.target.value)} placeholder="01310-000"/>
+            <Input label="UF" value={form.uf} onChange={e=>set("uf",e.target.value)} placeholder="SP" maxLength={2}/>
           </div>
         </Card>
       )}

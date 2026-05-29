@@ -131,27 +131,27 @@ ${f("Endereco",sm.endereco,true)}
 ${f("Cidade/UF",sm.cidade+"/"+sm.estado)}${f("Telefone",sm.telefone)}
 </div></div>
 
-<div class="section">${s("5 — Clausulas do Termo")}
+<div class="section">${s("5 — Cláusulas do Termo")}
 <div class="clausulas">
-<p><strong>CLAUSULA 1a — Inexistencia de Vinculo Empregaticio:</strong> O presente Termo nao caracteriza vinculacao empregaticia entre o(a) ESTAGIARIO(A) e a UNIDADE CONCEDENTE (art. 3o, Lei 11.788/2008).</p>
-<p><strong>CLAUSULA 2a — Vigencia:</strong> Este Termo tera vigencia de <strong>${est.dataInicio}</strong> ate <strong>${est.dataFim}</strong>, podendo ser rescindido a qualquer momento ou prorrogado atraves de Termo Aditivo. Prazo maximo de 2 anos na mesma concedente (art. 11).</p>
-<p><strong>CLAUSULA 3a — Jornada:</strong> As atividades se farao conforme quadro abaixo, com <strong>${intv}</strong> de intervalo, perfazendo <strong>${est.chSemanal}h semanais</strong> e <strong>${est.chDiaria}h diarias</strong>, compativeis com o horario escolar do(a) ESTAGIARIO(A) (art. 10).</p>
+<p><strong>CLÁUSULA 1ª — Inexistência de Vínculo Empregatício:</strong> O presente Termo não caracteriza vinculação empregatícia entre o(a) ESTAGIÁRIO(A) e a UNIDADE CONCEDENTE (art. 3°, Lei 11.788/2008).</p>
+<p><strong>CLÁUSULA 2ª — Vigência:</strong> Este Termo terá vigência de <strong>${est.dataInicio}</strong> até <strong>${est.dataFim}</strong>, podendo ser rescindido a qualquer momento ou prorrogado através de Termo Aditivo. Prazo máximo de 2 anos na mesma concedente (art. 11).</p>
+<p><strong>CLÁUSULA 3ª — Jornada:</strong> As atividades se farão conforme quadro abaixo, com <strong>${intv}</strong> de intervalo, perfazendo <strong>${est.chSemanal}h semanais</strong> e <strong>${est.chDiaria}h diárias</strong>, compatíveis com o horário escolar do(a) ESTAGIÁRIO(A) (art. 10).</p>
 ${horarioTable(est.horarios)}
-<p><strong>CLAUSULA 4a — Reducao em Provas:</strong> Durante avaliacoes escolares, a jornada diaria podera ser reduzida a metade, sem prejuizo da bolsa-auxilio (art. 10, par. 2o).</p>
-<p><strong>CLAUSULA 5a — Recesso Remunerado:</strong> O(A) ESTAGIARIO(A) tem direito a recesso remunerado de 30 dias apos 12 meses de estagio, ou proporcional se menos de um ano (art. 13).</p>
-<p><strong>CLAUSULA 6a — Compatibilidade:</strong> As atividades deverao ser compativeis com o contexto basico do curso do(a) ESTAGIARIO(A) (art. 7o).</p>
-<p><strong>CLAUSULA 7a — Atividades:</strong> Poderao ser ampliadas, reduzidas ou alteradas mediante Termo Aditivo. Atividades inicialmente previstas:</p>
+<p><strong>CLÁUSULA 4ª — Redução em Provas:</strong> Durante avaliações escolares, a jornada diária poderá ser reduzida à metade, sem prejuízo da bolsa-auxílio (art. 10, par. 2°).</p>
+<p><strong>CLÁUSULA 5ª — Recesso Remunerado:</strong> O(A) ESTAGIÁRIO(A) tem direito a recesso remunerado de 30 dias após 12 meses de estágio, ou proporcional se menos de um ano (art. 13).</p>
+<p><strong>CLÁUSULA 6ª — Compatibilidade:</strong> As atividades deverão ser compatíveis com o contexto básico do curso do(a) ESTAGIÁRIO(A) (art. 7°).</p>
+<p><strong>CLÁUSULA 7ª — Atividades:</strong> Poderão ser ampliadas, reduzidas ou alteradas mediante Termo Aditivo. Atividades inicialmente previstas:</p>
 <div class="atividades">${est.atividades}</div>
-<p><strong>CLAUSULA 8a — Bolsa-Auxilio:</strong> A UNIDADE CONCEDENTE remunerara em <strong>${bolsaFmt}</strong> a titulo de bolsa-auxilio. Beneficios: <strong>${est.beneficios}</strong> (art. 12).</p>
-<p><strong>CLAUSULA 9a — Normas Internas:</strong> O(A) ESTAGIARIO(A) devera cumprir o programa de estagio e as normas internas da UNIDADE CONCEDENTE.</p>
-<p><strong>CLAUSULA 10a — Supervisao:</strong> O(A) ESTAGIARIO(A) devera fornecer informacoes para acompanhamento e supervisao quando solicitado.</p>
-<p><strong>CLAUSULA 11a — Encerramento Automatico:</strong> Na conclusao, abandono ou trancamento do curso, o Termo sera interrompido automaticamente (art. 11).</p>
-<p><strong>CLAUSULA 12a — Papel do Agente:</strong> <strong>${sm.razaoSocial}</strong> atua como AGENTE DE INTEGRACAO centralizador. Quaisquer alteracoes devem ser comunicadas (art. 5o).</p>
-<p><strong>CLAUSULA 13a — Seguro:</strong> O(A) ESTAGIARIO(A) estara coberto(a) pela Apolice No <strong>${est.apoliceSeguro}</strong>, Seguradora: <strong>${est.seguradora}</strong>, sob responsabilidade do AGENTE DE INTEGRACAO (art. 9o, IV).</p>
-<p><strong>CLAUSULA 14a — Obrigacoes da Unidade Concedente:</strong> 14.1 Garantir cumprimento das exigencias escolares; 14.2 Proporcionar atividades de aprendizagem compatíveis; 14.3 Proporcionar condicoes de treinamento pratico; 14.4 Fornecer subsidios a IES para avaliacao.</p>
-<p><strong>CLAUSULA 15a — Obrigacoes do(a) Estagiario(a):</strong> 15.1 Cumprir a programacao com empenho; 15.2 Observar normas internas da concedente; 15.3 Comunicar fatos relevantes a IES; 15.4 Elaborar relatorio de estagio.</p>
-<p><strong>CLAUSULA 16a — Obrigacoes da IES:</strong> 16.1 Avaliar instalacoes; 16.2 Notificar UNIDADE sobre trancamento ou abandono; 16.3 Indicar orientador para acompanhar atividades.</p>
-<p><strong>CLAUSULA 17a — Obrigacoes do Agente:</strong> 17.1 Ajustar condicoes e fazer acompanhamento administrativo; 17.2 Encaminhar negociacao do seguro; 17.3 Disponibilizar relatorios periodicos; 17.4 Notificar violacoes.</p>
+<p><strong>CLÁUSULA 8ª — Bolsa-Auxílio:</strong> A UNIDADE CONCEDENTE remunerará em <strong>${bolsaFmt}</strong> a título de bolsa-auxílio. Benefícios: <strong>${est.beneficios}</strong> (art. 12).</p>
+<p><strong>CLÁUSULA 9ª — Normas Internas:</strong> O(A) ESTAGIÁRIO(A) deverá cumprir o programa de estágio e as normas internas da UNIDADE CONCEDENTE.</p>
+<p><strong>CLÁUSULA 10ª — Supervisão:</strong> O(A) ESTAGIÁRIO(A) deverá fornecer informações para acompanhamento e supervisão quando solicitado.</p>
+<p><strong>CLÁUSULA 11ª — Encerramento Automático:</strong> Na conclusão, abandono ou trancamento do curso, o Termo será interrompido automaticamente (art. 11).</p>
+<p><strong>CLÁUSULA 12ª — Papel do Agente:</strong> <strong>${sm.razaoSocial}</strong> atua como AGENTE DE INTEGRAÇÃO centralizador. Quaisquer alterações devem ser comunicadas (art. 5°).</p>
+<p><strong>CLÁUSULA 13ª — Seguro:</strong> O(A) ESTAGIÁRIO(A) estará coberto(a) pela Apólice Nº <strong>${est.apoliceSeguro}</strong>, Seguradora: <strong>${est.seguradora}</strong>, sob responsabilidade do AGENTE DE INTEGRAÇÃO (art. 9°, IV).</p>
+<p><strong>CLÁUSULA 14ª — Obrigações da Unidade Concedente:</strong> 14.1 Garantir cumprimento das exigências escolares; 14.2 Proporcionar atividades de aprendizagem compatíveis; 14.3 Proporcionar condições de treinamento prático; 14.4 Fornecer subsídios à IES para avaliação.</p>
+<p><strong>CLÁUSULA 15ª — Obrigações do(a) Estagiário(a):</strong> 15.1 Cumprir a programação com empenho; 15.2 Observar normas internas da concedente; 15.3 Comunicar fatos relevantes à IES; 15.4 Elaborar relatório de estágio.</p>
+<p><strong>CLÁUSULA 16ª — Obrigações da IES:</strong> 16.1 Avaliar instalações; 16.2 Notificar UNIDADE sobre trancamento ou abandono; 16.3 Indicar orientador para acompanhar atividades.</p>
+<p><strong>CLÁUSULA 17ª — Obrigações do Agente:</strong> 17.1 Ajustar condições e fazer acompanhamento administrativo; 17.2 Encaminhar negociação do seguro; 17.3 Disponibilizar relatórios periódicos; 17.4 Notificar violações.</p>
 </div></div>
 
 <p style="font-size:11px;margin-top:10px">E por assim estarem de acordo, assinam este Termo em 4 (quatro) vias de igual teor e forma.</p>
@@ -174,18 +174,18 @@ ${f("E-mail da Empresa",emp.email,true)}
 ${f("Periodo do Estagio","De "+est.dataInicio+" a "+est.dataFim,true)}
 </div></div>
 
-<div class="section"><div class="section-title">Descricao das Atividades</div>
-<p style="font-size:10px;font-weight:700;margin-bottom:4px;text-align:center">Principais atividades que o(a) estagiario(a) desempenhara:</p>
+<div class="section"><div class="section-title">Descrição das Atividades</div>
+<p style="font-size:10px;font-weight:700;margin-bottom:4px;text-align:center">Principais atividades que o(a) estagiário(a) desempenhará:</p>
 <div class="atividades" style="min-height:60px">${est.atividades}</div></div>
 
-<div class="section"><div class="section-title">Horarios do Estagio</div>
+<div class="section"><div class="section-title">Horários do Estágio</div>
 ${horarioTable(est.horarios)}
-<p style="font-size:10px;margin-top:4px">Intervalo: <strong>${intv}</strong> &nbsp;|&nbsp; C.H. diaria: <strong>${est.chDiaria}h</strong> &nbsp;|&nbsp; C.H. semanal: <strong>${est.chSemanal}h</strong></p>
+<p style="font-size:10px;margin-top:4px">Intervalo: <strong>${intv}</strong> &nbsp;|&nbsp; C.H. diária: <strong>${est.chDiaria}h</strong> &nbsp;|&nbsp; C.H. semanal: <strong>${est.chSemanal}h</strong></p>
 </div>
 
-<div class="section"><div class="grid2">${f("Cidade onde sera desenvolvido o estagio",est.localEstagio,true)}</div></div>
+<div class="section"><div class="grid2">${f("Cidade onde será desenvolvido o estágio",est.localEstagio,true)}</div></div>
 
-<div class="section"><div class="section-title">Supervisores do Estagio</div>
+<div class="section"><div class="section-title">Supervisores do Estágio</div>
 <div class="grid2">
 ${f("Coordenador(a) — Escola",ies.orientador)}${f("Gestor(a) — Empresa",emp.supervisor)}
 ${f("Telefone",ies.telefone)}${f("Telefone",emp.telefoneSupervisor)}
