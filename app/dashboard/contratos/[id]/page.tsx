@@ -22,6 +22,70 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const [enviandoAval, setEnviandoAval] = useState(false);
   const [avalMsg, setAvalMsg] = useState<string|null>(null);
 
+  // ── Editar / Excluir ─────────────────────────────────────────────
+  const [editModal, setEditModal]   = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [deleting, setDeleting]     = useState(false);
+  const [actionMsg, setActionMsg]   = useState<string|null>(null);
+  const [editForm, setEditForm]     = useState<Record<string,any>>({});
+  const setF = (k: string, v: any) => setEditForm(p => ({ ...p, [k]: v }));
+
+  const abrirEdit = () => {
+    if (!contract) return;
+    setEditForm({
+      status:          contract.status || "PENDENTE",
+      bolsa:           String(contract.bolsa || ""),
+      valorEmpresa:    String(contract.valorEmpresa || ""),
+      auxTransporte:   String(contract.auxTransporte || ""),
+      dataInicio:      contract.dataInicio ? new Date(contract.dataInicio).toISOString().slice(0,10) : "",
+      dataFim:         contract.dataFim    ? new Date(contract.dataFim).toISOString().slice(0,10)    : "",
+      horarioInicio:   contract.horarioInicio || "08:00",
+      horarioFim:      contract.horarioFim    || "14:00",
+      chDiaria:        String(contract.chDiaria || "6"),
+      chSemanal:       String(contract.chSemanal || "30"),
+      diasSemana:      contract.diasSemana || "Segunda a Sexta",
+      supervisorNome:  contract.supervisorNome  || "",
+      supervisorCargo: contract.supervisorCargo || "",
+      supervisorEmail: contract.supervisorEmail || "",
+      supervisorTel:   contract.supervisorTel   || "",
+      apoliceSeguro:   contract.apoliceSeguro   || "",
+      seguradora:      contract.seguradora      || "",
+      localEstagio:    contract.localEstagio    || "",
+      atividades:      contract.atividades      || "",
+    });
+    setActionMsg(null);
+    setEditModal(true);
+  };
+
+  const salvarEdicao = async () => {
+    setSaving(true); setActionMsg(null);
+    const res = await fetch(`/api/app/contratos/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editForm),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (data.error) { setActionMsg("❌ " + data.error); return; }
+    setActionMsg("✅ Contrato atualizado com sucesso!");
+    // Recarrega dados do contrato
+    const updated = await fetch(`/api/app/contratos/${params.id}`).then(r => r.json());
+    setContract(updated.contract || updated);
+    setTimeout(() => { setEditModal(false); setActionMsg(null); }, 1500);
+  };
+
+  const excluirContrato = async () => {
+    setDeleting(true);
+    const res = await fetch(`/api/app/contratos/${params.id}`, { method: "DELETE" });
+    const data = await res.json();
+    setDeleting(false);
+    if (data.error) { alert("Erro: " + data.error); return; }
+    setDeleteModal(false);
+    router.push("/dashboard/contratos");
+    router.refresh();
+  };
+
   useEffect(() => {
     fetch(`/api/app/contratos/${params.id}`)
       .then(r => r.json())
@@ -114,12 +178,18 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/dashboard/contratos" className="text-slate-400 hover:text-slate-600 text-sm">← Contratos</Link>
-        <span className="text-slate-300">/</span>
-        <h1 className="text-2xl font-black text-slate-800">{contract.student?.name}</h1>
-        <Badge variant={(statusBadge[contract.status || "PENDENTE"]||"gray") as any}>{contract.status}</Badge>
-        {contract.numero && <span className="text-xs font-mono text-slate-400">#{contract.numero}</span>}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/contratos" className="text-slate-400 hover:text-slate-600 text-sm">← Contratos</Link>
+          <span className="text-slate-300">/</span>
+          <h1 className="text-2xl font-black text-slate-800">{contract.student?.name}</h1>
+          <Badge variant={(statusBadge[contract.status || "PENDENTE"]||"gray") as any}>{contract.status}</Badge>
+          {contract.numero && <span className="text-xs font-mono text-slate-400">#{contract.numero}</span>}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={abrirEdit}>✏️ Editar Estágio</Button>
+          <Button variant="danger" size="sm" onClick={() => setDeleteModal(true)}>🗑️ Excluir</Button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -286,6 +356,172 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           <p className="text-sm text-slate-600 leading-relaxed">{contract.atividades}</p>
         </Card>
       )}
+
+      {/* Modal: Editar Estágio */}
+      <Modal open={editModal} onClose={() => setEditModal(false)} title="✏️ Editar Estágio" size="xl">
+        <div className="space-y-5">
+
+          {/* Status */}
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Status</label>
+            <select value={editForm.status} onChange={e => setF("status", e.target.value)}
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]">
+              {["PENDENTE","ATIVO","AGUARDANDO_ASSINATURA","FINALIZADO","VENCIDO","INATIVO","SUSPENSO"].map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Valores financeiros */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Bolsa (R$)</label>
+              <input type="number" step="0.01" value={editForm.bolsa} onChange={e => setF("bolsa", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" placeholder="0.00"/>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Valor Empresa (R$)</label>
+              <input type="number" step="0.01" value={editForm.valorEmpresa} onChange={e => setF("valorEmpresa", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" placeholder="0.00"/>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Aux. Transporte (R$)</label>
+              <input type="number" step="0.01" value={editForm.auxTransporte} onChange={e => setF("auxTransporte", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" placeholder="0.00"/>
+            </div>
+          </div>
+
+          {/* Datas */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Início</label>
+              <input type="date" value={editForm.dataInicio} onChange={e => setF("dataInicio", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Término</label>
+              <input type="date" value={editForm.dataFim} onChange={e => setF("dataFim", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+            </div>
+          </div>
+
+          {/* Horário e CH */}
+          <div className="grid grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Horário Início</label>
+              <input type="time" value={editForm.horarioInicio} onChange={e => setF("horarioInicio", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Horário Fim</label>
+              <input type="time" value={editForm.horarioFim} onChange={e => setF("horarioFim", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">CH Diária (h)</label>
+              <input type="number" value={editForm.chDiaria} onChange={e => setF("chDiaria", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">CH Semanal (h)</label>
+              <input type="number" value={editForm.chSemanal} onChange={e => setF("chSemanal", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+            </div>
+          </div>
+
+          {/* Dias da semana */}
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Dias da Semana</label>
+            <input type="text" value={editForm.diasSemana} onChange={e => setF("diasSemana", e.target.value)}
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" placeholder="Segunda a Sexta"/>
+          </div>
+
+          {/* Supervisor */}
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Supervisor da Empresa</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Nome</label>
+                <input type="text" value={editForm.supervisorNome} onChange={e => setF("supervisorNome", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Cargo</label>
+                <input type="text" value={editForm.supervisorCargo} onChange={e => setF("supervisorCargo", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">E-mail</label>
+                <input type="email" value={editForm.supervisorEmail} onChange={e => setF("supervisorEmail", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Telefone</label>
+                <input type="text" value={editForm.supervisorTel} onChange={e => setF("supervisorTel", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+            </div>
+          </div>
+
+          {/* Seguro */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Apólice de Seguro</label>
+              <input type="text" value={editForm.apoliceSeguro} onChange={e => setF("apoliceSeguro", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Seguradora</label>
+              <input type="text" value={editForm.seguradora} onChange={e => setF("seguradora", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+            </div>
+          </div>
+
+          {/* Local e atividades */}
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Local do Estágio</label>
+            <input type="text" value={editForm.localEstagio} onChange={e => setF("localEstagio", e.target.value)}
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Atividades do Estágio</label>
+            <textarea value={editForm.atividades} onChange={e => setF("atividades", e.target.value)}
+              rows={3} className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] resize-none"/>
+          </div>
+
+          {actionMsg && (
+            <div className={`text-xs p-2 rounded-lg ${actionMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {actionMsg}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setEditModal(false)} className="flex-1 justify-center">Cancelar</Button>
+            <Button onClick={salvarEdicao} disabled={saving} className="flex-1 justify-center">
+              {saving ? "Salvando..." : "✅ Salvar Alterações"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Confirmar Exclusão */}
+      <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="🗑️ Excluir Estágio">
+        <div className="space-y-4">
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+            <p className="text-sm font-bold text-red-800">⚠️ Atenção: Ação Irreversível</p>
+            <p className="text-sm text-red-700 mt-1">
+              Isso irá excluir permanentemente o contrato de <strong>{contract.student?.name}</strong> na empresa <strong>{contract.company?.name}</strong>, incluindo todos os documentos, avaliações e registros financeiros vinculados.
+            </p>
+          </div>
+          <p className="text-sm text-slate-600">Tem certeza que deseja excluir este estágio?</p>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setDeleteModal(false)} className="flex-1 justify-center">Cancelar</Button>
+            <Button variant="danger" onClick={excluirContrato} disabled={deleting} className="flex-1 justify-center">
+              {deleting ? "Excluindo..." : "Sim, Excluir"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal Calculadora de Rescisão */}
       <Modal open={rescisaoModal} onClose={() => { setRescisaoModal(false); setCalc(null); }} title="🧮 Calculadora de Rescisão">
