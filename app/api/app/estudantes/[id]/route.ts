@@ -76,12 +76,18 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   if (!estudante) return NextResponse.json({ error: "Estudante não encontrado" }, { status: 404 });
 
   await prisma.$transaction(async (tx) => {
+    // Delete evaluations linked to student's contracts
+    await tx.evaluation.deleteMany({ where: { contract: { studentId: params.id } } });
     // Delete internship documents related to student's contracts
     await tx.internshipDocument.deleteMany({ where: { contract: { studentId: params.id } } });
+    // Delete financials linked to student's contracts
+    await tx.financial.deleteMany({ where: { contract: { studentId: params.id } } });
     // Delete contracts
     await tx.contract.deleteMany({ where: { studentId: params.id } });
     // Delete applications
     await tx.application.deleteMany({ where: { studentId: params.id } });
+    // Delete DISC tests
+    await tx.discTest.deleteMany({ where: { studentId: params.id } });
     // Delete the user account if it exists
     if (estudante.userId) {
       await tx.user.delete({ where: { id: estudante.userId } }).catch(() => null);

@@ -22,9 +22,12 @@ export async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const role  = (token?.role as string) || "";
 
-  // ── Não autenticado → login ──────────────────────────────────────────
+  // ── Não autenticado → login (preserva URL original como callbackUrl) ──
   if (!token) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    const loginUrl = new URL("/login", req.url);
+    const dest = pathname + req.nextUrl.search;
+    if (dest !== "/" && dest !== "/login") loginUrl.searchParams.set("callbackUrl", dest);
+    return NextResponse.redirect(loginUrl);
   }
 
   // ── /dashboard (raiz e sub-rotas) ────────────────────────────────────

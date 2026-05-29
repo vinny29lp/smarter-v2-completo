@@ -6,8 +6,9 @@ import { enviarBoasVindasEstudante } from "@/lib/email";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const estudantes = await getStudents(session?.user?.franchiseId);
+  // Estudantes são públicos a todos os painéis (franqueadora e todas as unidades)
+  // Não filtra por franchiseId — todos podem visualizar todos os estudantes
+  const estudantes = await getStudents();
   return NextResponse.json({ estudantes });
 }
 

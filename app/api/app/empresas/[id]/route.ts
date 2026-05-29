@@ -91,6 +91,8 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     await tx.evaluation.deleteMany({ where: { contract: { companyId: params.id } } });
     // Delete internship documents linked to contracts
     await tx.internshipDocument.deleteMany({ where: { contract: { companyId: params.id } } });
+    // Delete financials linked to contracts
+    await tx.financial.deleteMany({ where: { contract: { companyId: params.id } } });
     // Delete contracts
     await tx.contract.deleteMany({ where: { companyId: params.id } });
     // Delete applications for this company's vacancies
@@ -99,11 +101,12 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     }
     // Delete vacancies
     await tx.vacancy.deleteMany({ where: { companyId: params.id } });
-    // Delete financials
+    // Delete CRM leads linked to this company
+    await tx.crmLead.deleteMany({ where: { companyId: params.id } });
+    // Delete financials directly linked to the company (sem contrato)
     await tx.financial.deleteMany({ where: { companyId: params.id } });
-    // Delete the user account if it exists
-    const user = await tx.user.findFirst({ where: { companyId: params.id } });
-    if (user) await tx.user.delete({ where: { id: user.id } });
+    // Delete the user accounts linked to this company
+    await tx.user.deleteMany({ where: { companyId: params.id } });
     // Delete the company
     await tx.company.delete({ where: { id: params.id } });
   });

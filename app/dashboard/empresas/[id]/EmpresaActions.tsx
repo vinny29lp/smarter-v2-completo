@@ -21,6 +21,11 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
   const [acessoMsg, setAcessoMsg] = useState<string|null>(null);
   const [novaSenha, setNovaSenha] = useState("");
   const [novoEmail, setNovoEmail] = useState("");
+  const [composeModal, setComposeModal] = useState(false);
+  const [emailAssunto, setEmailAssunto] = useState("");
+  const [emailMensagem, setEmailMensagem] = useState("");
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<string|null>(null);
 
   // CPS — Contrato de Prestação de Serviços
   const [valorGestao, setValorGestao] = useState<string>(empresa.valorGestao ? String(empresa.valorGestao) : "");
@@ -110,6 +115,19 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
     else { setAcessoMsg("✅ Senha alterada com sucesso!"); setSenhaModal(false); setNovaSenha(""); }
   };
 
+  const enviarEmail = async () => {
+    if (!emailAssunto.trim() || !emailMensagem.trim()) { setEmailMsg("❌ Preencha o assunto e a mensagem."); return; }
+    setEnviandoEmail(true); setEmailMsg(null);
+    const res = await fetch(`/api/app/empresas/${empresa.id}/email`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assunto: emailAssunto, mensagem: emailMensagem }),
+    });
+    const data = await res.json();
+    setEnviandoEmail(false);
+    if (data.error) { setEmailMsg("❌ " + data.error); }
+    else { setEmailMsg("✅ E-mail enviado com sucesso!"); setEmailAssunto(""); setEmailMensagem(""); setTimeout(() => { setComposeModal(false); setEmailMsg(null); }, 2000); }
+  };
+
   const alterarEmail = async () => {
     if (!novoEmail) { setAcessoMsg("❌ Informe o novo e-mail"); return; }
     setSavingAcesso(true); setAcessoMsg(null);
@@ -158,9 +176,9 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
           {empresa.status === "ATIVA" ? "⛔ Inativar" : "✓ Reativar"}
         </Button>
         {empresa.email && (
-          <a href={`mailto:${empresa.email}`} className="block text-center text-xs border border-slate-200 hover:border-blue-400 px-3 py-2 rounded-xl font-semibold transition-colors text-slate-600">
+          <Button variant="secondary" className="w-full justify-center" onClick={() => { setEmailAssunto(""); setEmailMensagem(""); setEmailMsg(null); setComposeModal(true); }}>
             ✉️ Enviar E-mail
-          </a>
+          </Button>
         )}
         {isFranqueadora && (
           <Button variant="danger" className="w-full justify-center mt-2" onClick={() => setDeleteModal(true)} disabled={loading}>
@@ -220,6 +238,39 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
 
       <Modal open={editModal} onClose={() => setEditModal(false)} title="Editar Empresa" size="xl">
         <EmpresaForm franchiseId={empresa.franchiseId} empresa={empresa} onSuccess={() => { setEditModal(false); router.refresh(); }}/>
+      </Modal>
+
+      {/* Modal: Compor e Enviar E-mail para a Empresa */}
+      <Modal open={composeModal} onClose={() => { setComposeModal(false); setEmailMsg(null); }} title="Enviar E-mail para Empresa">
+        <div className="space-y-4">
+          <div className="p-3 bg-slate-50 rounded-xl text-sm">
+            <p className="text-slate-400 text-xs">Para:</p>
+            <p className="font-semibold text-slate-700">{empresa.name} — {empresa.email}</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Assunto</label>
+            <input type="text" value={emailAssunto} onChange={e => setEmailAssunto(e.target.value)}
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] transition-colors"
+              placeholder="Ex: Informações sobre o estágio"/>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Mensagem</label>
+            <textarea value={emailMensagem} onChange={e => setEmailMensagem(e.target.value)}
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#0f2a5e] transition-colors resize-none h-32"
+              placeholder="Digite a mensagem aqui..."/>
+          </div>
+          {emailMsg && (
+            <div className={`text-xs p-2 rounded-lg ${emailMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {emailMsg}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => { setComposeModal(false); setEmailMsg(null); }} className="flex-1 justify-center">Cancelar</Button>
+            <Button onClick={enviarEmail} disabled={enviandoEmail || !emailAssunto.trim() || !emailMensagem.trim()} className="flex-1 justify-center">
+              {enviandoEmail ? "Enviando..." : "✉️ Enviar"}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </Card>
   );

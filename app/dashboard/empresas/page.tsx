@@ -16,7 +16,10 @@ export default async function EmpresasPage({
   searchParams: { q?: string; status?: string; cidade?: string };
 }) {
   const session = await getServerSession(authOptions);
-  const all = await getCompanies(session?.user?.franchiseId);
+  const role = session?.user?.role;
+  // FRANQUEADORA vê todas; demais papéis só vêem as da sua unidade
+  const filterFranchiseId = role === "FRANQUEADORA" ? undefined : (session?.user?.franchiseId || undefined);
+  const all = await getCompanies(filterFranchiseId);
 
   let empresas = all;
   if (searchParams.q) {

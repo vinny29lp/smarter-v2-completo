@@ -1,7 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface SysConfig {
   nomeFantasia: string; loginTitulo: string; loginSubtitulo: string;
@@ -24,7 +24,7 @@ const PORTAL_BY_ROLE: Record<string, string> = {
   ESTUDANTE:    "/portal-estudante",
 };
 
-export default function LoginPage() {
+function LoginContent() {
   const [cfg, setCfg]           = useState<SysConfig>(DEFAULT_CFG);
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +35,8 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotStatus, setForgotStatus] = useState<"idle"|"sending"|"sent"|"error">("idle");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
 
   useEffect(() => {
     fetch("/api/app/config")
@@ -48,7 +50,18 @@ export default function LoginPage() {
     const res = await signIn("credentials", { email: e, password: p, redirect: false });
     if (res?.error) { setError("E-mail ou senha incorretos."); setLoading(false); return; }
     const session = await fetch("/api/auth/session").then(r => r.json());
-    const dest = PORTAL_BY_ROLE[session?.user?.role] || "/dashboard";
+    const roleDest = PORTAL_BY_ROLE[session?.user?.role] || "/dashboard";
+    // Se há callbackUrl e é compatível com o role do usuário, usa ela; senão usa o destino padrão
+    let dest = roleDest;
+    if (callbackUrl) {
+      const cb = decodeURIComponent(callbackUrl);
+      const role = session?.user?.role;
+      const isValidCb =
+        (role === "EMPRESA"   && cb.startsWith("/portal-empresa")) ||
+        (role === "ESTUDANTE" && cb.startsWith("/portal-estudante")) ||
+        ((role === "FRANQUEADO" || role === "FRANQUEADORA" || role === "FUNCIONARIO") && cb.startsWith("/dashboard"));
+      if (isValidCb) dest = cb;
+    }
     router.push(dest);
     router.refresh();
     setLoading(false);
@@ -194,5 +207,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#0f2a5e]"><div className="text-white text-sm">Carregando...</div></div>}>
+      <LoginContent />
+    </Suspense>
   );
 }
