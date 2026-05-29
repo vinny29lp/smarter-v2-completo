@@ -89,9 +89,12 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
       await tx.application.deleteMany({ where: { studentId: params.id } });
       // Delete DISC tests
       await tx.discTest.deleteMany({ where: { studentId: params.id } });
-      // Delete student FIRST (frees the FK userId → User), then delete user
+      // Delete student FIRST (frees the FK userId → User)
       await tx.student.delete({ where: { id: params.id } });
       if (estudante.userId) {
+        // Limpar logs e notificações antes de deletar o usuário (FK NoAction)
+        await tx.activityLog.deleteMany({ where: { userId: estudante.userId } });
+        await tx.notification.deleteMany({ where: { userId: estudante.userId } });
         await tx.user.delete({ where: { id: estudante.userId } });
       }
     });
