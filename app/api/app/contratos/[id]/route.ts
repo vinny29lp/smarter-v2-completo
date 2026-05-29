@@ -4,6 +4,22 @@ import { authOptions } from "@/lib/auth";
 import { getContract } from "@/lib/actions/contracts";
 import { prisma } from "@/lib/prisma";
 
+/** Se o estudante não tiver mais contratos ativos, muda status para DISPONIVEL */
+async function syncEstudanteStatus(studentId: string) {
+  const activeCount = await prisma.contract.count({
+    where: {
+      studentId,
+      status: { in: ["ATIVO", "AGUARDANDO_ASSINATURA", "PENDENTE"] },
+    },
+  });
+  if (activeCount === 0) {
+    await prisma.student.updateMany({
+      where: { id: studentId, status: "EM_ESTAGIO" },
+      data: { status: "DISPONIVEL" },
+    });
+  }
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
@@ -57,6 +73,12 @@ export async function PATCH(
 
   try {
     const contract = await prisma.contract.update({ where: { id: params.id }, data });
+
+    // Sync student status if contract status changed
+    if (data.status !== undefined && contract.studentId) {
+      await syncEstudanteStatus(contract.studentId);
+    }
+
     return NextResponse.json({ contract });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Erro ao atualizar contrato." }, { status: 500 });
@@ -86,6 +108,12 @@ export async function DELETE(
       await tx.financial.deleteMany({ where: { contractId: params.id } });
       await tx.contract.delete({ where: { id: params.id } });
     });
+
+    // Sync student status after contract deletion
+    if (contrato.studentId) {
+      await syncEstudanteStatus(contrato.studentId);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Erro ao excluir contrato." }, { status: 500 });

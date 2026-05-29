@@ -75,26 +75,29 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   const estudante = await prisma.student.findUnique({ where: { id: params.id } });
   if (!estudante) return NextResponse.json({ error: "Estudante não encontrado" }, { status: 404 });
 
-  await prisma.$transaction(async (tx) => {
-    // Delete evaluations linked to student's contracts
-    await tx.evaluation.deleteMany({ where: { contract: { studentId: params.id } } });
-    // Delete internship documents related to student's contracts
-    await tx.internshipDocument.deleteMany({ where: { contract: { studentId: params.id } } });
-    // Delete financials linked to student's contracts
-    await tx.financial.deleteMany({ where: { contract: { studentId: params.id } } });
-    // Delete contracts
-    await tx.contract.deleteMany({ where: { studentId: params.id } });
-    // Delete applications
-    await tx.application.deleteMany({ where: { studentId: params.id } });
-    // Delete DISC tests
-    await tx.discTest.deleteMany({ where: { studentId: params.id } });
-    // Delete the user account if it exists
-    if (estudante.userId) {
-      await tx.user.delete({ where: { id: estudante.userId } }).catch(() => null);
-    }
-    // Delete the student
-    await tx.student.delete({ where: { id: params.id } });
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Delete evaluations linked to student's contracts
+      await tx.evaluation.deleteMany({ where: { contract: { studentId: params.id } } });
+      // Delete internship documents related to student's contracts
+      await tx.internshipDocument.deleteMany({ where: { contract: { studentId: params.id } } });
+      // Delete financials linked to student's contracts
+      await tx.financial.deleteMany({ where: { contract: { studentId: params.id } } });
+      // Delete contracts
+      await tx.contract.deleteMany({ where: { studentId: params.id } });
+      // Delete applications
+      await tx.application.deleteMany({ where: { studentId: params.id } });
+      // Delete DISC tests
+      await tx.discTest.deleteMany({ where: { studentId: params.id } });
+      // Delete student FIRST (frees the FK userId → User), then delete user
+      await tx.student.delete({ where: { id: params.id } });
+      if (estudante.userId) {
+        await tx.user.delete({ where: { id: estudante.userId } });
+      }
+    });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "Erro ao excluir estudante." }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -23,6 +23,8 @@ export default function FranqueadoDetailPage() {
   const [editForm, setEditForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = () => {
     fetch(`/api/app/franqueados/${params.id}`)
@@ -37,6 +39,22 @@ export default function FranqueadoDetailPage() {
     setSaving(false); setMsg("Salvo! ✓");
     load();
     return d;
+  };
+
+  const excluirFranqueado = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/app/franqueados/${params.id}`, { method: "DELETE" });
+      const d = await res.json();
+      if (d.error) { setMsg("❌ " + d.error); setDeleteModal(false); return; }
+      router.push("/dashboard/franqueados");
+      router.refresh();
+    } catch {
+      setMsg("❌ Erro ao excluir. Tente novamente.");
+      setDeleteModal(false);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (!data) return <div className="p-8 text-center text-slate-400">Carregando...</div>;
@@ -86,6 +104,7 @@ export default function FranqueadoDetailPage() {
           onClick={()=>action({action:"toggle_access"}).then(()=>setMsg(bloqueado?"Acesso liberado! ✓":"Acesso bloqueado!"))}>
           {bloqueado?"🔓 Liberar Acesso":"🔒 Bloquear Acesso"}
         </Button>
+        <Button variant="danger" size="sm" onClick={() => setDeleteModal(true)}>🗑️ Excluir Franqueado</Button>
         {user && <div className="ml-auto text-xs text-slate-400 flex items-center">
           Último acesso: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("pt-BR") : "Nunca"}
         </div>}
@@ -236,6 +255,25 @@ export default function FranqueadoDetailPage() {
         <div className="flex gap-3 mt-4">
           <Button variant="secondary" onClick={()=>setEditModal(false)}>Cancelar</Button>
           <Button onClick={()=>action(editForm).then(()=>setEditModal(false))} disabled={saving}>Salvar</Button>
+        </div>
+      </Modal>
+
+      {/* Modal: Confirmar Exclusão do Franqueado */}
+      <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="Excluir Franqueado">
+        <div className="space-y-4">
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+            <p className="text-sm font-bold text-red-800">⚠️ Ação Irreversível</p>
+            <p className="text-sm text-red-700 mt-1">
+              Isso irá excluir permanentemente <strong>{data.name}</strong> e todos os dados relacionados: contratos, estudantes, empresas, usuários e financeiros desta unidade.
+            </p>
+          </div>
+          <p className="text-sm text-slate-600">Tem certeza que deseja excluir este franqueado?</p>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setDeleteModal(false)} className="flex-1 justify-center">Cancelar</Button>
+            <Button variant="danger" onClick={excluirFranqueado} disabled={deleting} className="flex-1 justify-center">
+              {deleting ? "Excluindo..." : "Sim, Excluir Tudo"}
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

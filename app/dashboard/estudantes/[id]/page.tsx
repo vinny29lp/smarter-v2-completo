@@ -89,12 +89,18 @@ export default function EstudanteDetailPage() {
 
   const excluirEstudante = async () => {
     setDeleting(true);
-    const res = await fetch(`/api/app/estudantes/${params.id}`, { method: "DELETE" });
-    const data = await res.json();
-    setDeleting(false);
-    if (data.error) { setMsg("❌ " + data.error); setDeleteModal(false); return; }
-    router.push("/dashboard/estudantes");
-    router.refresh();
+    try {
+      const res = await fetch(`/api/app/estudantes/${params.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.error) { setMsg("❌ " + data.error); setDeleteModal(false); return; }
+      router.push("/dashboard/estudantes");
+      router.refresh();
+    } catch {
+      setMsg("❌ Erro ao excluir estudante. Tente novamente.");
+      setDeleteModal(false);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (!student) return <div className="p-8 text-center text-slate-400">Carregando...</div>;

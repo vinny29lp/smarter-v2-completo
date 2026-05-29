@@ -80,3 +80,94 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   });
   return NextResponse.json({ franchise });
 }
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "FRANQUEADORA") {
+    return NextResponse.json({ error: "Apenas FRANQUEADORA pode excluir franqueados." }, { status: 403 });
+  }
+
+  const franchise = await prisma.franchise.findUnique({
+    where: { id: params.id },
+    include: {
+      companies: { select: { id: true } },
+      students: { select: { id: true, userId: true } },
+      users: { select: { id: true } },
+    },
+  });
+  if (!franchise) return NextResponse.json({ error: "Franqueado não encontrado." }, { status: 404 });
+
+  const companyIds = franchise.companies.map((c: any) => c.id);
+  const studentIds = franchise.students.map((s: any) => s.id);
+  const studentUserIds = franchise.students.map((s: any) => s.userId).filter(Boolean) as string[];
+  const franchiseUserIds = franchise.users.map((u: any) => u.id);
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Contatos de contratos da franquia
+      await tx.evaluation.deleteMany({ where: { contract: { franchiseId: params.id } } });
+      await tx.internshipDocument.deleteMany({ where: { contract: { franchiseId: params.id } } });
+      await tx.financial.deleteMany({ where: { contract: { franchiseId: params.id } } });
+      await tx.contract.deleteMany({ where: { franchiseId: params.id } });
+
+      // 2. CRM Tasks → CRM Leads (CrmNota cascades automaticamente)
+      await tx.crmTask.deleteMany({ where: { lead: { franchiseId: params.id } } });
+      await tx.crmLead.deleteMany({ where: { franchiseId: params.id } });
+
+      // 3. Dados das empresas (vacâncias, candidaturas, financeiros)
+      if (companyIds.length > 0) {
+        await tx.application.deleteMany({ where: { vacancy: { companyId: { in: companyIds } } } });
+        await tx.vacancy.deleteMany({ where: { companyId: { in: companyIds } } });
+        await tx.financial.deleteMany({ where: { companyId: { in: companyIds } } });
+
+        // Usuários das empresas (notificações e logs primeiro)
+        const companyUserIds = (await tx.user.findMany({
+          where: { companyId: { in: companyIds } },
+          select: { id: true },
+        })).map((u: any) => u.id);
+        if (companyUserIds.length > 0) {
+          await tx.activityLog.deleteMany({ where: { userId: { in: companyUserIds } } });
+          await tx.notification.deleteMany({ where: { userId: { in: companyUserIds } } });
+          await tx.user.deleteMany({ where: { id: { in: companyUserIds } } });
+        }
+      }
+      await tx.company.deleteMany({ where: { franchiseId: params.id } });
+
+      // 4. Dados dos estudantes da franquia
+      if (studentIds.length > 0) {
+        await tx.application.deleteMany({ where: { studentId: { in: studentIds } } });
+        await tx.discTest.deleteMany({ where: { studentId: { in: studentIds } } });
+        if (studentUserIds.length > 0) {
+          await tx.activityLog.deleteMany({ where: { userId: { in: studentUserIds } } });
+          await tx.notification.deleteMany({ where: { userId: { in: studentUserIds } } });
+        }
+        // Deletar estudante primeiro (libera FK userId), depois o usuário
+        await tx.student.deleteMany({ where: { id: { in: studentIds } } });
+        if (studentUserIds.length > 0) {
+          await tx.user.deleteMany({ where: { id: { in: studentUserIds } } });
+        }
+      }
+
+      // 5. Dados da franquia em si
+      await tx.financial.deleteMany({ where: { franchiseId: params.id } });
+      await tx.gamificationConfig.deleteMany({ where: { franchiseId: params.id } });
+      await tx.gamificationPoint.deleteMany({ where: { franchiseId: params.id } });
+      await tx.aIUsageLog.deleteMany({ where: { franchiseId: params.id } });
+
+      // 6. Usuários da franquia (funcionários e franqueados — employee antes de user)
+      if (franchiseUserIds.length > 0) {
+        await tx.activityLog.deleteMany({ where: { userId: { in: franchiseUserIds } } });
+        await tx.notification.deleteMany({ where: { userId: { in: franchiseUserIds } } });
+      }
+      await tx.employee.deleteMany({ where: { franchiseId: params.id } });
+      await tx.user.deleteMany({ where: { franchiseId: params.id } });
+
+      // 7. Excluir franquia
+      await tx.franchise.delete({ where: { id: params.id } });
+    }, { timeout: 30000 });
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "Erro ao excluir franqueado." }, { status: 500 });
+  }
+}
