@@ -87,6 +87,14 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: "Apenas FRANQUEADORA pode excluir franqueados." }, { status: 403 });
   }
 
+  // Segurança: bloqueia exclusão se houver contratos vinculados
+  const contractCount = await prisma.contract.count({ where: { franchiseId: params.id } });
+  if (contractCount > 0) {
+    return NextResponse.json({
+      error: `Não é possível excluir: este franqueado possui ${contractCount} contrato(s). Archive-o ou transfira os dados antes de excluir.`,
+    }, { status: 400 });
+  }
+
   const franchise = await prisma.franchise.findUnique({
     where: { id: params.id },
     include: {
@@ -98,29 +106,21 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   if (!franchise) return NextResponse.json({ error: "Franqueado não encontrado." }, { status: 404 });
 
   const companyIds = franchise.companies.map((c: any) => c.id);
-  const studentIds = franchise.students.map((s: any) => s.id);
   const studentUserIds = franchise.students.map((s: any) => s.userId).filter(Boolean) as string[];
   const franchiseUserIds = franchise.users.map((u: any) => u.id);
 
   try {
     await prisma.$transaction(async (tx) => {
-      // 1. Contatos de contratos da franquia
-      await tx.evaluation.deleteMany({ where: { contract: { franchiseId: params.id } } });
-      await tx.internshipDocument.deleteMany({ where: { contract: { franchiseId: params.id } } });
-      await tx.financial.deleteMany({ where: { contract: { franchiseId: params.id } } });
-      await tx.contract.deleteMany({ where: { franchiseId: params.id } });
-
-      // 2. CRM Tasks → CRM Leads (CrmNota cascades automaticamente)
+      // 1. CRM Tasks → CRM Leads (CrmNota cascades automaticamente)
       await tx.crmTask.deleteMany({ where: { lead: { franchiseId: params.id } } });
       await tx.crmLead.deleteMany({ where: { franchiseId: params.id } });
 
-      // 3. Dados das empresas (vacâncias, candidaturas, financeiros)
+      // 2. Dados das empresas (vacâncias, candidaturas, financeiros)
       if (companyIds.length > 0) {
         await tx.application.deleteMany({ where: { vacancy: { companyId: { in: companyIds } } } });
         await tx.vacancy.deleteMany({ where: { companyId: { in: companyIds } } });
         await tx.financial.deleteMany({ where: { companyId: { in: companyIds } } });
 
-        // Usuários das empresas (notificações e logs primeiro)
         const companyUserIds = (await tx.user.findMany({
           where: { companyId: { in: companyIds } },
           select: { id: true },
@@ -133,36 +133,35 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
       }
       await tx.company.deleteMany({ where: { franchiseId: params.id } });
 
-      // 4. Dados dos estudantes da franquia
-      if (studentIds.length > 0) {
-        await tx.application.deleteMany({ where: { studentId: { in: studentIds } } });
-        await tx.discTest.deleteMany({ where: { studentId: { in: studentIds } } });
-        if (studentUserIds.length > 0) {
-          await tx.activityLog.deleteMany({ where: { userId: { in: studentUserIds } } });
-          await tx.notification.deleteMany({ where: { userId: { in: studentUserIds } } });
-        }
-        // Deletar estudante primeiro (libera FK userId), depois o usuário
-        await tx.student.deleteMany({ where: { id: { in: studentIds } } });
-        if (studentUserIds.length > 0) {
-          await tx.user.deleteMany({ where: { id: { in: studentUserIds } } });
-        }
+      // 3. DESVINCULA estudantes — NÃO deleta perfis, apenas remove o vínculo com a franquia
+      //    Os estudantes ficam visíveis no Admin e mantêm todos os seus dados
+      await tx.student.updateMany({
+        where: { franchiseId: params.id },
+        data: { franchiseId: null },
+      });
+      if (studentUserIds.length > 0) {
+        await tx.user.updateMany({
+          where: { id: { in: studentUserIds }, role: "ESTUDANTE" },
+          data: { franchiseId: null },
+        });
       }
 
-      // 5. Dados da franquia em si
+      // 4. Dados da franquia em si
       await tx.financial.deleteMany({ where: { franchiseId: params.id } });
       await tx.gamificationConfig.deleteMany({ where: { franchiseId: params.id } });
       await tx.gamificationPoint.deleteMany({ where: { franchiseId: params.id } });
       await tx.aIUsageLog.deleteMany({ where: { franchiseId: params.id } });
 
-      // 6. Usuários da franquia (funcionários e franqueados — employee antes de user)
+      // 5. Usuários da franquia (FRANQUEADO/FUNCIONARIO — não ESTUDANTE)
       if (franchiseUserIds.length > 0) {
         await tx.activityLog.deleteMany({ where: { userId: { in: franchiseUserIds } } });
         await tx.notification.deleteMany({ where: { userId: { in: franchiseUserIds } } });
       }
       await tx.employee.deleteMany({ where: { franchiseId: params.id } });
-      await tx.user.deleteMany({ where: { franchiseId: params.id } });
+      // Deleta apenas usuários da franquia que NÃO são estudantes (já desvinculados acima)
+      await tx.user.deleteMany({ where: { franchiseId: params.id, role: { not: "ESTUDANTE" } } });
 
-      // 7. Excluir franquia
+      // 6. Excluir franquia
       await tx.franchise.delete({ where: { id: params.id } });
     }, { timeout: 30000 });
 
