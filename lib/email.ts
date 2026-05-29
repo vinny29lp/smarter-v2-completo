@@ -1,21 +1,18 @@
 // ── Email via Resend HTTP API ────────────────────────────────────
 // Token: env RESEND_API_KEY (priority) or SystemConfig.resendApiKey (fallback DB)
 //
-// DOMÍNIO: Para enviar para qualquer email, o domínio smarterestagios.com.br
-// deve estar verificado em resend.com/domains com os registros DNS abaixo:
+// DOMÍNIO: smarterestagios.com.br verificado no Resend (DNS adicionados no HostGator)
 //
-//   Tipo   Nome                        Valor
-//   TXT    _resend.smarterestagios.com.br    v=DMARC1; p=none
-//   MX     send.smarterestagios.com.br       feedback-smtp.us-east-1.amazonses.com
-//   TXT    resend._domainkey.smarterestagios.com.br  (chave DKIM fornecida pelo Resend)
-//
-// Após verificar, configurar em Vercel:
-//   RESEND_FROM = Smarter Estágios <financeiro@smarterestagios.com.br>
+// FROM addresses:
+//   financeiro@smarterestagios.com.br → usado apenas na aba Financeiro (cobranças)
+//   contato@smarterestagios.com.br    → usado em todos os demais emails
+//     (boas-vindas estudante/empresa/colaborador, assinatura, avaliação)
 
 import { getSystemConfig } from "./getConfig";
 
 const RESEND_URL = "https://api.resend.com/emails";
-const FROM = process.env.RESEND_FROM || "Smarter Estágios <financeiro@smarterestagios.com.br>";
+const FROM_CONTATO    = process.env.RESEND_FROM_CONTATO    || "Smarter Estágios <contato@smarterestagios.com.br>";
+const FROM_FINANCEIRO = process.env.RESEND_FROM_FINANCEIRO || "Smarter Estágios <financeiro@smarterestagios.com.br>";
 
 async function getApiKey(): Promise<string | null> {
   if (process.env.RESEND_API_KEY) return process.env.RESEND_API_KEY;
@@ -59,6 +56,7 @@ export async function sendMail(
   subject: string,
   html: string,
   attachments?: EmailAttachment[],
+  from?: string,
 ): Promise<boolean> {
   const apiKey = await getApiKey();
   if (!apiKey) {
@@ -66,7 +64,7 @@ export async function sendMail(
     return false;
   }
   try {
-    const body: Record<string, unknown> = { from: FROM, to: [to], subject, html };
+    const body: Record<string, unknown> = { from: from ?? FROM_CONTATO, to: [to], subject, html };
     if (attachments?.length) body.attachments = attachments;
 
     const res = await fetch(RESEND_URL, {
@@ -223,6 +221,7 @@ export async function enviarCobranca(params: {
     `Cobrança Smarter Estágios — ${params.descricao}`,
     base("Cobrança Pendente", corpo),
     attachments,
+    FROM_FINANCEIRO,
   );
 }
 
