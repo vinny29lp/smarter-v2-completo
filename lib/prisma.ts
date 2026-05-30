@@ -14,8 +14,8 @@ function buildDatasourceUrl(): string | undefined {
   const hasTimeout = url.includes("pool_timeout");
   const separator = url.includes("?") ? "&" : "?";
   let extra = "";
-  if (!hasLimit) extra += `${separator}connection_limit=1`;
-  if (!hasTimeout) extra += `${extra ? "&" : separator}pool_timeout=10`;
+  if (!hasLimit) extra += `${separator}connection_limit=5`;
+  if (!hasTimeout) extra += `${extra ? "&" : separator}pool_timeout=15`;
   return url + extra;
 }
 
