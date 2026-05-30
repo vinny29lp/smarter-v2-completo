@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 interface SysConfig {
   nomeFantasia: string; loginTitulo: string; loginSubtitulo: string;
@@ -17,12 +17,6 @@ const DEFAULT_CFG: SysConfig = {
   loginBgUrl:     "",
 };
 
-const PORTAL_BY_ROLE: Record<string, string> = {
-  FRANQUEADORA: "/dashboard",
-  FRANQUEADO:   "/dashboard",
-  EMPRESA:      "/portal-empresa",
-  ESTUDANTE:    "/portal-estudante",
-};
 
 function LoginContent() {
   const [cfg, setCfg]           = useState<SysConfig>(DEFAULT_CFG);
@@ -34,7 +28,6 @@ function LoginContent() {
   const [showForgot, setShowForgot]   = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotStatus, setForgotStatus] = useState<"idle"|"sending"|"sent"|"error">("idle");
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
 
@@ -47,24 +40,24 @@ function LoginContent() {
 
   const doLogin = async (e: string, p: string) => {
     setLoading(true); setError("");
+    const t0 = Date.now();
     const res = await signIn("credentials", { email: e, password: p, redirect: false });
-    if (res?.error) { setError("E-mail ou senha incorretos."); setLoading(false); return; }
-    const session = await fetch("/api/auth/session").then(r => r.json());
-    const roleDest = PORTAL_BY_ROLE[session?.user?.role] || "/dashboard";
-    // Se há callbackUrl e é compatível com o role do usuário, usa ela; senão usa o destino padrão
-    let dest = roleDest;
-    if (callbackUrl) {
-      const cb = decodeURIComponent(callbackUrl);
-      const role = session?.user?.role;
-      const isValidCb =
-        (role === "EMPRESA"   && cb.startsWith("/portal-empresa")) ||
-        (role === "ESTUDANTE" && cb.startsWith("/portal-estudante")) ||
-        ((role === "FRANQUEADO" || role === "FRANQUEADORA" || role === "FUNCIONARIO") && cb.startsWith("/dashboard"));
-      if (isValidCb) dest = cb;
+    console.log(`[LOGIN] signIn concluído: ${Date.now() - t0}ms, ok=${res?.ok}, error=${res?.error}`);
+
+    if (!res?.ok) {
+      setError("E-mail ou senha incorretos.");
+      setLoading(false);
+      return;
     }
-    router.push(dest);
-    router.refresh();
-    setLoading(false);
+
+    // ⚡ OTIMIZAÇÃO CRÍTICA: eliminar fetch extra de /api/auth/session e router.refresh()
+    // O middleware lê o JWT direto do cookie (sem DB) e redireciona para o portal correto.
+    // router.refresh() causava double-render do dashboard (3-5s extras) — removido.
+    // window.location.href = hard navigation limpa, sem reuso de estado do router
+    const dest = callbackUrl ? decodeURIComponent(callbackUrl) : "/dashboard";
+    console.log(`[LOGIN] redirecionando para ${dest} após ${Date.now() - t0}ms total`);
+    window.location.href = dest;
+    // setLoading(false) não necessário — página será substituída pelo redirect
   };
 
   const doForgot = async (ev: React.FormEvent) => {

@@ -16,11 +16,15 @@ const FUNCIONARIO_ROUTE_PERMS: Record<string, string> = {
 };
 
 export async function middleware(req: NextRequest) {
+  const t0 = Date.now();
   const { pathname } = req.nextUrl;
 
   // Buscar token diretamente — sem withAuth para evitar double-redirect
+  // getToken() lê o JWT do cookie e verifica assinatura — sem acesso ao banco
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const role  = (token?.role as string) || "";
+
+  console.log(`[MIDDLEWARE_PERF] ${pathname} — getToken: ${Date.now()-t0}ms — role=${role||"none"}`);
 
   // ── Não autenticado → login (preserva URL original como callbackUrl) ──
   if (!token) {
