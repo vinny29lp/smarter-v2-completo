@@ -18,16 +18,19 @@ export async function getContracts(franchiseId?: string, companyId?: string, hid
       // FRANQUEADO não vê contratos INATIVO — só FRANQUEADORA pode
       ...(hideInativo ? { status: { not: "INATIVO" as any } } : {}),
     },
-    include: {
-      student: { include: { user: true } },
-      company: true,
-      institution: true,
-      franchise: true,
-      documents: true,
+    // ⚡ Otimizado: select apenas campos necessários para a listagem (sem include full)
+    select: {
+      id: true, numero: true, status: true, tipo: true, bolsa: true,
+      dataInicio: true, dataFim: true, valor: true, createdAt: true,
+      student: { select: { id: true, name: true, email: true, curso: true } },
+      company: { select: { id: true, name: true, cnpj: true } },
+      institution: { select: { id: true, name: true } },
+      franchise: { select: { id: true, name: true } },
+      documents: { select: { id: true, status: true } }, // necessário para contagem de assinados
       _count: { select: { documents: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 500,
+    take: 200,
   });
 }
 

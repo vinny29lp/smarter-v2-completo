@@ -11,10 +11,20 @@ export async function GET() {
   const where: any = session?.user?.franchiseId
     ? { franchiseId: session.user.franchiseId }
     : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
+  // ⚡ Otimizado: include mais leve + take reduzido de 500 → 200
   const lancamentos = await prisma.financial.findMany({
-    where, include: { company: true, contract: { include: { student: true } }, franchise: true },
+    where,
+    select: {
+      id: true, descricao: true, tipo: true, valor: true, categoria: true,
+      status: true, recorrente: true, diaVencimento: true, vencimentoAt: true,
+      cancelado: true, paidAt: true, createdAt: true,
+      franchiseId: true, companyId: true, contractId: true,
+      company:   { select: { id: true, name: true, email: true, emailFinanceiro: true } },
+      franchise: { select: { id: true, name: true, email: true } },
+      contract:  { select: { id: true, numero: true, student: { select: { id: true, name: true } } } },
+    },
     orderBy: { createdAt: "desc" },
-    take: 500,
+    take: 200,
   });
   return NextResponse.json({ lancamentos });
 }

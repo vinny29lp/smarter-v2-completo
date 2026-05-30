@@ -187,27 +187,25 @@ export default async function DashboardPage() {
   const isMaster   = role === "FRANQUEADORA";
   const filtro: string | undefined = isMaster ? undefined : (session!.user.franchiseId ?? undefined);
 
-  const kpis        = await getKpis(filtro);
-  const fin         = await getFinanceiro(filtro);
-  const agenda      = await getProximos5Dias(filtro);
-  const recentes    = await getContratacoesRecentes(filtro);
-  const ranking     = await getRanking();
-  const franquias   = isMaster ? await getFranquias()         : null;
-  const franqueados = isMaster ? await getFranqueadosResumo() : [];
-
-  // Solicitações de estagiário não lidas (apenas FRANQUEADO e FUNCIONARIO da unidade)
-  // A FRANQUEADORA não recebe estas notificações
-  const solicitations = (role === "FRANQUEADO" || role === "FUNCIONARIO")
-    ? await prisma.notification.findMany({
-        where: {
-          userId: (session!.user as any).id,
-          tipo: "SOLICITACAO_ESTAGIARIO",
-          lida: false,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      })
-    : [];
+  // ⚡ Todas as queries em paralelo — de sequencial para Promise.all
+  const [kpis, fin, agenda, recentes, ranking, franquias, franqueados, solicitations] =
+    await Promise.all([
+      getKpis(filtro),
+      getFinanceiro(filtro),
+      getProximos5Dias(filtro),
+      getContratacoesRecentes(filtro),
+      getRanking(),
+      isMaster ? getFranquias()         : Promise.resolve(null),
+      isMaster ? getFranqueadosResumo() : Promise.resolve([]),
+      // Solicitações de estagiário não lidas (apenas FRANQUEADO e FUNCIONARIO da unidade)
+      (role === "FRANQUEADO" || role === "FUNCIONARIO")
+        ? prisma.notification.findMany({
+            where: { userId: (session!.user as any).id, tipo: "SOLICITACAO_ESTAGIARIO", lida: false },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          })
+        : Promise.resolve([]),
+    ]);
 
   const fmt  = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
   const hoje = new Date();

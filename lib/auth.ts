@@ -14,9 +14,15 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // ⚡ select apenas os campos necessários (evita JOINs desnecessários)
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
-          include: { franchise: true, company: true, student: true, employee: true },
+          select: {
+            id: true, name: true, email: true, password: true,
+            role: true, active: true, franchiseId: true, companyId: true,
+            student:  { select: { id: true } },
+            employee: { select: { permissoes: true } },
+          },
         });
 
         if (!user || !user.active) return null;

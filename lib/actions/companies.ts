@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+// ⚡ Otimizado: take reduzido de 500 → 200
 export async function getCompanies(franchiseId?: string) {
   return prisma.company.findMany({
     where: franchiseId ? { franchiseId } : {},
@@ -10,7 +11,7 @@ export async function getCompanies(franchiseId?: string) {
       _count: { select: { contracts: true, vacancies: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 500,
+    take: 200,
   });
 }
 

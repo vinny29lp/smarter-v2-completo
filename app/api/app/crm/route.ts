@@ -22,7 +22,7 @@ export async function GET(req: Request) {
       _count: { select: { notas: true, tasks: true } },
     },
     orderBy: { updatedAt: "desc" },
-    take: 500,
+    take: 200, // ⚡ reduzido de 500
   });
 
   return NextResponse.json({ leads });

@@ -18,7 +18,6 @@ export async function GET(req: Request) {
       vacancy: { include: { company: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 300,
   });
   return NextResponse.json({ candidaturas });
 }
