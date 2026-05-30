@@ -3,6 +3,12 @@ import { useState, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 
+// Mapa de portal por role — mesmo que o middleware roteie, garantimos o destino correto aqui
+const PORTAL_BY_ROLE: Record<string, string> = {
+  EMPRESA:    "/portal-empresa",
+  ESTUDANTE:  "/portal-estudante",
+};
+
 interface SysConfig {
   nomeFantasia: string; loginTitulo: string; loginSubtitulo: string;
   loginSlogan: string; loginLogoUrl: string; loginBgUrl: string;
@@ -50,14 +56,28 @@ function LoginContent() {
       return;
     }
 
-    // ⚡ OTIMIZAÇÃO CRÍTICA: eliminar fetch extra de /api/auth/session e router.refresh()
-    // O middleware lê o JWT direto do cookie (sem DB) e redireciona para o portal correto.
-    // router.refresh() causava double-render do dashboard (3-5s extras) — removido.
-    // window.location.href = hard navigation limpa, sem reuso de estado do router
-    const dest = callbackUrl ? decodeURIComponent(callbackUrl) : "/dashboard";
-    console.log(`[LOGIN] redirecionando para ${dest} após ${Date.now() - t0}ms total`);
-    window.location.href = dest;
-    // setLoading(false) não necessário — página será substituída pelo redirect
+    // ⚡ Buscar sessão para obter o role e garantir que o cookie já está commitado.
+    // Esta chamada é JWT-only (sem DB) e leva ~200ms — necessária para:
+    //   1. Garantir que o cookie de sessão está disponível antes de navegar
+    //   2. Determinar o portal correto por role (sem depender apenas do middleware)
+    // router.refresh() REMOVIDO — era a causa dos 3-5s extras de double-render.
+    // window.location.href = hard navigation, sem reuso de estado do router.
+    try {
+      const sessionRes = await fetch("/api/auth/session");
+      const session    = await sessionRes.json();
+      const role       = (session?.user?.role as string) ?? "";
+      console.log(`[LOGIN] session obtida: ${Date.now() - t0}ms total — role=${role}`);
+
+      const dest = callbackUrl
+        ? decodeURIComponent(callbackUrl)
+        : (PORTAL_BY_ROLE[role] ?? "/dashboard");
+      console.log(`[LOGIN] redirecionando para ${dest}`);
+      window.location.href = dest;
+      // setLoading(false) não necessário — página será substituída pelo redirect
+    } catch {
+      // fallback seguro: vai para /dashboard e deixa o middleware rotear
+      window.location.href = "/dashboard";
+    }
   };
 
   const doForgot = async (ev: React.FormEvent) => {
