@@ -25,6 +25,11 @@ export async function POST(
 
     if (!empresa) return NextResponse.json({ error: "Empresa não encontrada." }, { status: 404 });
 
+    // Guard: email é obrigatório para criar acesso ao portal
+    if (!empresa.email) {
+      return NextResponse.json({ error: "Empresa sem e-mail cadastrado. Adicione um e-mail à empresa antes de criar o acesso." }, { status: 400 });
+    }
+
     // Check if access already exists
     if (empresa.users && empresa.users.length > 0) {
       return NextResponse.json({ error: "Acesso ao portal já existe para esta empresa." }, { status: 409 });
@@ -47,17 +52,23 @@ export async function POST(
       },
     });
 
-    // Send welcome email (non-blocking)
+    // Send welcome email (aguardamos para garantir envio em serverless)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://sistema.smarterestagios.com.br";
-    enviarBoasVindasEmpresa({
-      email: empresa.email,
-      nomeEmpresa: empresa.name,
-      nomeResponsavel: empresa.responsavel || empresa.name,
-      senha,
-      loginUrl: appUrl,
-    }).catch(e => console.warn("[email] Falha boas-vindas empresa:", e));
+    let emailEnviado = false;
+    try {
+      emailEnviado = await enviarBoasVindasEmpresa({
+        email: empresa.email,
+        nomeEmpresa: empresa.name,
+        nomeResponsavel: empresa.responsavel || empresa.name,
+        senha,
+        loginUrl: appUrl,
+      });
+      console.log(`[email] boas-vindas empresa: ${emailEnviado ? "enviado" : "falhou"} → ${empresa.email}`);
+    } catch (e) {
+      console.warn("[email] Falha boas-vindas empresa:", e);
+    }
 
-    return NextResponse.json({ ok: true, userId: user.id, emailEnviado: true });
+    return NextResponse.json({ ok: true, userId: user.id, emailEnviado });
 
   } catch (err: any) {
     if (err?.code === "P2002" && err?.meta?.target?.includes("email")) {

@@ -44,11 +44,16 @@ export async function POST(req: Request) {
       habilidades: [], status: "DISPONIVEL",
     });
 
-    // Enviar email de boas-vindas (não-bloqueante)
+    // Enviar email de boas-vindas (aguardamos para garantir envio em serverless)
     if (!body.senha) {
-      enviarBoasVindasEstudante({
-        email: body.email, nome: body.nome, senha, curso: body.curso,
-      }).catch(e => console.warn("[email] Falha boas-vindas estudante:", e));
+      try {
+        const emailOk = await enviarBoasVindasEstudante({
+          email: body.email, nome: body.nome, senha, curso: body.curso,
+        });
+        console.log(`[email] boas-vindas estudante: ${emailOk ? "enviado" : "falhou"} → ${body.email}`);
+      } catch (e) {
+        console.warn("[email] Falha boas-vindas estudante:", e);
+      }
     }
 
     return NextResponse.json({ student }, { status: 201 });
