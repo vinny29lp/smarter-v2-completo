@@ -20,8 +20,9 @@ export async function getContracts(franchiseId?: string, companyId?: string, hid
     },
     // ⚡ Otimizado: select apenas campos necessários para a listagem (sem include full)
     select: {
-      id: true, numero: true, status: true, tipo: true, bolsa: true,
-      dataInicio: true, dataFim: true, valor: true, createdAt: true,
+      id: true, numero: true, status: true, tipoEstagio: true, bolsa: true,
+      valorEmpresa: true, auxTransporte: true,
+      dataInicio: true, dataFim: true, createdAt: true,
       student: { select: { id: true, name: true, email: true, curso: true } },
       company: { select: { id: true, name: true, cnpj: true } },
       institution: { select: { id: true, name: true } },

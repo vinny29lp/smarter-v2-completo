@@ -16,6 +16,7 @@ const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDi
 export default function ContratoDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [contract, setContract] = useState<any>(null);
+  const [loadError, setLoadError] = useState("");
   const [rescisaoModal, setRescisaoModal] = useState(false);
   const [rescisao, setRescisao] = useState({ ultimoDia: "", motivo: "" });
   const [calc, setCalc] = useState<any>(null);
@@ -88,12 +89,26 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
 
   useEffect(() => {
     fetch(`/api/app/contratos/${params.id}`)
-      .then(r => r.json())
-      .then(d => setContract(d.contract || d));
+      .then(r => {
+        if (!r.ok) throw new Error(`Erro ${r.status} ao carregar contrato.`);
+        return r.json();
+      })
+      .then(d => {
+        if (d.error) throw new Error(d.error);
+        setContract(d.contract || d);
+      })
+      .catch(e => setLoadError(e.message || "Erro ao carregar contrato."));
   }, [params.id]);
 
+  if (loadError) return (
+    <div className="flex flex-col items-center justify-center h-48 gap-3">
+      <p className="text-red-500 font-semibold">⚠️ {loadError}</p>
+      <Link href="/dashboard/contratos" className="text-sm text-[#0f2a5e] hover:underline">← Voltar para contratos</Link>
+    </div>
+  );
+
   if (!contract) return (
-    <div className="flex items-center justify-center h-48 text-slate-400">Carregando...</div>
+    <div className="flex items-center justify-center h-48 text-slate-400">Carregando contrato...</div>
   );
 
   const assinados = contract.documents?.filter((d: any) => d.status === "ASSINADO").length || 0;

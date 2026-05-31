@@ -189,29 +189,34 @@ export async function GET(
   _req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
-  const document = await prisma.internshipDocument.findUnique({
-    where: { id: params.docId },
-    include: {
-      contract: {
-        include: {
-          student: { select: { email: true, name: true } },
-          company: { select: { email: true, name: true } },
-          institution: { select: { email: true, name: true } },
+  try {
+    const document = await prisma.internshipDocument.findUnique({
+      where: { id: params.docId },
+      include: {
+        contract: {
+          include: {
+            student: { select: { email: true, name: true } },
+            company: { select: { email: true, name: true } },
+            institution: { select: { email: true, name: true } },
+          },
         },
       },
-    },
-  });
-  if (!document) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    });
+    if (!document) return NextResponse.json({ error: "Documento não encontrado." }, { status: 404 });
 
-  // Extrair emails do contrato para pré-preenchimento no frontend
-  const contractEmails = {
-    company: document.contract?.company?.email || null,
-    companyName: document.contract?.company?.name || null,
-    student: document.contract?.student?.email || null,
-    studentName: document.contract?.student?.name || null,
-    institution: document.contract?.institution?.email || null,
-    institutionName: document.contract?.institution?.name || null,
-  };
+    // Extrair emails do contrato para pré-preenchimento no frontend
+    const contractEmails = {
+      company: document.contract?.company?.email || null,
+      companyName: document.contract?.company?.name || null,
+      student: document.contract?.student?.email || null,
+      studentName: document.contract?.student?.name || null,
+      institution: document.contract?.institution?.email || null,
+      institutionName: document.contract?.institution?.name || null,
+    };
 
-  return NextResponse.json({ document, contractEmails });
+    return NextResponse.json({ document, contractEmails });
+  } catch (e: any) {
+    console.error("[documentos] GET error:", e?.message || e);
+    return NextResponse.json({ error: "Erro ao carregar documento." }, { status: 500 });
+  }
 }

@@ -27,15 +27,20 @@ export async function GET(
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const contract = await getContract(params.id);
-  if (!contract) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const contract = await getContract(params.id);
+    if (!contract) return NextResponse.json({ error: "Contrato não encontrado." }, { status: 404 });
 
-  // Security: only franqueado can see their own contracts
-  if (session.user.franchiseId && contract.franchiseId !== session.user.franchiseId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Security: only franqueado can see their own contracts
+    if (session.user.franchiseId && contract.franchiseId !== session.user.franchiseId) {
+      return NextResponse.json({ error: "Acesso não autorizado a este contrato." }, { status: 403 });
+    }
+
+    return NextResponse.json({ contract });
+  } catch (e: any) {
+    console.error("[contratos/id] GET error:", e?.message || e);
+    return NextResponse.json({ error: "Erro ao carregar contrato." }, { status: 500 });
   }
-
-  return NextResponse.json({ contract });
 }
 
 export async function PATCH(
