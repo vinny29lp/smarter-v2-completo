@@ -91,7 +91,10 @@ async function getFinanceiro(franchiseId?: string) {
 async function getProximos5Dias(franchiseId?: string) {
   const hoje  = new Date();
   const fim5d = new Date(hoje); fim5d.setDate(fim5d.getDate() + 5);
-  const w = franchiseId ? { franchiseId } : {};
+  // IMPORTANTE: sempre filtrar pelo franchiseId exato do usuário.
+  // Se franchiseId for undefined (admin sem unidade vinculada), usa null para pegar
+  // apenas registros próprios do admin (sem vazar dados de unidades).
+  const wExato = { franchiseId: franchiseId ?? null };
 
   const [entrevistas, retornosCrm, reunioesCrm, contratosVencendo, cobrancasVencendo] = await Promise.all([
     // Entrevistas agendadas nos próximos 5 dias
@@ -107,30 +110,30 @@ async function getProximos5Dias(franchiseId?: string) {
       orderBy: { entrevistaAt: "asc" },
       take: 10,
     }),
-    // Retornos CRM vencidos ou nos próximos 5 dias
+    // Retornos CRM vencidos ou nos próximos 5 dias — apenas da conta do usuário logado
     prisma.crmLead.findMany({
-      where: { ...w, situacao: "ativo", retornoAt: { lte: fim5d } },
+      where: { ...wExato, situacao: "ativo", retornoAt: { lte: fim5d } },
       select: { id: true, empresa: true, retornoAt: true, proximaAcao: true, prioridade: true },
       orderBy: { retornoAt: "asc" },
       take: 8,
     }),
-    // Reuniões CRM nos próximos 5 dias
+    // Reuniões CRM nos próximos 5 dias — apenas da conta do usuário logado
     prisma.crmLead.findMany({
-      where: { ...w, situacao: "ativo", reuniaoAt: { gte: hoje, lte: fim5d } },
+      where: { ...wExato, situacao: "ativo", reuniaoAt: { gte: hoje, lte: fim5d } },
       select: { id: true, empresa: true, reuniaoAt: true, linkReuniao: true, enderecoReuniao: true },
       orderBy: { reuniaoAt: "asc" },
       take: 6,
     }),
-    // Contratos vencendo em 30 dias
+    // Contratos vencendo em 30 dias — apenas da conta do usuário logado
     prisma.contract.findMany({
-      where: { ...w, status: "ATIVO", dataFim: { gte: hoje, lte: new Date(hoje.getTime() + 30*24*60*60*1000) } },
+      where: { ...wExato, status: "ATIVO", dataFim: { gte: hoje, lte: new Date(hoje.getTime() + 30*24*60*60*1000) } },
       include: { student: { select: { name: true } }, company: { select: { name: true } } },
       orderBy: { dataFim: "asc" },
       take: 5,
     }),
-    // Cobranças vencendo nos próximos 5 dias
+    // Cobranças vencendo nos próximos 5 dias — apenas da conta do usuário logado
     prisma.financial.findMany({
-      where: { ...w, status: "PENDENTE", cancelado: false, tipo: "entrada", vencimentoAt: { gte: hoje, lte: fim5d } },
+      where: { ...wExato, status: "PENDENTE", cancelado: false, tipo: "entrada", vencimentoAt: { gte: hoje, lte: fim5d } },
       include: { company: { select: { name: true } } },
       orderBy: { vencimentoAt: "asc" },
       take: 6,
