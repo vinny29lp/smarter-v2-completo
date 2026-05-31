@@ -92,9 +92,11 @@ async function getProximos5Dias(franchiseId?: string) {
   const hoje  = new Date();
   const fim5d = new Date(hoje); fim5d.setDate(fim5d.getDate() + 5);
   // IMPORTANTE: sempre filtrar pelo franchiseId exato do usuário.
-  // Se franchiseId for undefined (admin sem unidade vinculada), usa null para pegar
-  // apenas registros próprios do admin (sem vazar dados de unidades).
-  const wExato = { franchiseId: franchiseId ?? null };
+  // CrmLead e Contract têm franchiseId NOT NULL — não aceita null como filtro.
+  // Se o admin não tiver franchiseId vinculado, usa UUID impossível → retorna vazio (sem crash).
+  const NONE = "00000000-0000-0000-0000-000000000000";
+  const safeId = franchiseId ?? NONE;
+  const wExato = { franchiseId: safeId };
 
   const [entrevistas, retornosCrm, reunioesCrm, contratosVencendo, cobrancasVencendo] = await Promise.all([
     // Entrevistas agendadas nos próximos 5 dias
