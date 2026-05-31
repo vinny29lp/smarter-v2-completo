@@ -186,13 +186,16 @@ export default async function DashboardPage() {
   const role       = session!.user.role;
   const isMaster   = role === "FRANQUEADORA";
   const filtro: string | undefined = isMaster ? undefined : (session!.user.franchiseId ?? undefined);
+  // Para agenda (follow-ups CRM, cobranças): sempre usa o próprio franchiseId do usuário logado.
+  // Admin vê apenas os seus lembretes — para ver de outras unidades, acessa o cadastro delas.
+  const filtroAgenda: string | undefined = session!.user.franchiseId ?? undefined;
 
   // ⚡ Todas as queries em paralelo — de sequencial para Promise.all
   const [kpis, fin, agenda, recentes, ranking, franquias, franqueados, solicitations] =
     await Promise.all([
       getKpis(filtro),
       getFinanceiro(filtro),
-      getProximos5Dias(filtro),
+      getProximos5Dias(filtroAgenda),
       getContratacoesRecentes(filtro),
       getRanking(),
       isMaster ? getFranquias()         : Promise.resolve(null),

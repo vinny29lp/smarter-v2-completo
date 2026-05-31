@@ -93,6 +93,9 @@ export default function FinanceiroPage() {
   const [editModal, setEditModal]             = useState<any>(null);
   const [cobrModal, setCobrModal]             = useState<any>(null);
   const [relatorioModal, setRelatorioModal]   = useState(false);
+  const [taxaGestao, setTaxaGestao]           = useState(100);
+  const [editandoTaxa, setEditandoTaxa]       = useState(false);
+  const [taxaInput, setTaxaInput]             = useState("100");
   const [filtro, setFiltro]                   = useState("TODOS");
   const [loading, setLoading]                 = useState(false);
   // Franquias
@@ -134,6 +137,15 @@ export default function FinanceiroPage() {
 
   useEffect(() => { load(); loadConfig(); }, []);
   useEffect(() => { if (isFranqueadora) loadFranquiasPreview(); }, [isFranqueadora]);
+  // Carrega taxa de gestão salva no localStorage (por unidade)
+  useEffect(() => {
+    const key = `taxaGestao_${session?.user?.franchiseId || session?.user?.id || "default"}`;
+    const saved = localStorage.getItem(key);
+    if (saved && !isNaN(Number(saved)) && Number(saved) > 0) {
+      setTaxaGestao(Number(saved));
+      setTaxaInput(saved);
+    }
+  }, []);
   useEffect(() => {
     if (!isFranqueadora) return;
     const fn = () => loadFranquiasPreview();
@@ -243,11 +255,9 @@ export default function FinanceiroPage() {
     ? franquiasPreview.reduce((a, f) => a + f.ativosCount, 0)
     : lancamentos.filter(l => l.categoria === "Taxa Admin" && l.status === "PENDENTE" && l.recorrente).length;
 
-  // Ticket médio por estagiário
-  const taxaAdminEntries = lancamentos.filter(l => l.categoria === "Taxa Admin");
-  const ticketMedio = taxaAdminEntries.length > 0
-    ? taxaAdminEntries.reduce((a, b) => a + b.valor, 0) / taxaAdminEntries.length
-    : 200;
+  // Ticket médio = taxa de gestão configurável (padrão R$100)
+  const ticketMedio = taxaGestao;
+  const ticketEstag = taxaGestao;
 
   // Receita mensal base (média últimos 3 meses com valor > 0)
   const mesesComValor = last6.filter(m => m.value > 0);
@@ -255,25 +265,25 @@ export default function FinanceiroPage() {
     ? mesesComValor.slice(-3).reduce((a, b) => a + b.value, 0) / Math.min(mesesComValor.slice(-3).length, 3)
     : 0;
 
-  const ticketEstag = estagiosAtivos > 0 && receitaBase > 0
-    ? receitaBase / estagiosAtivos
-    : ticketMedio;
-
-  // Health score: % do que já foi recebido vs tudo que deveria receber
-  const totalRecebivel = totalEntradasPago + aReceber;
-  const healthScore = totalRecebivel > 0 ? Math.min(Math.round((totalEntradasPago / totalRecebivel) * 100), 100) : (totalEntradasPago > 0 ? 100 : 0);
+  // Health score: baseado no Caixa Total (entradas acumuladas - saídas acumuladas)
+  // Caixa positivo e sólido = Excelente; Caixa positivo fraco = Atenção; Caixa negativo = Crítico
+  const totalRecebivel = totalEntradasPago + aReceber; // mantido para exibição na UI
+  const healthScore = caixa <= 0
+    ? Math.max(0, Math.round(50 + (caixa / Math.max(totalEntradasPago + totalSaidasPago, 1)) * 100))
+    : Math.min(100, Math.round(50 + (caixa / Math.max(totalEntradasPago, 1)) * 50));
   const healthLabel  = healthScore >= 80 ? "Excelente" : healthScore >= 50 ? "Atenção" : "Crítico";
   const healthColor  = healthScore >= 80 ? "text-emerald-600" : healthScore >= 50 ? "text-amber-600" : "text-red-600";
   const healthBg     = healthScore >= 80 ? "bg-emerald-50 border-emerald-200" : healthScore >= 50 ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200";
 
   // Projeções
+  // Projeção: cada estagiário = 1 taxa de gestão/mês
   const projecoes = [0, 5, 10, 15].map(novos => ({
     novos,
     label: novos === 0 ? "Cenário atual" : `+${novos} estagiários`,
     totalEstag: estagiosAtivos + novos,
-    mensalRecorrente: receitaBase + novos * ticketEstag,
-    em6Meses: (receitaBase + novos * ticketEstag) * 6,
-    em12Meses: (receitaBase + novos * ticketEstag) * 12,
+    mensalRecorrente: (estagiosAtivos + novos) * taxaGestao,
+    em6Meses: (estagiosAtivos + novos) * taxaGestao * 6,
+    em12Meses: (estagiosAtivos + novos) * taxaGestao * 12,
   }));
 
   // Recomendações dinâmicas
@@ -783,7 +793,7 @@ export default function FinanceiroPage() {
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
                       <span className={`text-lg font-black ${healthColor}`}>{healthLabel}</span>
-                      <span className="text-sm text-slate-500">({healthScore}% de recebimento)</span>
+                      <span className="text-sm text-slate-500">({healthScore}% — caixa)</span>
                     </div>
                     <div className="space-y-1 text-xs text-slate-600">
                       <div className="flex justify-between">
@@ -791,16 +801,55 @@ export default function FinanceiroPage() {
                         <span className="font-semibold text-emerald-600">{fmt(totalEntradasPago)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Ainda a receber</span>
-                        <span className="font-semibold text-amber-600">{fmt(aReceber)}</span>
+                        <span>Total pago (despesas)</span>
+                        <span className="font-semibold text-red-500">{fmt(totalSaidasPago)}</span>
                       </div>
                       <div className="flex justify-between border-t border-slate-200 pt-1">
-                        <span className="font-bold">Total esperado</span>
-                        <span className="font-bold">{fmt(totalRecebivel)}</span>
+                        <span className="font-bold">Caixa Total</span>
+                        <span className={`font-bold ${caixa >= 0 ? "text-emerald-600" : "text-red-600"}`}>{fmt(caixa)}</span>
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Taxa de Gestão configurável */}
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-xs font-bold text-slate-600">💼 Taxa de Gestão por Estagiário</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Usada nas projeções e ticket médio</p>
+                </div>
+                {editandoTaxa ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">R$</span>
+                    <input
+                      type="number" min="0" value={taxaInput}
+                      onChange={e => setTaxaInput(e.target.value)}
+                      className="w-20 border border-blue-300 rounded-lg px-2 py-1 text-sm font-bold text-center outline-none focus:border-blue-500"
+                    />
+                    <button
+                      onClick={() => {
+                        const val = Number(taxaInput);
+                        if (val > 0) {
+                          setTaxaGestao(val);
+                          const key = `taxaGestao_${session?.user?.franchiseId || session?.user?.id || "default"}`;
+                          localStorage.setItem(key, String(val));
+                        }
+                        setEditandoTaxa(false);
+                      }}
+                      className="px-2 py-1 bg-blue-600 text-white text-xs rounded-lg font-bold"
+                    >✓</button>
+                    <button onClick={() => setEditandoTaxa(false)} className="px-2 py-1 bg-slate-200 text-slate-600 text-xs rounded-lg">✕</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-black text-[#0f2a5e]">{fmt(taxaGestao)}</span>
+                    <button
+                      onClick={() => { setTaxaInput(String(taxaGestao)); setEditandoTaxa(true); }}
+                      className="text-xs text-blue-600 hover:underline font-medium"
+                    >✏️ Alterar</button>
+                  </div>
+                )}
               </div>
 
               {/* Projeções */}
@@ -834,16 +883,9 @@ export default function FinanceiroPage() {
                     </tbody>
                   </table>
                 </div>
-                {receitaBase > 0 && (
-                  <p className="text-[10px] text-slate-400 mt-2 px-1">
-                    * Projeções baseadas na receita média dos últimos meses com dados. Ticket estimado por estagiário: {fmt(ticketEstag)}.
-                  </p>
-                )}
-                {receitaBase === 0 && (
-                  <p className="text-[10px] text-amber-500 mt-2 px-1">
-                    * Registre cobranças recebidas para gerar projeções baseadas nos seus números reais.
-                  </p>
-                )}
+                <p className="text-[10px] text-slate-400 mt-2 px-1">
+                  * Projeção = nº de estagiários × taxa de gestão ({fmt(taxaGestao)}/mês). Ajuste a taxa acima se necessário.
+                </p>
               </div>
 
               {/* Recomendações */}
