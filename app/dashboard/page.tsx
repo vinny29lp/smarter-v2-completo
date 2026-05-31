@@ -458,7 +458,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
         {[
           { label: "Empresas",              value: kpis.companies,       icon: "🏢", href: "/dashboard/empresas"   },
-          { label: "Estagiários Ativos",    value: kpis.studentsAtivos,  icon: "🎓", color: "text-emerald-600", href: "/dashboard/estudantes" },
+          { label: "Estagiários Ativos",    value: kpis.contrAtivos + kpis.contrPendentes,  icon: "🎓", color: "text-emerald-600", href: "/dashboard/estudantes" },
           { label: "Disponíveis p/ Vaga",   value: kpis.studentsInativos,icon: "📋", href: "/dashboard/estudantes" },
           { label: "Contratos Ativos",      value: kpis.contrAtivos,     icon: "📄", color: "text-emerald-600", href: "/dashboard/contratos"  },
           { label: "Contratos Pendentes",   value: kpis.contrPendentes,  icon: "⏳", color: kpis.contrPendentes > 0 ? "text-amber-600" : undefined, href: "/dashboard/assinaturas" },

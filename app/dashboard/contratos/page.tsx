@@ -37,9 +37,12 @@ export default function ContratosPage() {
 
   useEffect(() => { carregarContratos(); }, []);
 
+  // Detecta se há múltiplas unidades nos contratos (visão admin)
+  const multiUnidade = contratos.some((c, _, arr) => c.franchise?.name && c.franchise?.name !== arr[0]?.franchise?.name);
+
   const filtrados = contratos
     .filter(c => filtro === "TODOS" || c.status === filtro)
-    .filter(c => !busca || c.student?.name?.toLowerCase().includes(busca.toLowerCase()) || c.company?.name?.toLowerCase().includes(busca.toLowerCase()) || c.numero?.includes(busca));
+    .filter(c => !busca || c.student?.name?.toLowerCase().includes(busca.toLowerCase()) || c.company?.name?.toLowerCase().includes(busca.toLowerCase()) || c.numero?.includes(busca) || c.franchise?.name?.toLowerCase().includes(busca.toLowerCase()));
 
   const contPorStatus = (s: string) => contratos.filter(c => c.status === s).length;
 
@@ -98,14 +101,14 @@ export default function ContratosPage() {
           <div className="overflow-x-auto -mx-1"><table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                {["Nº","Estudante","Empresa","Bolsa","Início","Término","Docs","Status","Ações"].map(h => (
+                {["Nº","Estudante","Empresa",...(multiUnidade ? ["Unidade"] : []),"Bolsa","Início","Término","Docs","Status","Ações"].map(h => (
                   <th key={h} className="text-left text-[11px] font-bold text-slate-400 uppercase tracking-wide px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtrados.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-slate-400">
+                <tr><td colSpan={multiUnidade ? 10 : 9} className="text-center py-12 text-slate-400">
                   {busca || filtro !== "TODOS" ? "Nenhum contrato com esses filtros." : "Nenhum contrato cadastrado ainda."}
                 </td></tr>
               ) : filtrados.map(c => {
@@ -117,6 +120,7 @@ export default function ContratosPage() {
                     <td className="px-4 py-3 text-xs font-mono text-slate-400">{c.numero || c.id.slice(0,8)}</td>
                     <td className="px-4 py-3 text-sm font-semibold">{c.student?.name}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{c.company?.name}</td>
+                    {multiUnidade && <td className="px-4 py-3 text-xs text-slate-500 font-medium">{c.franchise?.name || "—"}</td>}
                     <td className="px-4 py-3 text-sm font-medium">R$ {c.bolsa?.toLocaleString("pt-BR")}</td>
                     <td className="px-4 py-3 text-xs text-slate-400">{new Date(c.dataInicio).toLocaleDateString("pt-BR")}</td>
                     <td className="px-4 py-3 text-xs text-slate-400">{new Date(c.dataFim).toLocaleDateString("pt-BR")}</td>

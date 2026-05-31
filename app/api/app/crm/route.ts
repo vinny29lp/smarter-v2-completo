@@ -13,13 +13,9 @@ export async function GET(req: Request) {
   const situacao = searchParams.get("situacao") || "ativo";
 
   // Isolamento de CRM por perfil:
-  // • FRANQUEADORA (admin): vê TODOS os leads (visão global de gestão)
-  // • FRANQUEADO / FUNCIONARIO: vê apenas os leads da sua unidade
-  const isAdmin = session.user.role === "FRANQUEADORA";
-
-  const franchiseFilter = isAdmin
-    ? {}                                                   // admin: todos os leads
-    : { franchiseId: session.user.franchiseId ?? "" };     // unidade: apenas os seus
+  // • Todos (incluindo FRANQUEADORA) vêem apenas os leads da própria conta/unidade.
+  // • Admin visualiza CRM de unidades específicas no cadastro de cada unidade (aba CRM).
+  const franchiseFilter = { franchiseId: session.user.franchiseId ?? "" };
 
   const where: any = {
     ...franchiseFilter,
