@@ -41,11 +41,22 @@ export default async function EstudanteAvaliacoes() {
       ) : (
         <div className="space-y-5">
           {avaliacoes.map(aval => {
-            const respostas = (aval.respostas as Record<string,number>) || {};
-            const vals = Object.values(respostas);
-            const media = vals.length > 0
-              ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 20)
+            const respostas = (aval.respostas as Record<string, unknown>) || {};
+            // Calcula média apenas com as notas numéricas dos critérios
+            const notasNumericas = CRITERIOS.map(c => Number(respostas[c.key]) || 0);
+            const media = notasNumericas.length > 0
+              ? Math.round((notasNumericas.reduce((a, b) => a + b, 0) / notasNumericas.length) * 20)
               : 0;
+
+            const pontosFortes   = respostas.pontosFortes   as string | undefined;
+            const pontosMelhoria = respostas.pontosMelhoria as string | undefined;
+            const parecerFinal   = respostas.parecerFinal   as string | undefined;
+            const recomendacao   = respostas.recomendacao   as string | undefined;
+
+            const recomCor =
+              recomendacao === "Encerrar" ? "bg-red-50 border-red-200 text-red-700" :
+              recomendacao === "Renovar"  ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
+                                           "bg-blue-50 border-blue-200 text-blue-700";
 
             return (
               <Card key={aval.id} className="p-6">
@@ -64,28 +75,61 @@ export default async function EstudanteAvaliacoes() {
                   </div>
                 </div>
 
-                {Object.keys(respostas).length > 0 && (
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    {CRITERIOS.map(crit => {
-                      const nota = respostas[crit.key] || 0;
-                      return (
-                        <div key={crit.key} className="bg-slate-50 rounded-xl p-3">
-                          <p className="text-[10px] text-slate-500 font-bold mb-1">{crit.label}</p>
-                          <div className="flex items-center gap-1">
-                            {[1,2,3,4,5].map(n => (
-                              <div key={n} className={`flex-1 h-2 rounded-full ${n <= nota ? "bg-[#0f2a5e]" : "bg-slate-200"}`}/>
-                            ))}
-                            <span className="text-xs font-bold ml-1.5 text-slate-600">{nota}/5</span>
-                          </div>
+                {/* Notas por critério */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {CRITERIOS.map(crit => {
+                    const nota = Number(respostas[crit.key]) || 0;
+                    return (
+                      <div key={crit.key} className="bg-slate-50 rounded-xl p-3">
+                        <p className="text-[10px] text-slate-500 font-bold mb-1">{crit.label}</p>
+                        <div className="flex items-center gap-1">
+                          {[1,2,3,4,5].map(n => (
+                            <div key={n} className={`flex-1 h-2 rounded-full ${n <= nota ? "bg-[#0f2a5e]" : "bg-slate-200"}`}/>
+                          ))}
+                          <span className="text-xs font-bold ml-1.5 text-slate-600">{nota}/5</span>
                         </div>
-                      );
-                    })}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Campos de feedback textual */}
+                {(pontosFortes || pontosMelhoria || parecerFinal) && (
+                  <div className="space-y-3 mb-4">
+                    {pontosFortes && (
+                      <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                        <p className="text-[10px] font-bold text-emerald-700 mb-1">✅ Pontos Fortes</p>
+                        <p className="text-sm text-slate-700">{pontosFortes}</p>
+                      </div>
+                    )}
+                    {pontosMelhoria && (
+                      <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                        <p className="text-[10px] font-bold text-amber-700 mb-1">💡 Pontos de Melhoria</p>
+                        <p className="text-sm text-slate-700">{pontosMelhoria}</p>
+                      </div>
+                    )}
+                    {parecerFinal && (
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                        <p className="text-[10px] font-bold text-slate-600 mb-1">📋 Parecer Final do Supervisor</p>
+                        <p className="text-sm text-slate-700 italic">"{parecerFinal}"</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
+                {/* Recomendação */}
+                {recomendacao && (
+                  <div className={`p-3 border rounded-xl mb-3 ${recomCor}`}>
+                    <p className="text-xs font-bold">
+                      {recomendacao === "Encerrar" ? "❌" : recomendacao === "Renovar" ? "🔄" : "✅"} Recomendação: {recomendacao}
+                    </p>
+                  </div>
+                )}
+
+                {/* Observações adicionais */}
                 {aval.observacoes && (
                   <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                    <p className="text-xs font-bold text-blue-700 mb-1">💬 Feedback da empresa</p>
+                    <p className="text-xs font-bold text-blue-700 mb-1">💬 Observações Adicionais</p>
                     <p className="text-sm text-slate-700 italic">"{aval.observacoes}"</p>
                   </div>
                 )}
