@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { EstudantesFilters } from "./EstudantesFilters";
+import { ImportarEstudantesButton } from "@/components/estudantes/ImportarEstudantesButton";
 
 const statusBadge: Record<string,"green"|"yellow"|"gray"|"red"> = {
   DISPONIVEL:"yellow", EM_ESTAGIO:"green", INATIVO:"gray", FORMADO:"gray"
@@ -42,6 +43,7 @@ export default async function EstudantesPage({ searchParams }: {
           <p className="text-slate-500 text-sm mt-1">{estudantes.length} estudantes</p>
         </div>
         <div className="flex gap-2">
+          <ImportarEstudantesButton />
           <Link href="/dashboard/estudantes/novo"
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f2a5e] text-white rounded-xl font-semibold text-sm hover:bg-[#1a3d8f] transition-colors">
             + Novo Estudante

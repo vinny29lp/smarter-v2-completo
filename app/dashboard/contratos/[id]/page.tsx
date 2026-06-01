@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +31,57 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const [actionMsg, setActionMsg]   = useState<string|null>(null);
   const [editForm, setEditForm]     = useState<Record<string,any>>({});
   const setF = (k: string, v: any) => setEditForm(p => ({ ...p, [k]: v }));
+
+  // ── Migração ──────────────────────────────────────────────────────
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [migMsg, setMigMsg] = useState<string | null>(null);
+  const [migLoading, setMigLoading] = useState(false);
+  const [ativandoMig, setAtivandoMig] = useState(false);
+  const tceFileRef = useRef<HTMLInputElement>(null);
+
+  const uploadTCEMigrada = async (file: File) => {
+    setMigMsg(null);
+    setMigLoading(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let bin = "";
+      bytes.forEach(b => (bin += String.fromCharCode(b)));
+      const base64 = `data:application/pdf;base64,${btoa(bin)}`;
+      const res = await fetch(`/api/app/contratos/${params.id}/migrar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tcePdfBase64: base64, nomeArquivo: file.name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao anexar TCE.");
+      setMigMsg("✅ TCE assinada anexada com sucesso! Contrato marcado como MIGRADO.");
+      const updated = await fetch(`/api/app/contratos/${params.id}`).then(r => r.json());
+      setContract(updated.contract || updated);
+    } catch (e: any) {
+      setMigMsg("❌ " + (e.message || "Erro ao anexar TCE."));
+    } finally {
+      setMigLoading(false);
+    }
+  };
+
+  const ativarEstagioMigrado = async () => {
+    if (!confirm("Confirma a ativação do estágio migrado? O status será alterado para ATIVO sem gerar documentos.")) return;
+    setAtivandoMig(true);
+    setMigMsg(null);
+    try {
+      const res = await fetch(`/api/app/contratos/${params.id}/ativar-migracao`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao ativar.");
+      setMigMsg("✅ Estágio ativado com sucesso!");
+      const updated = await fetch(`/api/app/contratos/${params.id}`).then(r => r.json());
+      setContract(updated.contract || updated);
+    } catch (e: any) {
+      setMigMsg("❌ " + (e.message || "Erro ao ativar estágio."));
+    } finally {
+      setAtivandoMig(false);
+    }
+  };
 
   const abrirEdit = () => {
     if (!contract) return;
@@ -98,6 +149,11 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         setContract(d.contract || d);
       })
       .catch(e => setLoadError(e.message || "Erro ao carregar contrato."));
+    // Busca role do usuário para controle de permissões
+    fetch("/api/auth/session")
+      .then(r => r.json())
+      .then(s => setUserRole(s?.user?.role || null))
+      .catch(() => {});
   }, [params.id]);
 
   if (loadError) return (
@@ -199,6 +255,9 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           <span className="text-slate-300">/</span>
           <h1 className="text-2xl font-black text-slate-800">{contract.student?.name}</h1>
           <Badge variant={(statusBadge[contract.status || "PENDENTE"]||"gray") as any}>{contract.status}</Badge>
+          {contract.origem === "MIGRADO" && (
+            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-full border border-amber-200">MIGRADO</span>
+          )}
           {contract.numero && <span className="text-xs font-mono text-slate-400">#{contract.numero}</span>}
         </div>
         <div className="flex gap-2">
@@ -369,6 +428,95 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         <Card className="p-5">
           <h3 className="text-sm font-bold text-slate-700 mb-2">Atividades do Estágio</h3>
           <p className="text-sm text-slate-600 leading-relaxed">{contract.atividades}</p>
+        </Card>
+      )}
+
+      {/* ── MÓDULO MIGRAÇÃO — visível apenas para FRANQUEADORA (Admin) ── */}
+      {userRole === "FRANQUEADORA" && (
+        <Card className="p-5 mb-5 border-2 border-amber-200 bg-amber-50/30">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">🔄</span>
+            <h3 className="text-sm font-bold text-slate-700">Migração de Sistema Antigo</h3>
+            {contract.origem === "MIGRADO" && (
+              <span className="ml-auto px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full border border-amber-200">
+                MIGRADO
+              </span>
+            )}
+          </div>
+
+          {/* Info do contrato migrado */}
+          {contract.origem === "MIGRADO" && (
+            <div className="mb-4 p-3 bg-white rounded-xl border border-amber-100 space-y-1.5">
+              <p className="text-xs text-slate-500"><span className="font-semibold">Origem:</span> Sistema Antigo</p>
+              {contract.migradoEm && (
+                <p className="text-xs text-slate-500">
+                  <span className="font-semibold">Data da Migração:</span>{" "}
+                  {new Date(contract.migradoEm).toLocaleString("pt-BR")}
+                </p>
+              )}
+              {contract.migradoPorNome && (
+                <p className="text-xs text-slate-500"><span className="font-semibold">Responsável:</span> {contract.migradoPorNome}</p>
+              )}
+              {contract.tceMigradaUrl && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs font-semibold text-slate-500">TCE Assinada:</span>
+                  <a
+                    href={contract.tceMigradaUrl}
+                    download="TCE-migrada.pdf"
+                    className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-semibold"
+                  >
+                    ⬇ Baixar PDF
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Upload TCE */}
+          <div className="mb-3">
+            <p className="text-xs font-bold text-slate-600 mb-2">
+              {contract.tceMigradaUrl ? "Substituir TCE Assinada (PDF):" : "Anexar TCE Assinada do Sistema Antigo (PDF) *:"}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => tceFileRef.current?.click()}
+                disabled={migLoading}
+                className="px-4 py-2 bg-white border-2 border-slate-200 hover:border-amber-400 text-slate-700 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {migLoading ? "Enviando..." : contract.tceMigradaUrl ? "📎 Trocar TCE" : "📎 Anexar TCE"}
+              </button>
+              <input
+                ref={tceFileRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadTCEMigrada(f); }}
+              />
+              <span className="text-xs text-slate-400">Apenas PDF</span>
+            </div>
+          </div>
+
+          {/* Botão Ativar */}
+          <div className="flex items-center gap-3 pt-2 border-t border-amber-100">
+            <button
+              onClick={ativarEstagioMigrado}
+              disabled={ativandoMig || contract.status === "ATIVO"}
+              className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors disabled:opacity-40"
+            >
+              {ativandoMig ? "Ativando..." : contract.status === "ATIVO" ? "✓ Estágio Ativo" : "⚡ Ativar Estágio"}
+            </button>
+            <p className="text-xs text-slate-400">
+              {contract.status === "ATIVO"
+                ? "Estágio já está ativo."
+                : "Ativa sem gerar TCE nova e sem fluxo de assinatura."}
+            </p>
+          </div>
+
+          {migMsg && (
+            <p className={`mt-3 text-xs p-2 rounded-lg ${migMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {migMsg}
+            </p>
+          )}
         </Card>
       )}
 

@@ -260,6 +260,11 @@ model Contract {
   seguradora       String?
   tipoEstagio      String?              @default("Nao Obrigatorio")
   status           ContractStatus?      @default(PENDENTE)
+  origem           String?              @default("NORMAL")
+  migradoEm        DateTime?            @db.Timestamptz(6)
+  migradoPor       String?
+  migradoPorNome   String?
+  tceMigradaUrl    String?
   createdAt        DateTime?            @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime?            @default(now()) @updatedAt @db.Timestamptz(6)
   company          Company              @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -616,4 +621,19 @@ model AIUsageLog {
   @@index([userId])
   @@index([tipoUso])
   @@index([createdAt])
+}
+
+model ImportLog {
+  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tipo        String
+  franchiseId String?
+  userId      String
+  arquivo     String
+  total       Int       @default(0)
+  importados  Int       @default(0)
+  duplicados  Int       @default(0)
+  erros       Int       @default(0)
+  createdAt   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@map("import_logs")
 }
