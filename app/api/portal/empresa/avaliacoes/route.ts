@@ -17,7 +17,7 @@ export async function GET() {
   if (!user?.companyId) return NextResponse.json({ contratos: [] });
 
   const contratos = await prisma.contract.findMany({
-    where: { companyId: user.companyId, status: { in: ["ATIVO", "PENDENTE"] } },
+    where: { companyId: user.companyId, status: { in: ["ATIVO", "PENDENTE", "AGUARDANDO_ASSINATURA"] } },
     include: {
       student: { select: { name: true, curso: true } },
       evaluations: { orderBy: { createdAt: "desc" }, take: 3 },
