@@ -65,10 +65,15 @@ export async function POST(req: Request) {
     },
   });
 
-  // Enviar email de boas-vindas com credenciais de acesso
-  enviarBoasVindasEstudante({
-    email: body.email, nome: body.nome, senha, curso: body.curso,
-  }).catch(e => console.warn("[email] Boas-vindas estudante falhou:", e));
+  // Enviar email de boas-vindas com credenciais de acesso (await garante envio em serverless)
+  try {
+    const emailOk = await enviarBoasVindasEstudante({
+      email: body.email, nome: body.nome, senha, curso: body.curso,
+    });
+    console.log(`[email] boas-vindas estudante (público): ${emailOk ? "enviado" : "falhou"} → ${body.email}`);
+  } catch (e) {
+    console.warn("[email] Boas-vindas estudante falhou:", e);
+  }
 
   return NextResponse.json({ ok: true, email: body.email, senha });
 }
