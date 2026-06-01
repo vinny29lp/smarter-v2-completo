@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createCompany, updateCompany } from "@/lib/actions/companies";
+import { updateCompany } from "@/lib/actions/companies";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import {
@@ -92,9 +92,19 @@ export function EmpresaForm({ franchiseId, empresa, onSuccess }: Props) {
     setLoading(true);
     try {
       if (empresa) {
+        // Edição: continua usando Server Action (sem email, apenas atualiza dados)
         await updateCompany(empresa.id, form);
       } else {
-        await createCompany({ ...form, franchiseId });
+        // Novo cadastro: chama API route que cria empresa + acesso + envia email de boas-vindas
+        const res = await fetch("/api/app/empresas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...form, franchiseId }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Erro ao cadastrar empresa.");
+        }
       }
       if (onSuccess) {
         onSuccess();
@@ -103,7 +113,7 @@ export function EmpresaForm({ franchiseId, empresa, onSuccess }: Props) {
         router.refresh();
       }
     } catch (e: any) {
-      setError(e.message?.includes("cnpj") ? "CNPJ já cadastrado no sistema." : "Erro ao salvar. Tente novamente.");
+      setError(e.message?.includes("cnpj") || e.message?.includes("CNPJ") ? "CNPJ já cadastrado no sistema." : (e.message || "Erro ao salvar. Tente novamente."));
     }
     setLoading(false);
   };
