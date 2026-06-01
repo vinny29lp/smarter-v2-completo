@@ -85,7 +85,11 @@ export async function sendMail(
 }
 
 // ── Templates ────────────────────────────────────────────────────
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
+// APP_URL: usa env vars mas ignora localhost (valor de desenvolvimento no .env commitado)
+const _rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "";
+const APP_URL = (_rawAppUrl && !_rawAppUrl.includes("localhost") && !_rawAppUrl.includes("127.0.0"))
+  ? _rawAppUrl.replace(/\/$/, "")
+  : "https://sistema.smarterestagios.com.br";
 
 function base(titulo: string, corpo: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">

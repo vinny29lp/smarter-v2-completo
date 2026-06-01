@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { enviarAvaliacaoLink } from "@/lib/email";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
@@ -26,7 +26,14 @@ export async function POST(
     return NextResponse.json({ error: "A empresa não tem e-mail cadastrado." }, { status: 400 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
+  // Derivar URL base da própria requisição — sempre correto em qualquer ambiente.
+  // Evita o problema de NEXT_PUBLIC_APP_URL=http://localhost:3000 no .env ser usado em produção.
+  const reqUrl = new URL(req.url);
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "";
+  const isLocalhost = fromEnv.includes("localhost") || fromEnv.includes("127.0.0");
+  const appUrl = (!isLocalhost && fromEnv)
+    ? fromEnv.replace(/\/$/, "")
+    : `${reqUrl.protocol}//${reqUrl.host}`;
 
   const ok = await enviarAvaliacaoLink({
     email: emailDestino,
