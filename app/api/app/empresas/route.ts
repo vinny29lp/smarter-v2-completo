@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     company = await prisma.company.create({
       data: {
         name: body.name,
-        razaoSocial: body.razaoSocial || null,
+        razaoSocial: body.razaoSocial || "",
         cnpj: body.cnpj,
         setor: body.setor || null,
         email: body.email,
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
         endereco: body.endereco || null,
         bairro: body.bairro || null,
         cidade: body.cidade,
-        uf: body.uf || null,
+        uf: body.uf || "",
         cep: body.cep || null,
         site: body.site || null,
         emailFinanceiro: body.emailFinanceiro || null,
