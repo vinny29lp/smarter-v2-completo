@@ -3,10 +3,17 @@ import { enviarBoasVindasInstituicao } from "@/lib/email";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { checkPermission } from "@/lib/permissions";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const permCheck = checkPermission(session, "instituicoes");
+  if (permCheck) return permCheck;
+
   // Exclui instituições auto-criadas pelo cadastro público de estudantes
   const instituicoes = await prisma.institution.findMany({
     where: { OR: [{ tipo: null }, { tipo: { not: "auto" } }] },
@@ -18,6 +25,10 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const permCheck = checkPermission(session, "instituicoes");
+  if (permCheck) return permCheck;
+
   const body = await req.json();
   if (!body.name) return NextResponse.json({ error: "Nome é obrigatório." }, { status: 400 });
 

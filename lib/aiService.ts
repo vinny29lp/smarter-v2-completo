@@ -168,9 +168,14 @@ export async function callAI(opts: AICallOptions): Promise<AICallResult> {
   let completionTokens = 0;
   let content = "";
 
+  // RES-001: Timeout de 30s para chamadas à OpenAI
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
@@ -186,9 +191,16 @@ export async function callAI(opts: AICallOptions): Promise<AICallResult> {
       }),
     });
 
+    clearTimeout(timeoutId);
+
+    // RES-002: Tratamento de rate limit (429) com mensagem amigável
+    if (response.status === 429) {
+      throw new Error("Limite de requisições de IA atingido. Aguarde alguns segundos e tente novamente.");
+    }
+
     if (!response.ok) {
       const errBody = await response.text();
-      throw new Error(`OpenAI API error ${response.status}: ${errBody}`);
+      throw new Error(`A IA encontrou um problema (erro ${response.status}). Tente novamente em instantes.`);
     }
 
     const data = await response.json();
@@ -197,6 +209,13 @@ export async function callAI(opts: AICallOptions): Promise<AICallResult> {
     completionTokens = data.usage?.completion_tokens || 0;
 
   } catch (err: any) {
+    clearTimeout(timeoutId);
+    // RES-005: Mensagem amigável para timeout e erros de rede
+    if (err.name === "AbortError") {
+      err.message = "A IA demorou mais de 30 segundos para responder. Tente novamente.";
+    } else if (err.message?.includes("fetch failed") || err.message?.includes("ECONNREFUSED")) {
+      err.message = "Não foi possível conectar à IA. Verifique sua conexão e tente novamente.";
+    }
     await registrarLog({
       franchiseId: opts.franchiseId,
       userId: opts.userId,

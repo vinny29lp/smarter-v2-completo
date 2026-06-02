@@ -2,6 +2,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { checkPermission } from "@/lib/permissions";
+import { logAudit, getClientIP } from "@/lib/audit";
+import { criarLeadSchema, zodError } from "@/lib/api-schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -9,33 +12,39 @@ export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const permCheck = checkPermission(session, "crm");
+  if (permCheck) return permCheck;
+
   const { searchParams } = new URL(req.url);
   const situacao = searchParams.get("situacao") || "ativo";
+  const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+  const skip  = (page - 1) * limit;
 
-  // Isolamento de CRM por perfil:
-  // • Todos (incluindo FRANQUEADORA) vêem apenas os leads da própria conta/unidade.
-  // • Admin visualiza CRM de unidades específicas no cadastro de cada unidade (aba CRM).
   const franchiseFilter = { franchiseId: session.user.franchiseId ?? "" };
-
   const where: any = {
     ...franchiseFilter,
     ...(situacao !== "todos" ? { situacao } : {}),
   };
 
   try {
-    const leads = await prisma.crmLead.findMany({
-      where,
-      include: {
-        company: { select: { id: true, name: true } },
-        tasks: { where: { done: false }, orderBy: { dueAt: "asc" }, take: 3 },
-        notas: { orderBy: { createdAt: "desc" }, take: 1 },
-        _count: { select: { notas: true, tasks: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 200,
-    });
+    const [leads, total] = await Promise.all([
+      prisma.crmLead.findMany({
+        where,
+        include: {
+          company: { select: { id: true, name: true } },
+          tasks: { where: { done: false }, orderBy: { dueAt: "asc" }, take: 3 },
+          notas: { orderBy: { createdAt: "desc" }, take: 1 },
+          _count: { select: { notas: true, tasks: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.crmLead.count({ where }),
+    ]);
 
-    return NextResponse.json({ leads });
+    return NextResponse.json({ leads, total, page, totalPages: Math.ceil(total / limit) });
   } catch (e: any) {
     console.error("[crm] findMany error:", e?.message || e);
     return NextResponse.json(
@@ -49,11 +58,16 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
-  const isAdmin = session.user.role === "FRANQUEADORA";
+  const permCheck = checkPermission(session, "crm");
+  if (permCheck) return permCheck;
 
-  // Admin (FRANQUEADORA) precisa de um franchiseId válido para criar leads.
-  // O franchiseId do usuário admin aponta para a unidade sede (Smarter HQ).
+  const rawBody = await req.json();
+  const parsed = criarLeadSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(zodError(parsed.error), { status: 400 });
+  }
+  const body = parsed.data;
+
   const franchiseIdParaLead = session.user.franchiseId;
   if (!franchiseIdParaLead) {
     return NextResponse.json(
@@ -67,7 +81,7 @@ export async function POST(req: Request) {
     contato:     body.contato     || null,
     email:       body.email       || null,
     telefone:    body.telefone    || null,
-    proximaAcao: body.proximaAcao || null,
+    proximaAcao: body.proximaAcao ? String(body.proximaAcao).slice(0, 500) : null,
     retornoAt:   body.retornoAt   ? new Date(body.retornoAt) : null,
     situacao:    "ativo",
     franchiseId: franchiseIdParaLead,
@@ -85,9 +99,20 @@ export async function POST(req: Request) {
 
     if (body.observacao) {
       await prisma.crmNota.create({
-        data: { leadId: lead.id, texto: body.observacao, tipo: "anotacao" },
+        data: { leadId: lead.id, texto: String(body.observacao).slice(0, 2000), tipo: "anotacao" },
       });
     }
+
+    // Audit log
+    logAudit({
+      userId: session.user.id,
+      role: session.user.role || "",
+      franchiseId: franchiseIdParaLead,
+      acao: "CRM_LEAD_CRIADO",
+      modulo: "crm",
+      detalhes: `lead:${lead.id} | empresa:${body.empresa}`,
+      ip: getClientIP(req),
+    });
 
     return NextResponse.json({ lead });
   } catch (e: any) {

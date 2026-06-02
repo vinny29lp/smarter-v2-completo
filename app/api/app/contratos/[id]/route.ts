@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getContract } from "@/lib/actions/contracts";
 import { prisma } from "@/lib/prisma";
+import { logAudit, getClientIP } from "@/lib/audit";
+import { checkPermission } from "@/lib/permissions";
 
 /** Se o estudante não tiver mais contratos ativos, muda status para DISPONIVEL */
 async function syncEstudanteStatus(studentId: string) {
@@ -50,6 +52,9 @@ export async function PATCH(
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const permCheck = checkPermission(session, "contratos");
+  if (permCheck) return permCheck;
+
   const role = session.user.role || "";
   const franchiseId = session.user.franchiseId;
 
@@ -95,6 +100,17 @@ export async function PATCH(
       await syncEstudanteStatus(contract.studentId);
     }
 
+    // Audit log
+    logAudit({
+      userId: session.user.id,
+      role: session.user.role || "",
+      franchiseId: contract.franchiseId,
+      acao: data.status ? `CONTRATO_STATUS_${data.status}` : "CONTRATO_EDITADO",
+      modulo: "contratos",
+      detalhes: `contrato:${params.id} | numero:${contract.numero || ""} | campos:${Object.keys(data).join(",")}`,
+      ip: getClientIP(req),
+    });
+
     return NextResponse.json({ contract });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Erro ao atualizar contrato." }, { status: 500 });
@@ -135,6 +151,17 @@ export async function DELETE(
     if (contrato.studentId) {
       await syncEstudanteStatus(contrato.studentId);
     }
+
+    // Audit log
+    logAudit({
+      userId: session.user.id,
+      role: role,
+      franchiseId: contrato.franchiseId,
+      acao: "CONTRATO_EXCLUIDO",
+      modulo: "contratos",
+      detalhes: `contrato:${params.id} | numero:${contrato.numero || ""}`,
+      ip: getClientIP(_req),
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

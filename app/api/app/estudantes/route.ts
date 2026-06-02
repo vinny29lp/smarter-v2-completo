@@ -4,50 +4,81 @@ import { prisma } from "@/lib/prisma";
 import { enviarBoasVindasEstudante } from "@/lib/email";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { checkPermission } from "@/lib/permissions";
+import { logAudit, getClientIP } from "@/lib/audit";
+import { criarEstudanteSchema, zodError } from "@/lib/api-schemas";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  // Estudantes são públicos a todos os painéis (franqueadora e todas as unidades)
-  // Não filtra por franchiseId — todos podem visualizar todos os estudantes
-  const estudantes = await prisma.student.findMany({
-    select: {
-      id: true, name: true, email: true, cpf: true,
-      curso: true, cidade: true, uf: true,
-      status: true, discResult: true, createdAt: true,
-      institution: { select: { id: true, name: true } },
-      franchise:   { select: { id: true, name: true } },
-      contracts: {
-        select: { id: true, status: true, company: { select: { id: true, name: true } } },
-        take: 1,
-        orderBy: { createdAt: "desc" },
+
+  const permCheck = checkPermission(session, "estudantes");
+  if (permCheck) return permCheck;
+
+  const { searchParams } = new URL(req.url);
+  const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+  const skip  = (page - 1) * limit;
+
+  // FRANQUEADO vê apenas estudantes da sua franquia
+  const role = session.user.role;
+  const where = role === "FRANQUEADO" && session.user.franchiseId
+    ? { franchiseId: session.user.franchiseId }
+    : {};
+
+  const [estudantes, total] = await Promise.all([
+    prisma.student.findMany({
+      where,
+      select: {
+        id: true, name: true, email: true, cpf: true,
+        curso: true, cidade: true, uf: true,
+        status: true, discResult: true, createdAt: true,
+        institution: { select: { id: true, name: true } },
+        franchise:   { select: { id: true, name: true } },
+        contracts: {
+          select: { id: true, status: true, company: { select: { id: true, name: true } } },
+          take: 1,
+          orderBy: { createdAt: "desc" },
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.student.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    estudantes,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
   });
-  return NextResponse.json({ estudantes });
 }
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
-  if (!body.nome || !body.email || !body.curso) {
-    return NextResponse.json({ error: "Campos obrigatórios: nome, email, curso." }, { status: 400 });
+  const permCheck = checkPermission(session, "estudantes");
+  if (permCheck) return permCheck;
+
+  const rawBody = await req.json();
+  const parsed = criarEstudanteSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(zodError(parsed.error), { status: 400 });
   }
+  const body = parsed.data;
 
-  // Gera senha aleatória se não fornecida (ou se for apenas espaços)
   const senhaPlain = (body.senha || "").trim() || Math.random().toString(36).slice(-8);
-
   let student: any = null;
 
   try {
     const franchiseId = body.franchiseId || session?.user?.franchiseId || undefined;
     const hash = await bcrypt.hash(senhaPlain, 10);
 
-    // Usa prisma diretamente para evitar problemas com revalidatePath de Server Actions em Route Handlers
     const user = await prisma.user.create({
       data: {
         name: body.nome,
@@ -79,7 +110,7 @@ export async function POST(req: Request) {
         previsaoConclusao: body.previsaoConclusao || null,
         institutionId: body.institutionId || null,
         franchiseId: franchiseId || undefined,
-        observacoes: body.observacoes || null,
+        observacoes: body.observacoes ? String(body.observacoes).slice(0, 2000) : null,
         habilidades: [],
         status: "DISPONIVEL",
       },
@@ -91,7 +122,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e.message || "Erro ao criar estudante." }, { status: 500 });
   }
 
-  // Email de boas-vindas fora do try/catch de criação — sempre enviado, nunca bloqueia a resposta
+  // Audit log
+  logAudit({
+    userId: session.user.id,
+    role: session.user.role || "",
+    franchiseId: student.franchiseId,
+    acao: "ESTUDANTE_CRIADO",
+    modulo: "estudantes",
+    detalhes: `estudante:${student.id} | nome:${body.nome} | email:${body.email}`,
+    ip: getClientIP(req),
+  });
+
   try {
     const emailOk = await enviarBoasVindasEstudante({
       email: body.email,

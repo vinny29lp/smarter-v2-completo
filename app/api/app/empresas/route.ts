@@ -1,19 +1,52 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getCompanies } from "@/lib/actions/companies";
 import { prisma } from "@/lib/prisma";
 import { enviarBoasVindasEmpresa } from "@/lib/email";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { checkPermission } from "@/lib/permissions";
+import { logAudit, getClientIP } from "@/lib/audit";
+import { criarEmpresaSchema, zodError } from "@/lib/api-schemas";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Permissão FUNCIONARIO
+  const permCheck = checkPermission(session, "empresas");
+  if (permCheck) return permCheck;
+
+  const { searchParams } = new URL(req.url);
+  const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+  const skip  = (page - 1) * limit;
+
   const role = session.user.role;
-  // FRANQUEADORA vê todas; demais papéis só vêem as da sua unidade
-  const franchiseId = role === "FRANQUEADORA" ? undefined : (session.user.franchiseId || null);
-  const empresas = await getCompanies(franchiseId ?? undefined);
-  return NextResponse.json({ empresas });
+  const franchiseId = role === "FRANQUEADORA" ? undefined : (session.user.franchiseId || undefined);
+  const where = franchiseId ? { franchiseId } : {};
+
+  const [empresas, total] = await Promise.all([
+    prisma.company.findMany({
+      where,
+      include: {
+        franchise: { select: { name: true } },
+        _count: { select: { contracts: true, vacancies: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.company.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    empresas,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+  });
 }
 
 export async function POST(req: Request) {
@@ -22,19 +55,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json();
-  if (!body.name || !body.cnpj || !body.email || !body.cidade) {
-    return NextResponse.json({ error: "Campos obrigatórios: nome, CNPJ, email, cidade." }, { status: 400 });
+  // Permissão FUNCIONARIO
+  const permCheck = checkPermission(session, "empresas");
+  if (permCheck) return permCheck;
+
+  const rawBody = await req.json();
+  const parsed = criarEmpresaSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(zodError(parsed.error), { status: 400 });
   }
+  const body = parsed.data;
 
   const franchiseId = body.franchiseId || session?.user?.franchiseId || undefined;
-
   let company: any = null;
-  // Gera a senha UMA vez — usada no user.create e no email
   const senhaPlain = Math.random().toString(36).slice(-8) + "S1!";
 
   try {
-    // Cria a empresa via prisma direto (evita revalidatePath de Server Action em Route Handler)
     company = await prisma.company.create({
       data: {
         name: body.name,
@@ -56,12 +92,10 @@ export async function POST(req: Request) {
       },
     });
 
-    // Gamificação (opcional — não bloqueia se falhar)
     await prisma.gamificationPoint.create({
       data: { franchiseId: franchiseId || "", acao: "empresa_cadastrada", pontos: 300 },
     }).catch(() => {});
 
-    // Cria usuário de acesso ao portal da empresa automaticamente
     const hash = await bcrypt.hash(senhaPlain, 12);
     await prisma.user.create({
       data: {
@@ -73,9 +107,7 @@ export async function POST(req: Request) {
         franchiseId: franchiseId || undefined,
         active: true,
       },
-    }).catch(() => {
-      // Se o e-mail já existe (P2002) — empresa pode já ter acesso criado; ignora
-    });
+    }).catch(() => {});
 
   } catch (e: any) {
     if (e.code === "P2002") {
@@ -84,7 +116,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e.message || "Erro ao cadastrar empresa." }, { status: 500 });
   }
 
-  // Email de boas-vindas fora do try/catch de criação — sempre enviado com a senha gerada
+  // Audit log (fire-and-forget)
+  logAudit({
+    userId: session.user.id,
+    role: session.user.role || "",
+    franchiseId,
+    acao: "EMPRESA_CRIADA",
+    modulo: "empresas",
+    detalhes: `empresa:${company.id} | nome:${body.name} | cnpj:${body.cnpj}`,
+    ip: getClientIP(req),
+  });
+
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
     const emailOk = await enviarBoasVindasEmpresa({

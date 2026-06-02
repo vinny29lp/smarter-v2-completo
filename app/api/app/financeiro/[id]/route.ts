@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { logAudit, getClientIP } from "@/lib/audit";
 import { authOptions } from "@/lib/auth";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -59,10 +60,26 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(body.cancelado !== undefined ? { cancelado: body.cancelado, status: body.cancelado ? "CANCELADO" as any : undefined } : {}),
     },
   });
+
+  // Audit log
+  const acao = body.action === "reverter" ? "FINANCEIRO_REVERTIDO"
+    : body.status === "PAGO" ? "FINANCEIRO_BAIXA"
+    : body.cancelado ? "FINANCEIRO_CANCELADO"
+    : "FINANCEIRO_EDITADO";
+  logAudit({
+    userId: session.user.id,
+    role: role || "",
+    franchiseId: franchiseId || undefined,
+    acao,
+    modulo: "financeiro",
+    detalhes: `lancamento:${params.id} | acao:${acao}`,
+    ip: getClientIP(req),
+  });
+
   return NextResponse.json({ fin });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session || !["FRANQUEADORA", "FRANQUEADO"].includes(session.user.role || "")) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
@@ -79,5 +96,17 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   }
 
   await prisma.financial.delete({ where: { id: params.id } });
+
+  // Audit log
+  logAudit({
+    userId: session.user.id,
+    role: role || "",
+    franchiseId: franchiseId || undefined,
+    acao: "FINANCEIRO_EXCLUIDO",
+    modulo: "financeiro",
+    detalhes: `lancamento:${params.id}`,
+    ip: getClientIP(req),
+  });
+
   return NextResponse.json({ ok: true });
 }

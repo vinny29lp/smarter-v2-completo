@@ -1,12 +1,12 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getContracts } from "@/lib/actions/contracts";
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { checkPermission } from "@/lib/permissions";
 
-// Force-dynamic: nunca cachear — cada requisição precisa ler a sessão do cookie
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json(
@@ -15,20 +15,52 @@ export async function GET() {
     );
   }
 
-  // FRANQUEADO filtra por franchiseId; EMPRESA filtra por companyId; FRANQUEADORA vê todos
+  const permCheck = checkPermission(session, "contratos");
+  if (permCheck) return permCheck;
+
+  const { searchParams } = new URL(req.url);
+  const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+  const skip  = (page - 1) * limit;
+
   try {
-    const contratos = await getContracts(
-      session.user.franchiseId,
-      session.user.companyId,
-      false, // todos os status, inclusive INATIVO
-    );
+    const role = session.user.role;
+    const where: any = {};
+
+    if (role === "FRANQUEADO" && session.user.franchiseId) {
+      where.franchiseId = session.user.franchiseId;
+    } else if (role === "EMPRESA" && session.user.companyId) {
+      where.companyId = session.user.companyId;
+    }
+    // FRANQUEADORA vê todos
+
+    const [contratos, total] = await Promise.all([
+      prisma.contract.findMany({
+        where,
+        select: {
+          id: true, numero: true, status: true, tipoEstagio: true, bolsa: true,
+          valorEmpresa: true, auxTransporte: true,
+          dataInicio: true, dataFim: true, createdAt: true,
+          student: { select: { id: true, name: true, email: true, curso: true } },
+          company: { select: { id: true, name: true, cnpj: true } },
+          institution: { select: { id: true, name: true } },
+          franchise: { select: { id: true, name: true } },
+          documents: { select: { id: true, status: true } },
+          _count: { select: { documents: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.contract.count({ where }),
+    ]);
 
     return NextResponse.json(
-      { contratos },
+      { contratos, total, page, totalPages: Math.ceil(total / limit) },
       { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
     );
   } catch (e: any) {
-    console.error("[contratos] getContracts error:", e?.message || e);
+    console.error("[contratos] error:", e?.message || e);
     return NextResponse.json(
       { error: "Erro ao carregar contratos. Tente novamente.", contratos: [] },
       { status: 500, headers: { "Cache-Control": "no-store" } }

@@ -97,6 +97,8 @@ model Company {
   users            User[]
   vacancies        Vacancy[]
 
+  @@index([franchiseId])
+  @@index([status])
   @@map("companies")
 }
 
@@ -167,6 +169,9 @@ model Student {
   institution       Institution?   @relation(fields: [institutionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user              User           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([franchiseId])
+  @@index([status])
+  @@index([institutionId])
   @@map("students")
 }
 
@@ -275,6 +280,10 @@ model Contract {
   financials       Financial[]
   documents        InternshipDocument[]
 
+  @@index([franchiseId])
+  @@index([status])
+  @@index([companyId])
+  @@index([studentId])
   @@map("contracts")
 }
 
@@ -295,6 +304,8 @@ model InternshipDocument {
   updatedAt   DateTime?  @default(now()) @updatedAt @db.Timestamptz(6)
   contract    Contract   @relation(fields: [contractId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([contractId])
+  @@index([status])
   @@map("internship_documents")
 }
 
@@ -342,6 +353,9 @@ model CrmLead {
   notas           CrmNota[]
   tasks           CrmTask[]
 
+  @@index([franchiseId])
+  @@index([situacao])
+  @@index([updatedAt])
   @@map("crm_leads")
 }
 
@@ -395,6 +409,11 @@ model Financial {
   contract           Contract?        @relation(fields: [contractId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   franchise          Franchise?       @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([franchiseId])
+  @@index([status])
+  @@index([contractId])
+  @@index([companyId])
+  @@index([vencimentoAt])
   @@map("financials")
 }
 

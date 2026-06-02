@@ -2,71 +2,105 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { logAudit, getClientIP } from "@/lib/audit";
+import { criarLancamentoSchema, zodError } from "@/lib/api-schemas";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const role = session.user.role || "";
-  // FUNCIONARIO: verificar permissão financeiro
+  if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   if (role === "FUNCIONARIO") {
     const permissoes: string[] = (session.user as any)?.permissoes ?? [];
     if (!permissoes.includes("financeiro")) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Acesso negado. Sem permissão para financeiro." }, { status: 403 });
     }
   }
-  // FRANQUEADO: vê só os lançamentos da sua unidade
-  // FRANQUEADORA: vê apenas seus próprios lançamentos (sem franchiseId) + cobranças de franquia (categoria "Franquia")
-  //               NÃO vê Taxa Admin ou outros lançamentos internos das unidades
+
+  const { searchParams } = new URL(req.url);
+  const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+  const skip  = (page - 1) * limit;
+
   const where: any = session?.user?.franchiseId
     ? { franchiseId: session.user.franchiseId }
     : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
-  // ⚡ Otimizado: include mais leve + take reduzido de 500 → 200
-  const lancamentos = await prisma.financial.findMany({
-    where,
-    select: {
-      id: true, descricao: true, tipo: true, valor: true, categoria: true,
-      status: true, recorrente: true, diaVencimento: true, vencimentoAt: true,
-      cancelado: true, paidAt: true, createdAt: true,
-      franchiseId: true, companyId: true, contractId: true,
-      company:   { select: { id: true, name: true, email: true, emailFinanceiro: true } },
-      franchise: { select: { id: true, name: true, email: true } },
-      contract:  { select: { id: true, numero: true, student: { select: { id: true, name: true } } } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
-  return NextResponse.json({ lancamentos });
+
+  const [lancamentos, total] = await Promise.all([
+    prisma.financial.findMany({
+      where,
+      select: {
+        id: true, descricao: true, tipo: true, valor: true, categoria: true,
+        status: true, recorrente: true, diaVencimento: true, vencimentoAt: true,
+        cancelado: true, paidAt: true, createdAt: true,
+        franchiseId: true, companyId: true, contractId: true,
+        company:   { select: { id: true, name: true, email: true, emailFinanceiro: true } },
+        franchise: { select: { id: true, name: true, email: true } },
+        contract:  { select: { id: true, numero: true, student: { select: { id: true, name: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.financial.count({ where }),
+  ]);
+
+  return NextResponse.json({ lancamentos, total, page, totalPages: Math.ceil(total / limit) });
 }
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const postRole = session.user.role || "";
   if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(postRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  // FUNCIONARIO: verificar permissão financeiro
   if (postRole === "FUNCIONARIO") {
     const permissoes: string[] = (session.user as any)?.permissoes ?? [];
     if (!permissoes.includes("financeiro")) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: "Acesso negado. Sem permissão para financeiro." }, { status: 403 });
     }
   }
-  const body = await req.json();
+
+  const rawBody = await req.json();
+  const parsed = criarLancamentoSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(zodError(parsed.error), { status: 400 });
+  }
+  const body = parsed.data;
+
   const lancamento = await prisma.financial.create({
     data: {
-      descricao: body.descricao,
+      descricao: String(body.descricao).slice(0, 500),
       tipo: body.tipo,
-      valor: parseFloat(body.valor),
+      valor: parseFloat(String(body.valor)),
       categoria: body.categoria,
       status: (body.status || "PENDENTE") as any,
       recorrente: body.recorrente || false,
-      diaVencimento: body.diaVencimento ? parseInt(body.diaVencimento) : null,
+      diaVencimento: body.diaVencimento != null ? parseInt(String(body.diaVencimento)) : null,
       vencimentoAt: body.vencimentoAt ? new Date(body.vencimentoAt) : null,
       franchiseId: session?.user?.franchiseId || undefined,
       companyId: body.companyId || undefined,
     },
     include: { company: true },
   });
+
+  // Audit log
+  logAudit({
+    userId: session.user.id,
+    role: postRole,
+    franchiseId: session.user.franchiseId || undefined,
+    acao: "FINANCEIRO_CRIADO",
+    modulo: "financeiro",
+    detalhes: `lancamento:${lancamento.id} | tipo:${body.tipo} | valor:${body.valor} | categoria:${body.categoria}`,
+    ip: getClientIP(req),
+  });
+
   return NextResponse.json({ lancamento });
 }
