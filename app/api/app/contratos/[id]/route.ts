@@ -50,6 +50,17 @@ export async function PATCH(
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
+
+  // Ownership check: FRANQUEADO/FUNCIONARIO cannot edit contracts of other franchises
+  if (role !== "FRANQUEADORA") {
+    const existing = await prisma.contract.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!existing || existing.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const body = await req.json();
 
   // Campos permitidos para edição
@@ -99,12 +110,18 @@ export async function DELETE(
 
   // Apenas FRANQUEADORA e FRANQUEADO podem excluir contratos
   const role = session.user.role;
+  const franchiseId = session.user.franchiseId;
   if (!["FRANQUEADORA","FRANQUEADO","FUNCIONARIO"].includes(role || "")) {
     return NextResponse.json({ error: "Sem permissão para excluir contratos." }, { status: 403 });
   }
 
   const contrato = await prisma.contract.findUnique({ where: { id: params.id } });
   if (!contrato) return NextResponse.json({ error: "Contrato não encontrado." }, { status: 404 });
+
+  // Ownership check: FRANQUEADO/FUNCIONARIO cannot delete contracts of other franchises
+  if (role !== "FRANQUEADORA" && contrato.franchiseId !== franchiseId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     await prisma.$transaction(async (tx) => {

@@ -17,6 +17,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
+
+  // Ownership check: verify the lead belongs to the user's franchise
+  if (role !== "FRANQUEADORA") {
+    const lead = await prisma.crmLead.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!lead || lead.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const body = await req.json();
 
   // Ação especial: adicionar nota ao histórico

@@ -5,6 +5,14 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role || "";
+  // FRANQUEADORA pode ver qualquer franqueado; FRANQUEADO só pode ver o próprio
+  if (role !== "FRANQUEADORA" && session.user.franchiseId !== params.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const franchise = await prisma.franchise.findUnique({
     where: { id: params.id },
     include: {

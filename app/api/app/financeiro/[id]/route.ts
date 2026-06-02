@@ -10,6 +10,22 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
   const body = await req.json();
   const role = session.user.role;
+  const franchiseId = session.user.franchiseId;
+  // FUNCIONARIO: verificar permissão financeiro
+  if (role === "FUNCIONARIO") {
+    const permissoes: string[] = (session.user as any)?.permissoes ?? [];
+    if (!permissoes.includes("financeiro")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  // Ownership check: verify the financial record belongs to the user's franchise
+  if (role !== "FRANQUEADORA") {
+    const record = await prisma.financial.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!record || record.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   // Reverter baixa
   if (body.action === "reverter") {
@@ -51,6 +67,17 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   if (!session || !["FRANQUEADORA", "FRANQUEADO"].includes(session.user.role || "")) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
   }
+  const role = session.user.role;
+  const franchiseId = session.user.franchiseId;
+
+  // Ownership check: verify the financial record belongs to the user's franchise
+  if (role !== "FRANQUEADORA") {
+    const record = await prisma.financial.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!record || record.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   await prisma.financial.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }

@@ -5,6 +5,11 @@ import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
+
   const empresa = await prisma.company.findUnique({
     where: { id: params.id },
     include: {
@@ -16,11 +21,20 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     },
   });
   if (!empresa) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Ownership check for GET: FRANQUEADO can only see their own franchise companies
+  if (role !== "FRANQUEADORA" && empresa.franchiseId !== franchiseId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return NextResponse.json({ empresa });
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
   const body = await req.json();
 
   // Alterar senha do usuário da empresa — requer FRANQUEADORA ou FRANQUEADO
@@ -46,6 +60,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
     await prisma.user.update({ where: { id: body.userId }, data: { email: body.email } });
     return NextResponse.json({ ok: true });
+  }
+
+  // Ownership check for general update
+  if (role !== "FRANQUEADORA") {
+    const existing = await prisma.company.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!existing || existing.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   // Atualização geral de dados da empresa

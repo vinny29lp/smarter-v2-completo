@@ -5,6 +5,15 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role || "";
+  // FUNCIONARIO: verificar permissão financeiro
+  if (role === "FUNCIONARIO") {
+    const permissoes: string[] = (session.user as any)?.permissoes ?? [];
+    if (!permissoes.includes("financeiro")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
   // FRANQUEADO: vê só os lançamentos da sua unidade
   // FRANQUEADORA: vê apenas seus próprios lançamentos (sem franchiseId) + cobranças de franquia (categoria "Franquia")
   //               NÃO vê Taxa Admin ou outros lançamentos internos das unidades
@@ -31,6 +40,18 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const postRole = session.user.role || "";
+  if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(postRole)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  // FUNCIONARIO: verificar permissão financeiro
+  if (postRole === "FUNCIONARIO") {
+    const permissoes: string[] = (session.user as any)?.permissoes ?? [];
+    if (!permissoes.includes("financeiro")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
   const body = await req.json();
   const lancamento = await prisma.financial.create({
     data: {

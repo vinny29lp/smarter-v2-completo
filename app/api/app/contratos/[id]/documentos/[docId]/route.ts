@@ -7,6 +7,8 @@ import {
 } from "@/lib/documents/templates";
 import { validateTCE } from "@/lib/documents/validate";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // ── Helper: lançamento automático de taxa de administração ──────────────────
 async function criarLancamentoTaxaAdmin(contractId: string) {
@@ -52,6 +54,19 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
+
+  // Ownership check: verify the contract belongs to the user's franchise
+  if (role !== "FRANQUEADORA") {
+    const contract = await prisma.contract.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!contract || contract.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const body = await req.json().catch(() => ({}));
   const doc = await prisma.internshipDocument.findUnique({ where: { id: params.docId } });
   if (!doc) return NextResponse.json({ error: "Documento não encontrado" }, { status: 404 });
@@ -130,6 +145,19 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
+
+  // Ownership check: verify the contract belongs to the user's franchise
+  if (role !== "FRANQUEADORA") {
+    const contract = await prisma.contract.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!contract || contract.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const body = await req.json();
   const doc = await prisma.internshipDocument.findUnique({ where: { id: params.docId } });
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -189,6 +217,19 @@ export async function GET(
   _req: Request,
   { params }: { params: { id: string; docId: string } }
 ) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
+
+  // Ownership check: verify the contract belongs to the user's franchise
+  if (role !== "FRANQUEADORA") {
+    const contract = await prisma.contract.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!contract || contract.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   try {
     const document = await prisma.internshipDocument.findUnique({
       where: { id: params.docId },

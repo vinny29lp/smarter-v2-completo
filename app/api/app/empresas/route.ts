@@ -8,9 +8,10 @@ import bcrypt from "bcryptjs";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const role = session?.user?.role;
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role;
   // FRANQUEADORA vê todas; demais papéis só vêem as da sua unidade
-  const franchiseId = role === "FRANQUEADORA" ? undefined : (session?.user?.franchiseId || null);
+  const franchiseId = role === "FRANQUEADORA" ? undefined : (session.user.franchiseId || null);
   const empresas = await getCompanies(franchiseId ?? undefined);
   return NextResponse.json({ empresas });
 }

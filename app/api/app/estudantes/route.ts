@@ -6,6 +6,8 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   // Estudantes são públicos a todos os painéis (franqueadora e todas as unidades)
   // Não filtra por franchiseId — todos podem visualizar todos os estudantes
   const estudantes = await prisma.student.findMany({
