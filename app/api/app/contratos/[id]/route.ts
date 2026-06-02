@@ -85,12 +85,15 @@ export async function PATCH(
   // Converte datas se vierem como string
   if (data.dataInicio) data.dataInicio = new Date(data.dataInicio);
   if (data.dataFim)    data.dataFim    = new Date(data.dataFim);
-  if (data.bolsa)         data.bolsa         = Number(data.bolsa);
-  if (data.valorEmpresa)  data.valorEmpresa  = Number(data.valorEmpresa);
-  if (data.auxTransporte) data.auxTransporte = Number(data.auxTransporte);
-  if (data.chDiaria)   data.chDiaria  = parseInt(data.chDiaria);
-  if (data.chSemanal)  data.chSemanal = parseInt(data.chSemanal);
-  if (data.vencimento) data.vencimento= parseInt(data.vencimento);
+
+  // Converte campos numéricos — string vazia vira null, string/number vira Float
+  const toFloat = (v: any) => (v === "" || v === null || v === undefined) ? null : Number(v);
+  if (data.bolsa         !== undefined) data.bolsa         = toFloat(data.bolsa) ?? 0;
+  if (data.valorEmpresa  !== undefined) data.valorEmpresa  = toFloat(data.valorEmpresa);
+  if (data.auxTransporte !== undefined) data.auxTransporte = toFloat(data.auxTransporte);
+  if (data.chDiaria   !== undefined) data.chDiaria  = data.chDiaria   === "" ? null : parseInt(String(data.chDiaria));
+  if (data.chSemanal  !== undefined) data.chSemanal = data.chSemanal  === "" ? null : parseInt(String(data.chSemanal));
+  if (data.vencimento !== undefined) data.vencimento= data.vencimento === "" ? null : parseInt(String(data.vencimento));
 
   try {
     const contract = await prisma.contract.update({ where: { id: params.id }, data });
