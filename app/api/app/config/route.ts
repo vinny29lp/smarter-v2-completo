@@ -11,6 +11,13 @@ function maskToken(token?: string | null): string {
 }
 
 export async function GET() {
+  // SEC-M01: configurações do sistema são restritas à FRANQUEADORA
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (session.user.role !== "FRANQUEADORA") {
+    return NextResponse.json({ error: "Apenas a Franqueadora pode visualizar as configurações do sistema." }, { status: 403 });
+  }
+
   try {
     let config = await prisma.systemConfig.findUnique({ where: { id: "default" } });
     if (!config) {

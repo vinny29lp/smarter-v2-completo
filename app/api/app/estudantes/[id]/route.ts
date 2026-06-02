@@ -6,7 +6,11 @@ import bcrypt from "bcryptjs";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const viewerFranchiseId = (session?.user as any)?.franchiseId;
+  // SEC-A06: guarda explícita de autenticação
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const role = session.user.role || "";
+  const viewerFranchiseId = session.user.franchiseId;
 
   const estudante = await prisma.student.findUnique({
     where: { id: params.id },
@@ -22,6 +26,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     },
   });
   if (!estudante) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Ownership check: FRANQUEADO/FUNCIONARIO só acessa estudante da própria franquia
+  if (role !== "FRANQUEADORA" && estudante.franchiseId && estudante.franchiseId !== viewerFranchiseId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return NextResponse.json({ estudante });
 }
 
@@ -61,8 +71,36 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
   }
 
-  // Atualização geral de dados do estudante
-  const estudante = await prisma.student.update({ where: { id: params.id }, data: body });
+  // Ownership check: FRANQUEADO/FUNCIONARIO só edita estudante da própria franquia
+  const role = session?.user?.role || "";
+  const franchiseId = session?.user?.franchiseId;
+  if (role !== "FRANQUEADORA") {
+    const existing = await prisma.student.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!existing || (existing.franchiseId && existing.franchiseId !== franchiseId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  // SEC-A05: allowlist explícita de campos editáveis — proíbe mass assignment
+  // Campos bloqueados: franchiseId, userId, status (gerenciado acima), discResult, discData
+  const allowed = [
+    "name","cpf","rg","dataNasc","sexo","email","celular","telefone",
+    "endereco","bairro","cidade","uf","cep",
+    "curso","periodo","previsaoConclusao","turno",
+    "habilidades","idiomas","experiencias","objetivos","curriculo",
+    "linkedin","portfolio","observacoes",
+    "institutionId",
+  ];
+  const data: Record<string, any> = {};
+  for (const key of allowed) {
+    if (body[key] !== undefined) data[key] = body[key];
+  }
+  // Franqueadora pode atualizar status diretamente (já validado acima)
+  if (body.status !== undefined && role === "FRANQUEADORA") {
+    data.status = body.status;
+  }
+
+  const estudante = await prisma.student.update({ where: { id: params.id }, data });
   return NextResponse.json({ estudante });
 }
 

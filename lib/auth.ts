@@ -22,7 +22,9 @@ export const authOptions: NextAuthOptions = {
           T.start = now;
         };
         const t0 = Date.now();
-        console.log(`[AUTH_PERF] authorize() iniciado para: ${credentials.email}`);
+        // SEC-B01: email mascarado nos logs — não expor dado pessoal em logs de produção
+        const emailMask = credentials.email.replace(/(.{2}).*(@.*)/, "$1***$2");
+        console.log(`[AUTH_PERF] authorize() iniciado para: ${emailMask}`);
 
         // ⚡ select apenas os campos necessários (evita JOINs desnecessários)
         const user = await prisma.user.findUnique({

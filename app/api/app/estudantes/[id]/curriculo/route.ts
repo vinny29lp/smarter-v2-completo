@@ -84,6 +84,25 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
+
+  // LGPD-B01: Ownership check — currículo contém CPF e dados pessoais sensíveis
+  // FRANQUEADORA acessa todos | FRANQUEADO/FUNCIONARIO só da própria franquia | ESTUDANTE só o próprio
+  if (role === "ESTUDANTE") {
+    // Estudante só acessa o próprio currículo (via studentId da sessão)
+    const ownId = session.user.studentId;
+    if (!ownId || ownId !== params.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  } else if (role !== "FRANQUEADORA") {
+    // Franqueado/Funcionario: verifica se estudante pertence à sua franquia
+    const check = await prisma.student.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!check || (check.franchiseId && check.franchiseId !== franchiseId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const s = await prisma.student.findUnique({
     where: { id: params.id },
     include: { institution: true, user: { select: { email: true } } },

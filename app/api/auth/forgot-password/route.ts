@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import { sendMail } from "@/lib/email";
 
+// SEC-B04: geração criptograficamente segura de senha temporária
 function gerarSenhaTemp(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let senha = "";
-  for (let i = 0; i < 8; i++) senha += chars[Math.floor(Math.random() * chars.length)];
-  return senha + "!2";
+  // 8 bytes aleatórios → base64url (11 chars) → trim para 8 chars + sufixo fixo
+  return randomBytes(8).toString("base64url").slice(0, 8) + "!2";
 }
 
 export async function POST(req: Request) {

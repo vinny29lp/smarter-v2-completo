@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
+  // SEC-M06: autenticação obrigatória — gamificação não é dado público
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const fid = session?.user?.franchiseId;
 
   const [pontos, configs, allPoints] = await Promise.all([

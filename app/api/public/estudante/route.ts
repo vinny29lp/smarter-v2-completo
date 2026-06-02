@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import { enviarBoasVindasEstudante } from "@/lib/email";
 
 export async function POST(req: Request) {
@@ -30,7 +31,9 @@ export async function POST(req: Request) {
     if (inst) institutionId = inst.id;
   }
 
-  const senha = Math.random().toString(36).slice(-6).toUpperCase() + Math.floor(10+Math.random()*90);
+  // Geração criptograficamente segura da senha temporária (SEC-A08 / SEC-B04)
+  const senha = randomBytes(5).toString("base64url").toUpperCase().slice(0, 6)
+    + String(10 + (randomBytes(1)[0] % 90));
   const hash = await bcrypt.hash(senha, 10);
 
   const user = await prisma.user.create({
@@ -75,5 +78,6 @@ export async function POST(req: Request) {
     console.warn("[email] Boas-vindas estudante falhou:", e);
   }
 
-  return NextResponse.json({ ok: true, email: body.email, senha });
+  // SEC-A08: senha NÃO é retornada no response HTTP — apenas enviada por e-mail
+  return NextResponse.json({ ok: true, email: body.email });
 }

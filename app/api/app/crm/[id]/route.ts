@@ -4,6 +4,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
+
   const lead = await prisma.crmLead.findUnique({
     where: { id: params.id },
     include: {
@@ -13,6 +18,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     },
   });
   if (!lead) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Ownership check: FRANQUEADO/FUNCIONARIO só acessa lead da própria franquia
+  if (role !== "FRANQUEADORA" && lead.franchiseId !== franchiseId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return NextResponse.json({ lead });
 }
 
@@ -124,6 +135,17 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   if (!session || !["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session.user.role || "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const role = session.user.role || "";
+  const franchiseId = session.user.franchiseId;
+
+  // Ownership check: impede exclusão de lead de outra franquia
+  if (role !== "FRANQUEADORA") {
+    const lead = await prisma.crmLead.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!lead || lead.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   await prisma.crmLead.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }

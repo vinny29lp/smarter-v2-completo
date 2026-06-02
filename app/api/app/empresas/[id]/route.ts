@@ -37,9 +37,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const franchiseId = session.user.franchiseId;
   const body = await req.json();
 
+  // SEC-M05: Ownership check antecipado — aplica-se a TODAS as ações para FRANQUEADO/FUNCIONARIO
+  if (role !== "FRANQUEADORA") {
+    const existing = await prisma.company.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!existing || existing.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   // Alterar senha do usuário da empresa — requer FRANQUEADORA ou FRANQUEADO
   if (body.action === "change_password") {
-    if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session?.user?.role || "")) {
+    if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(role)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
     if (!body.userId || !body.password) {
@@ -52,7 +60,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   // Alterar e-mail de login da empresa — requer FRANQUEADORA ou FRANQUEADO
   if (body.action === "change_email") {
-    if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session?.user?.role || "")) {
+    if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(role)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
     if (!body.userId || !body.email) {
@@ -60,14 +68,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
     await prisma.user.update({ where: { id: body.userId }, data: { email: body.email } });
     return NextResponse.json({ ok: true });
-  }
-
-  // Ownership check for general update
-  if (role !== "FRANQUEADORA") {
-    const existing = await prisma.company.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
-    if (!existing || existing.franchiseId !== franchiseId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
   }
 
   // Atualização geral de dados da empresa
