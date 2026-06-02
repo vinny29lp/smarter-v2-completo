@@ -58,9 +58,15 @@ export async function middleware(req: NextRequest) {
   }
 
   // ── /portal-empresa (raiz e sub-rotas) ───────────────────────────────
-  // Só EMPRESA pode estar aqui — qualquer outro vai para seu lugar correto
+  // EMPRESA pode acessar tudo; admins (FRANQUEADORA/FRANQUEADO/FUNCIONARIO)
+  // podem acessar /portal-empresa/avaliacoes para visualizar/testar o formulário.
   if (pathname === "/portal-empresa" || pathname.startsWith("/portal-empresa/")) {
     if (role === "EMPRESA") return NextResponse.next(); // ok, não redirecionar
+    // Admins podem acessar a página de avaliações (para testar/visualizar o formulário)
+    if (
+      (role === "FRANQUEADO" || role === "FRANQUEADORA" || role === "FUNCIONARIO") &&
+      (pathname === "/portal-empresa/avaliacoes" || pathname.startsWith("/portal-empresa/avaliacoes"))
+    ) return NextResponse.next();
     // Outros roles: vai para o lugar certo deles
     if (role === "ESTUDANTE")                 return NextResponse.redirect(new URL("/portal-estudante", req.url));
     if (role === "FRANQUEADO" || role === "FRANQUEADORA") return NextResponse.redirect(new URL("/dashboard", req.url));

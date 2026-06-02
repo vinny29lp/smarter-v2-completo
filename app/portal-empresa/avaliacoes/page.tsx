@@ -33,7 +33,10 @@ function AvaliacoesContent() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/portal/empresa/avaliacoes")
+    const apiUrl = contratoFoco
+      ? `/api/portal/empresa/avaliacoes?contrato=${contratoFoco}`
+      : "/api/portal/empresa/avaliacoes";
+    fetch(apiUrl)
       .then(r => r.json())
       .then(d => { setContratos(d.contratos || []); setLoading(false); })
       .catch(() => setLoading(false));
