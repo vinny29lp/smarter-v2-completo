@@ -2,5 +2,6 @@
   "framework": "nextjs",
   "buildCommand": "rm -rf .vercel/output && prisma generate && next build",
   "installCommand": "npm install",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "regions": ["gru1"]
 }

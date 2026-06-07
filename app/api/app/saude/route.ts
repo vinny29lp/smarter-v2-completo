@@ -35,71 +35,72 @@ export async function GET() {
     const inicio = Date.now();
 
     // ── 1. Supabase / Banco ─────────────────────────────────────────────────
+    // Latência real = tempo de 1 round-trip simples (SELECT 1), não de todas as queries
     const dbInicio = Date.now();
-    // Modelos presentes no Prisma client gerado
-    const [
-      totalUsers,
-      totalStudents,
-      totalCompanies,
-      totalContracts,
-      totalFranchises,
-      totalFinancials,
-      totalVacancies,
-      totalDocuments,
-      totalActivityLogs,
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.student.count(),
-      prisma.company.count(),
-      prisma.contract.count(),
-      prisma.franchise.count(),
-      prisma.financial.count(),
-      prisma.vacancy.count(),
-      prisma.internshipDocument.count(),
-      prisma.activityLog.count(),
-    ]);
-
-    // ai_usage_logs e import_logs usam raw SQL pois o Prisma client
-    // ainda não foi regenerado após a adição desses modelos ao schema
-    const [aiLogsCountRaw, importLogsCountRaw] = await Promise.all([
-      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM ai_usage_logs`,
-      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM import_logs`,
-    ]);
-    const totalAiLogs = Number(aiLogsCountRaw[0]?.count ?? 0);
-    const totalImportLogs = Number(importLogsCountRaw[0]?.count ?? 0);
+    await prisma.$queryRaw`SELECT 1`;
     const dbLatencia = Date.now() - dbInicio;
 
-    // Contratos ativos (apenas status válidos no enum ContractStatus)
-    const contratosAtivos = await prisma.contract.count({
-      where: { status: "ATIVO" },
-    });
-
-    // Estudantes ativos (com contrato ativo)
-    const estudantesAtivos = await prisma.student.count({
-      where: {
-        contracts: {
-          some: { status: "ATIVO" },
-        },
-      },
-    });
-
-    // Uso de IA hoje (via raw SQL — modelo ainda não no Prisma client gerado)
-    // Nota: coluna custoEstimado não existe na tabela real (migration pendente);
-    // usamos tokens como proxy e custo fica zerado até a migration ser aplicada.
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    const aiUsageHojeRaw = await prisma.$queryRaw<[{ count: bigint }]>`
-      SELECT COUNT(*)::bigint as count FROM ai_usage_logs
-      WHERE "createdAt" >= ${hoje}
+    // Todas as contagens em 1 único round-trip para minimizar latência de rede
+    type MetricasRow = {
+      total_users: bigint;
+      total_students: bigint;
+      total_companies: bigint;
+      total_contracts: bigint;
+      total_franchises: bigint;
+      total_financials: bigint;
+      total_vacancies: bigint;
+      total_docs: bigint;
+      total_activity: bigint;
+      total_ai: bigint;
+      total_imports: bigint;
+      contratos_ativos: bigint;
+      estudantes_ativos: bigint;
+      ai_hoje: bigint;
+      atividade_hoje: bigint;
+    };
+    const [metricas] = await prisma.$queryRaw<MetricasRow[]>`
+      SELECT
+        (SELECT COUNT(*)::bigint FROM users)               AS total_users,
+        (SELECT COUNT(*)::bigint FROM students)             AS total_students,
+        (SELECT COUNT(*)::bigint FROM companies)            AS total_companies,
+        (SELECT COUNT(*)::bigint FROM contracts)            AS total_contracts,
+        (SELECT COUNT(*)::bigint FROM franchises)           AS total_franchises,
+        (SELECT COUNT(*)::bigint FROM financials)           AS total_financials,
+        (SELECT COUNT(*)::bigint FROM vacancies)            AS total_vacancies,
+        (SELECT COUNT(*)::bigint FROM internship_documents) AS total_docs,
+        (SELECT COUNT(*)::bigint FROM activity_logs)        AS total_activity,
+        (SELECT COUNT(*)::bigint FROM ai_usage_logs)        AS total_ai,
+        (SELECT COUNT(*)::bigint FROM import_logs)          AS total_imports,
+        (SELECT COUNT(*)::bigint FROM contracts WHERE status = 'ATIVO') AS contratos_ativos,
+        (SELECT COUNT(*)::bigint FROM students s
+         WHERE EXISTS (
+           SELECT 1 FROM contracts c
+           WHERE c."studentId" = s.id AND c.status = 'ATIVO'
+         ))                                                 AS estudantes_ativos,
+        (SELECT COUNT(*)::bigint FROM ai_usage_logs
+         WHERE "createdAt" >= CURRENT_DATE)                 AS ai_hoje,
+        (SELECT COUNT(*)::bigint FROM activity_logs
+         WHERE "createdAt" >= CURRENT_DATE)                 AS atividade_hoje
     `;
-    const aiUsageHoje = Number(aiUsageHojeRaw[0]?.count ?? 0);
+
+    const totalUsers       = Number(metricas.total_users);
+    const totalStudents    = Number(metricas.total_students);
+    const totalCompanies   = Number(metricas.total_companies);
+    const totalContracts   = Number(metricas.total_contracts);
+    const totalFranchises  = Number(metricas.total_franchises);
+    const totalFinancials  = Number(metricas.total_financials);
+    const totalVacancies   = Number(metricas.total_vacancies);
+    const totalDocuments   = Number(metricas.total_docs);
+    const totalActivityLogs = Number(metricas.total_activity);
+    const totalAiLogs      = Number(metricas.total_ai);
+    const totalImportLogs  = Number(metricas.total_imports);
+    const contratosAtivos  = Number(metricas.contratos_ativos);
+    const estudantesAtivos = Number(metricas.estudantes_ativos);
+    const aiUsageHoje      = Number(metricas.ai_hoje);
+    const atividadeHoje    = Number(metricas.atividade_hoje);
+
     // Custo estimado: coluna não existe no DB atual, retorna 0 até migration
     const custoAiHojeTotal = 0;
-
-    // Logs de atividade hoje
-    const atividadeHoje = await prisma.activityLog.count({
-      where: { createdAt: { gte: hoje } },
-    });
 
     // ── 2. Vercel (via API pública) ─────────────────────────────────────────
     let vercelDeploy = {
@@ -155,7 +156,7 @@ export async function GET() {
         if (resp.ok) {
           const data = await resp.json();
           const emails = data.data || [];
-          const hojeStr = hoje.toISOString().slice(0, 10);
+          const hojeStr = new Date().toISOString().slice(0, 10);
           emailStats.enviadosHoje = emails.filter(
             (e: { created_at: string; last_event: string }) =>
               e.created_at?.slice(0, 10) === hojeStr && e.last_event !== "bounced"
