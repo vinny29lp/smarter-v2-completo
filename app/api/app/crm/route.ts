@@ -21,7 +21,14 @@ export async function GET(req: Request) {
   const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
   const skip  = (page - 1) * limit;
 
-  const franchiseFilter = { franchiseId: session.user.franchiseId ?? "" };
+  // FRANQUEADORA (franchiseId null) vê apenas seus leads (franchiseId IS NULL)
+  // FRANQUEADO vê apenas leads da sua franquia
+  const role = session.user.role;
+  const franchiseFilter =
+    role === "FRANQUEADORA"
+      ? { franchiseId: null }
+      : { franchiseId: session.user.franchiseId ?? "" };
+
   const where: any = {
     ...franchiseFilter,
     ...(situacao !== "todos" ? { situacao } : {}),
@@ -68,13 +75,11 @@ export async function POST(req: Request) {
   }
   const body = parsed.data;
 
-  const franchiseIdParaLead = session.user.franchiseId;
-  if (!franchiseIdParaLead) {
-    return NextResponse.json(
-      { error: "Usuário sem franquia vinculada. Configure a franquia do usuário administrador no painel." },
-      { status: 400 }
-    );
-  }
+  // FRANQUEADORA cria lead sem franchiseId (null) — pertence somente a ela
+  // FRANQUEADO usa o próprio franchiseId da sessão
+  const role = session.user.role;
+  const franchiseIdParaLead =
+    role === "FRANQUEADORA" ? null : (session.user.franchiseId ?? null);
 
   const createData: any = {
     empresa:     body.empresa,
@@ -107,7 +112,7 @@ export async function POST(req: Request) {
     logAudit({
       userId: session.user.id,
       role: session.user.role || "",
-      franchiseId: franchiseIdParaLead,
+      franchiseId: franchiseIdParaLead || undefined,
       acao: "CRM_LEAD_CRIADO",
       modulo: "crm",
       detalhes: `lead:${lead.id} | empresa:${body.empresa}`,

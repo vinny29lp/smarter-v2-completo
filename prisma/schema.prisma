@@ -87,13 +87,13 @@ model Company {
   cep              String?
   site             String?
   status           CompanyStatus? @default(ATIVA)
-  franchiseId      String
+  franchiseId      String?
   createdAt        DateTime?      @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime?      @default(now()) @updatedAt @db.Timestamptz(6)
   pendente         Boolean?       @default(false)
   emailFinanceiro  String?
   valorGestao      Float?
-  franchise        Franchise      @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  franchise        Franchise?     @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   contracts        Contract[]
   crmLeads         CrmLead[]
   financials       Financial[]
@@ -347,7 +347,7 @@ model CrmLead {
   ultimoContato   DateTime? @db.Timestamptz(6)
   proximaAcao     String?
   anotacao        String?
-  franchiseId     String
+  franchiseId     String?
   companyId       String?
   convertido      Boolean?  @default(false)
   createdAt       DateTime? @default(now()) @db.Timestamptz(6)
@@ -357,7 +357,7 @@ model CrmLead {
   reuniaoAt       DateTime? @db.Timestamptz(6)
   situacao        String?   @default("ativo")
   company         Company?  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  franchise       Franchise @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  franchise       Franchise? @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   notas           CrmNota[]
   tasks           CrmTask[]
 
