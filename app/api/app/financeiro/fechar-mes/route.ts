@@ -4,12 +4,30 @@
  *   - R$200 mensalidade (se cobrarMensalidade = true)
  *   - R$13 por contrato ATIVO
  * Só disponível no dia 23+ do mês (ou com ?force=true para testes)
+ *
+ * ⚡ ESC-001: loop sequencial substituído por processamento paralelo em batches de 10.
+ * Garante que o endpoint não estoure o timeout de 30s da Vercel com 100+ franqueados.
  */
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { handleApiError } from "@/lib/api-response";
+
+// Executa uma função em paralelo com concorrência máxima controlada (batch size)
+async function processInBatches<T, R>(
+  items: T[],
+  batchSize: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
 
 export async function GET() {
   try {
@@ -79,10 +97,22 @@ export async function POST(req: Request) {
     },
   });
 
-  const results: any[] = [];
-  let totalGeral = 0;
+  // ⚡ ESC-001: Pré-checar duplicidade em lote (1 query para todos os franqueados)
+  const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fimDia    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
 
-  for (const f of franchises) {
+  const jaFechadosNesteMes = await prisma.financial.findMany({
+    where: {
+      franchiseId: { in: franchises.map(f => f.id) },
+      categoria: "Franquia",
+      createdAt: { gte: inicioDia, lte: fimDia },
+    },
+    select: { franchiseId: true },
+  });
+  const jaFechadosSet = new Set(jaFechadosNesteMes.map(j => j.franchiseId));
+
+  // ⚡ ESC-001: Processar em paralelo com batches de 10 (evita timeout de 30s da Vercel)
+  const resultados = await processInBatches(franchises, 10, async (f) => {
     const ativos = f.contracts.length;
     const taxaAdmin = ativos * 13;
     const cobrarMens = f.cobrarMensalidade ?? true;
@@ -90,24 +120,11 @@ export async function POST(req: Request) {
     const total = mensalidade + taxaAdmin;
 
     if (total === 0) {
-      results.push({ franchise: f.name, total: 0, skipped: true, reason: "Valor zerado" });
-      continue;
+      return { franchise: f.name, total: 0, skipped: true, reason: "Valor zerado" };
     }
 
-    // Verificar se já foi fechado este mês para este franqueado
-    const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    const fimDia    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-    const jaExiste = await prisma.financial.findFirst({
-      where: {
-        franchiseId: f.id,
-        categoria: "Franquia",
-        createdAt: { gte: inicioDia, lte: fimDia },
-      },
-    });
-
-    if (jaExiste) {
-      results.push({ franchise: f.name, total, skipped: true, reason: "Já fechado este mês" });
-      continue;
+    if (jaFechadosSet.has(f.id)) {
+      return { franchise: f.name, total, skipped: true, reason: "Já fechado este mês" };
     }
 
     // Monta descrição detalhada: "Sistema R$200 + 3 estag. (R$39) — Unidade X — junho 2026"
@@ -131,7 +148,7 @@ export async function POST(req: Request) {
       } as any,
     });
 
-    results.push({
+    return {
       franchise: f.name,
       franchiseId: f.id,
       ativos,
@@ -139,9 +156,13 @@ export async function POST(req: Request) {
       taxaAdmin,
       total,
       lancamentoId: lancamento.id,
-    });
-    totalGeral += total;
-  }
+    };
+  });
+
+  const results = resultados;
+  const totalGeral = results
+    .filter((r: any) => !r.skipped)
+    .reduce((acc: number, r: any) => acc + (r.total || 0), 0);
 
   return NextResponse.json({
     ok: true,
@@ -149,7 +170,7 @@ export async function POST(req: Request) {
     vencimento: proximoMes.toLocaleDateString("pt-BR"),
     totalGeral,
     results,
-    message: `Fechamento realizado para ${results.filter(r => !r.skipped).length} franqueado(s). Total: R$ ${totalGeral.toFixed(2).replace(".", ",")}`,
+    message: `Fechamento realizado para ${results.filter((r: any) => !r.skipped).length} franqueado(s). Total: R$ ${totalGeral.toFixed(2).replace(".", ",")}`,
   });
   } catch (e) {
     return handleApiError(e, "FINANCEIRO_FECHAR_POST");

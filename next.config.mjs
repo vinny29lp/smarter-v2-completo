@@ -12,11 +12,13 @@ const nextConfig = {
   // ⚡ Compressão de resposta ativa
   compress: true,
   // ⚡ Headers de cache + HTTP Security Headers (FASE 3 — Blindagem de Produção)
+  //
+  // ESC-006: CSP com nonce aplicado no middleware.ts (por request, não estático).
+  // Aqui mantemos os demais security headers estáticos.
+  // X-Frame-Options REMOVIDO — substituído por frame-ancestors 'none' no CSP do middleware,
+  // que é mais moderno e tem a mesma função (impede clickjacking/iframe embedding).
   async headers() {
-    // Security headers aplicados a todas as rotas
     const securityHeaders = [
-      // Impede clickjacking — página não pode ser embutida em iframes
-      { key: "X-Frame-Options", value: "DENY" },
       // Impede MIME sniffing — navegador respeita o Content-Type declarado
       { key: "X-Content-Type-Options", value: "nosniff" },
       // Envia apenas origem (sem path) como Referer em cross-origin requests
@@ -25,8 +27,8 @@ const nextConfig = {
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
       // HSTS: força HTTPS por 1 ano com preload
       { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
-      // CSP não aplicado agora para não quebrar scripts inline do Next.js/Autentique/PDFs
-      // TODO: implementar CSP com nonce após estabilização multi-franqueado
+      // XSS proteção legado (browsers antigos que não suportam CSP)
+      { key: "X-XSS-Protection", value: "1; mode=block" },
     ];
 
     return [

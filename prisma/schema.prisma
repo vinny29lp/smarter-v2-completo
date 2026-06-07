@@ -472,6 +472,9 @@ model GamificationPoint {
   createdAt   DateTime? @default(now()) @db.Timestamptz(6)
   franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  // ⚡ ESC-003: indexes para ranking groupBy e queries por franquia
+  @@index([franchiseId])
+  @@index([createdAt])
   @@map("gamification_points")
 }
 
@@ -485,6 +488,10 @@ model ActivityLog {
   createdAt DateTime? @default(now()) @db.Timestamptz(6)
   user      User?     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  // ⚡ ESC-003: indexes para auditoria por usuário e cleanup por data
+  @@index([userId])
+  @@index([createdAt])
+  @@index([modulo])
   @@map("activity_logs")
 }
 
@@ -499,6 +506,10 @@ model Notification {
   createdAt DateTime? @default(now()) @db.Timestamptz(6)
   user      User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  // ⚡ ESC-003: indexes para query de notificações não lidas no dashboard
+  @@index([userId])
+  @@index([lida])
+  @@index([createdAt])
   @@map("notifications")
 }
 

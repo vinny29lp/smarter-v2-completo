@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -23,10 +24,15 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // ESC-006: Lê o nonce gerado pelo middleware para propagar ao Next.js runtime.
+  // O nonce é gerado por request no middleware.ts e injetado via header x-nonce.
+  // Com 'strict-dynamic' no CSP, scripts carregados pelo Next.js rodam sem unsafe-inline.
+  const nonce = headers().get("x-nonce") ?? "";
+
   return (
     <html lang="pt-BR">
       <body>
-        <Providers>{children}</Providers>
+        <Providers nonce={nonce}>{children}</Providers>
       </body>
     </html>
   );
