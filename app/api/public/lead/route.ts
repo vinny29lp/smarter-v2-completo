@@ -1,7 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { checkRateLimit, getClientIpFromRequest } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  // ALTO-C: rate limit — 10 leads/min por IP (formulário público de captação)
+  const ip = getClientIpFromRequest(req);
+  if (!checkRateLimit(ip, "public_lead", 10, 60_000)) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." },
+      { status: 429 }
+    );
+  }
+
   const body = await req.json();
   if (!body.empresa && !body.contato) {
     return NextResponse.json({ error: "Informe ao menos empresa ou nome." }, { status: 400 });

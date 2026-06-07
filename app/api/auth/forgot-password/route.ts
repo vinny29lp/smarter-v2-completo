@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { sendMail } from "@/lib/email";
+import { checkRateLimit, getClientIpFromRequest } from "@/lib/rate-limit";
 
 // SEC-B04: geração criptograficamente segura de senha temporária
 function gerarSenhaTemp(): string {
@@ -12,6 +13,15 @@ function gerarSenhaTemp(): string {
 
 export async function POST(req: Request) {
   try {
+    // ALTO-C: rate limit — 3 tentativas/min por IP (bcrypt + email são caros; ataque de força bruta)
+    const ip = getClientIpFromRequest(req);
+    if (!checkRateLimit(ip, "forgot_password", 3, 60_000)) {
+      return NextResponse.json(
+        { error: "Muitas tentativas. Aguarde alguns minutos." },
+        { status: 429 }
+      );
+    }
+
     const { email } = await req.json();
     if (!email) return NextResponse.json({ error: "E-mail obrigatório" }, { status: 400 });
 

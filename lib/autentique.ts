@@ -97,10 +97,12 @@ export async function enviarParaAutentique(
   const htmlBlob = new Blob([htmlContent], { type: "text/html" });
   formData.append("0", htmlBlob, `${titulo.replace(/\s+/g, "-")}.html`);
 
+  // CRIT-001: timeout de 20s — evita hang de 30s no Lambda da Vercel se Autentique estiver lento
   const response = await fetch(AUTENTIQUE_API, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
+    signal: AbortSignal.timeout(20_000),
   });
 
   if (!response.ok) {
@@ -172,6 +174,7 @@ export async function buscarStatusAutentique(docId: string): Promise<AutentiqueD
     }
   `;
 
+  // CRIT-001: timeout de 15s — consulta de status é mais simples que envio
   const response = await fetch(AUTENTIQUE_API, {
     method: "POST",
     headers: {
@@ -179,6 +182,7 @@ export async function buscarStatusAutentique(docId: string): Promise<AutentiqueD
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {

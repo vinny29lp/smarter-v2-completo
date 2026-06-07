@@ -3,8 +3,18 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { enviarBoasVindasEstudante } from "@/lib/email";
+import { checkRateLimit, getClientIpFromRequest } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  // ALTO-C: rate limit — 5 cadastros/min por IP (bcrypt + email são operações caras)
+  const ip = getClientIpFromRequest(req);
+  if (!checkRateLimit(ip, "public_estudante", 5, 60_000)) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." },
+      { status: 429 }
+    );
+  }
+
   const body = await req.json();
   if (!body.nome || !body.email || !body.curso) {
     return NextResponse.json({ error: "Dados obrigatórios faltando." }, { status: 400 });

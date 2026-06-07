@@ -22,18 +22,34 @@ export type VacancyInput = {
   franchiseId: string;
 };
 
-export async function getVacancies(franchiseId?: string, companyId?: string) {
-  return prisma.vacancy.findMany({
-    where: {
-      ...(franchiseId ? { franchiseId } : {}),
-      ...(companyId ? { companyId } : {}),
-    },
-    include: {
-      company: true,
-      _count: { select: { applications: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+// CRIT-002: paginação adicionada — evita payload gigante na view da Franqueadora (100+ franqueados)
+export async function getVacancies(
+  franchiseId?: string,
+  companyId?: string,
+  page = 1,
+  limit = 50,
+) {
+  const take = Math.min(100, Math.max(1, limit));
+  const skip = (Math.max(1, page) - 1) * take;
+  const where = {
+    ...(franchiseId ? { franchiseId } : {}),
+    ...(companyId   ? { companyId }   : {}),
+  };
+  const [vagas, total] = await Promise.all([
+    prisma.vacancy.findMany({
+      where,
+      include: {
+        // select em vez de include completo — evita objetos de empresa desnecessários
+        company: { select: { id: true, name: true, cidade: true, uf: true } },
+        _count: { select: { applications: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+    }),
+    prisma.vacancy.count({ where }),
+  ]);
+  return { vagas, total, page, totalPages: Math.ceil(total / take) };
 }
 
 export async function getVacancy(id: string) {
@@ -42,11 +58,19 @@ export async function getVacancy(id: string) {
     include: {
       company: true,
       franchise: true,
+      // ALTO-B: take:150 + select — evita carregar centenas de candidatos com user aninhado
       applications: {
-        include: {
-          student: { include: { user: true } },
+        select: {
+          id: true, etapa: true, matching: true, createdAt: true,
+          student: {
+            select: {
+              id: true, name: true, email: true, curso: true,
+              discResult: true, status: true, cidade: true, uf: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
+        take: 150,
       },
     },
   });

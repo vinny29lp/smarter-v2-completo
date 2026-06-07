@@ -3,13 +3,27 @@ import { authOptions } from "@/lib/auth";
 import { createVacancy, getVacancies } from "@/lib/actions/vacancies";
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  const vagas = await getVacancies(
-    session?.user?.franchiseId,
-    session?.user?.companyId
-  );
-  return NextResponse.json({ vagas });
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+
+    // CRIT-002: paginação — evita OOM na view da Franqueadora com 100+ franqueados
+    const result = await getVacancies(
+      session.user?.franchiseId,
+      session.user?.companyId,
+      page,
+      limit,
+    );
+    return NextResponse.json(result);
+  } catch (err: any) {
+    console.error("[GET /api/app/vagas]", err);
+    return NextResponse.json({ error: err.message || "Erro ao carregar vagas", vagas: [] }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {

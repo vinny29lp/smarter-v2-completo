@@ -23,9 +23,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         select: { id: true, name: true, email: true, active: true, lastLoginAt: true, createdAt: true },
       },
       companies: { select: { id: true, name: true, status: true } },
+      // ALTO-A: take:50 — evita carregamento de centenas de contratos históricos.
+      // Front-end usa rota /api/app/contratos?franchiseId=X para listagem completa paginada.
       contracts: {
-        include: { student: true, company: true },
+        select: {
+          id: true, numero: true, status: true, tipoEstagio: true,
+          bolsa: true, valorEmpresa: true, dataInicio: true, dataFim: true, createdAt: true,
+          student: { select: { id: true, name: true, status: true } },
+          company:  { select: { id: true, name: true } },
+        },
         orderBy: { createdAt: "desc" },
+        take: 50,
       },
       financials: { orderBy: { createdAt: "desc" }, take: 30 },
       _count: { select: { companies: true, students: { where: { status: "EM_ESTAGIO" } }, contracts: true } },
