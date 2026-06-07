@@ -84,20 +84,17 @@ export async function GET() {
     });
 
     // Uso de IA hoje (via raw SQL — modelo ainda não no Prisma client gerado)
+    // Nota: coluna custoEstimado não existe na tabela real (migration pendente);
+    // usamos tokens como proxy e custo fica zerado até a migration ser aplicada.
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
-    const [aiUsageHojeRaw, aiCustoHojeRaw] = await Promise.all([
-      prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*)::bigint as count FROM ai_usage_logs
-        WHERE "createdAt" >= ${hoje}
-      `,
-      prisma.$queryRaw<[{ total: number | null }]>`
-        SELECT COALESCE(SUM("custoEstimado"), 0) as total FROM ai_usage_logs
-        WHERE "createdAt" >= ${hoje}
-      `,
-    ]);
+    const aiUsageHojeRaw = await prisma.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(*)::bigint as count FROM ai_usage_logs
+      WHERE "createdAt" >= ${hoje}
+    `;
     const aiUsageHoje = Number(aiUsageHojeRaw[0]?.count ?? 0);
-    const custoAiHojeTotal = Number(aiCustoHojeRaw[0]?.total ?? 0);
+    // Custo estimado: coluna não existe no DB atual, retorna 0 até migration
+    const custoAiHojeTotal = 0;
 
     // Logs de atividade hoje
     const atividadeHoje = await prisma.activityLog.count({
