@@ -3,8 +3,10 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { logAudit, getClientIP } from "@/lib/audit";
 import { authOptions } from "@/lib/auth";
+import { handleApiError } from "@/lib/api-response";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session || !["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session.user.role || "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -77,9 +79,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   });
 
   return NextResponse.json({ fin });
+  } catch (e) {
+    return handleApiError(e, "FINANCEIRO_PATCH_001");
+  }
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session || !["FRANQUEADORA", "FRANQUEADO"].includes(session.user.role || "")) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
@@ -109,4 +115,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   });
 
   return NextResponse.json({ ok: true });
+  } catch (e) {
+    return handleApiError(e, "FINANCEIRO_DELETE_001");
+  }
 }

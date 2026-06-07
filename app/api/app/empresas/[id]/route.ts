@@ -3,8 +3,10 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import { handleApiError } from "@/lib/api-response";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = session.user.role || "";
@@ -28,9 +30,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 
   return NextResponse.json({ empresa });
+  } catch (e) {
+    return handleApiError(e, "EMPRESA_ID_GET");
+  }
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = session.user.role || "";
@@ -91,6 +97,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     },
   });
   return NextResponse.json({ empresa });
+  } catch (e) {
+    return handleApiError(e, "EMPRESA_ID_PATCH");
+  }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {

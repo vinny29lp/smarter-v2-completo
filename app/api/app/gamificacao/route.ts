@@ -2,8 +2,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { handleApiError } from "@/lib/api-response";
 
 export async function GET() {
+  try {
   const session = await getServerSession(authOptions);
   // SEC-M06: autenticação obrigatória — gamificação não é dado público
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -40,4 +42,7 @@ export async function GET() {
   }));
 
   return NextResponse.json({ pontos, configs, ranking });
+  } catch (e) {
+    return handleApiError(e, "GAMIFICACAO_GET");
+  }
 }

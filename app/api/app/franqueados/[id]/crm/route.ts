@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { handleApiError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "FRANQUEADORA") {
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
@@ -29,4 +31,7 @@ export async function GET(
   });
 
   return NextResponse.json({ leads });
+  } catch (e) {
+    return handleApiError(e, "FRANQUEADO_CRM_GET");
+  }
 }

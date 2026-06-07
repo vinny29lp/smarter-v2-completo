@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { wrapParaPDF } from "@/lib/pdf-wrapper";
+import { handleApiError } from "@/lib/api-response";
 
 const DISC_FULL: Record<string, any> = {
   D: {
@@ -81,6 +82,7 @@ function radarSVG(scores: Record<string, number>): string {
 }
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -296,4 +298,7 @@ ${box("🚀 Carreiras com Alta Afinidade",
   return new Response(htmlPDF, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
+  } catch (e) {
+    return handleApiError(e, "ESTUDANTE_CURRICULO_GET");
+  }
 }

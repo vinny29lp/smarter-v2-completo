@@ -3,10 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkPermission } from "@/lib/permissions";
+import { handleApiError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -36,4 +38,7 @@ export async function GET(req: Request) {
   ]);
 
   return NextResponse.json({ docs, total, page, totalPages: Math.ceil(total / limit) });
+  } catch (e) {
+    return handleApiError(e, "ASSINATURAS_GET");
+  }
 }

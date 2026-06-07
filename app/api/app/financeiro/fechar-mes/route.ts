@@ -9,8 +9,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { handleApiError } from "@/lib/api-response";
 
 export async function GET() {
+  try {
   // GET: retorna preview do fechamento sem criar registros
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "FRANQUEADORA") {
@@ -41,9 +43,13 @@ export async function GET() {
   });
 
   return NextResponse.json({ preview, totalGeral: preview.reduce((a, b) => a + b.total, 0) });
+  } catch (e) {
+    return handleApiError(e, "FINANCEIRO_FECHAR_GET");
+  }
 }
 
 export async function POST(req: Request) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "FRANQUEADORA") {
     return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
@@ -145,4 +151,7 @@ export async function POST(req: Request) {
     results,
     message: `Fechamento realizado para ${results.filter(r => !r.skipped).length} franqueado(s). Total: R$ ${totalGeral.toFixed(2).replace(".", ",")}`,
   });
+  } catch (e) {
+    return handleApiError(e, "FINANCEIRO_FECHAR_POST");
+  }
 }

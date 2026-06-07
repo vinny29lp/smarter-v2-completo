@@ -3,8 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { handleApiError } from "@/lib/api-response";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session?.user?.franchiseId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -55,9 +57,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   });
 
   return NextResponse.json({ employee: updated });
+  } catch (e) {
+    return handleApiError(e, "EQUIPE_ID_PATCH");
+  }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session?.user?.franchiseId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -70,4 +76,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   await prisma.user.update({ where: { id: emp.userId }, data: { active: false } });
 
   return NextResponse.json({ ok: true });
+  } catch (e) {
+    return handleApiError(e, "EQUIPE_ID_DELETE");
+  }
 }

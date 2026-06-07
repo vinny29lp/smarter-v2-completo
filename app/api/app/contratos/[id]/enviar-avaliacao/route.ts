@@ -3,11 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { enviarAvaliacaoLink } from "@/lib/email";
+import { handleApiError } from "@/lib/api-response";
 
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -48,4 +50,7 @@ export async function POST(
   }
 
   return NextResponse.json({ ok: true, emailEnviado: emailDestino });
+  } catch (e) {
+    return handleApiError(e, "CONTRATO_AVALIACAO_POST");
+  }
 }

@@ -3,8 +3,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { handleApiError } from "@/lib/api-response";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = session.user.role || "";
@@ -31,9 +33,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   });
   if (!franchise) return NextResponse.json({ error: "Nao encontrado" }, { status: 404 });
   return NextResponse.json({ franchise });
+  } catch (e) {
+    return handleApiError(e, "FRANQUEADOS_ID_GET");
+  }
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "FRANQUEADORA") {
     return NextResponse.json({ error: "Nao autorizado" }, { status: 403 });
@@ -87,6 +93,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     },
   });
   return NextResponse.json({ franchise });
+  } catch (e) {
+    return handleApiError(e, "FRANQUEADOS_ID_PATCH");
+  }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {

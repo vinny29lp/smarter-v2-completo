@@ -185,117 +185,128 @@ export async function GET(
 
     let contratoAtivado = false;
     let contratoInativado = false;
+    let updated: any;
 
     if (status.allSigned && document.status !== "ASSINADO") {
       updateData.status = "ASSINADO";
 
       const docTipo = document.tipo;
 
-      if (docTipo === "tce" || docTipo === "pe") {
-        // TCE: todos assinaram → contrato ATIVO
-        await prisma.contract.update({
-          where: { id: params.id },
-          data: { status: "ATIVO" },
-        });
-        contratoAtivado = true;
-
-        // Garantir estudante como EM_ESTAGIO
-        const studentId = (document.contract as any)?.student?.id || (document.contract as any)?.studentId;
-        if (studentId) {
-          await prisma.student.update({
-            where: { id: studentId },
-            data: { status: "EM_ESTAGIO" },
-          }).catch(() => {});
-        }
-
-        // ── Lançamento automático de Taxa de Administração ──────────────────
-        try {
-          const contrato = await prisma.contract.findUnique({
+      // Todas as operações de sincronização envolvidas em transaction atômica
+      updated = await prisma.$transaction(async (tx) => {
+        if (docTipo === "tce" || docTipo === "pe") {
+          // TCE: todos assinaram → contrato ATIVO
+          await tx.contract.update({
             where: { id: params.id },
-            select: {
-              valorEmpresa: true, companyId: true, franchiseId: true,
-              vencimento: true, student: { select: { name: true } },
-            },
+            data: { status: "ATIVO" },
           });
-          if (contrato?.valorEmpresa && contrato.valorEmpresa > 0) {
-            const jaExiste = await prisma.financial.findFirst({
-              where: { contractId: params.id, categoria: "Taxa Admin" },
+          contratoAtivado = true;
+
+          // Garantir estudante como EM_ESTAGIO
+          const studentId = (document.contract as any)?.student?.id || (document.contract as any)?.studentId;
+          if (studentId) {
+            await tx.student.update({
+              where: { id: studentId },
+              data: { status: "EM_ESTAGIO" },
+            }).catch(() => {});
+          }
+
+          // ── Lançamento automático de Taxa de Administração ──────────────────
+          try {
+            const contrato = await tx.contract.findUnique({
+              where: { id: params.id },
+              select: {
+                valorEmpresa: true, companyId: true, franchiseId: true,
+                vencimento: true, student: { select: { name: true } },
+              },
             });
-            if (!jaExiste) {
-              const hoje = new Date();
-              const diaVenc = contrato.vencimento || 5;
-              const vencimentoAt = new Date(hoje.getFullYear(), hoje.getMonth() + 1, diaVenc);
-              const mesRef = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
-                .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-              await prisma.financial.create({
-                data: {
-                  descricao: `Taxa Admin — ${contrato.student?.name} — ${mesRef}`,
-                  tipo: "entrada",
-                  valor: contrato.valorEmpresa,
+            if (contrato?.valorEmpresa && contrato.valorEmpresa > 0) {
+              const jaExiste = await tx.financial.findFirst({
+                where: { contractId: params.id, categoria: "Taxa Admin" },
+              });
+              if (!jaExiste) {
+                const hoje = new Date();
+                const diaVenc = contrato.vencimento || 5;
+                const vencimentoAt = new Date(hoje.getFullYear(), hoje.getMonth() + 1, diaVenc);
+                const mesRef = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
+                  .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+                await tx.financial.create({
+                  data: {
+                    descricao: `Taxa Admin — ${contrato.student?.name} — ${mesRef}`,
+                    tipo: "entrada",
+                    valor: contrato.valorEmpresa,
+                    categoria: "Taxa Admin",
+                    status: "PENDENTE",
+                    recorrente: true,
+                    diaVencimento: diaVenc,
+                    vencimentoAt,
+                    contractId: params.id,
+                    companyId: contrato.companyId,
+                    franchiseId: contrato.franchiseId,
+                  } as any,
+                });
+              }
+            }
+          } catch (finErr) {
+            console.error("[Financeiro] Erro ao criar lançamento taxa admin:", finErr);
+            // Não bloqueia o fluxo principal
+          }
+
+        } else if (docTipo === "tr") {
+          // TR: todos assinaram → garantir contrato INATIVO
+          await tx.contract.update({
+            where: { id: params.id },
+            data: { status: "INATIVO" as any },
+          });
+          contratoInativado = true;
+
+          // Rescisão: estudante volta a ficar disponível
+          const studentId = (document.contract as any)?.student?.id || (document.contract as any)?.studentId;
+          if (studentId) {
+            await tx.student.update({
+              where: { id: studentId },
+              data: { status: "DISPONIVEL" },
+            }).catch(() => {});
+          }
+
+          // ── Regra de rescisão: dia 10 ────────────────────────────────────────
+          // Se rescisão APÓS dia 10: cobrança do próximo mês ainda será feita (mantém pendentes)
+          // Se rescisão ATÉ dia 10: cancela a cobrança pendente do mês atual para este contrato
+          try {
+            const diaHoje = new Date().getDate();
+            if (diaHoje <= 10) {
+              // Cancelar lançamento pendente do mês atual para este contrato
+              const iniciaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+              await tx.financial.updateMany({
+                where: {
+                  contractId: params.id,
                   categoria: "Taxa Admin",
                   status: "PENDENTE",
-                  recorrente: true,
-                  diaVencimento: diaVenc,
-                  vencimentoAt,
-                  contractId: params.id,
-                  companyId: contrato.companyId,
-                  franchiseId: contrato.franchiseId,
-                } as any,
+                  createdAt: { gte: iniciaMes },
+                },
+                data: { cancelado: true, status: "CANCELADO" as any },
               });
             }
+            // Se após dia 10: não faz nada — última cobrança já está pendente ou será mantida
+          } catch (finErr) {
+            console.error("[Financeiro] Erro ao aplicar regra rescisão:", finErr);
           }
-        } catch (finErr) {
-          console.error("[Financeiro] Erro ao criar lançamento taxa admin:", finErr);
-          // Não bloqueia o fluxo principal
         }
+        // Outros documentos: não alteram o status do contrato
 
-      } else if (docTipo === "tr") {
-        // TR: todos assinaram → garantir contrato INATIVO
-        await prisma.contract.update({
-          where: { id: params.id },
-          data: { status: "INATIVO" as any },
+        // updateData final (internshipDocument.update) também dentro da transaction
+        return tx.internshipDocument.update({
+          where: { id: params.docId },
+          data: updateData,
         });
-        contratoInativado = true;
-
-        // Rescisão: estudante volta a ficar disponível
-        const studentId = (document.contract as any)?.student?.id || (document.contract as any)?.studentId;
-        if (studentId) {
-          await prisma.student.update({
-            where: { id: studentId },
-            data: { status: "DISPONIVEL" },
-          }).catch(() => {});
-        }
-
-        // ── Regra de rescisão: dia 10 ────────────────────────────────────────
-        // Se rescisão APÓS dia 10: cobrança do próximo mês ainda será feita (mantém pendentes)
-        // Se rescisão ATÉ dia 10: cancela a cobrança pendente do mês atual para este contrato
-        try {
-          const diaHoje = new Date().getDate();
-          if (diaHoje <= 10) {
-            // Cancelar lançamento pendente do mês atual para este contrato
-            const iniciaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-            await prisma.financial.updateMany({
-              where: {
-                contractId: params.id,
-                categoria: "Taxa Admin",
-                status: "PENDENTE",
-                createdAt: { gte: iniciaMes },
-              },
-              data: { cancelado: true, status: "CANCELADO" as any },
-            });
-          }
-          // Se após dia 10: não faz nada — última cobrança já está pendente ou será mantida
-        } catch (finErr) {
-          console.error("[Financeiro] Erro ao aplicar regra rescisão:", finErr);
-        }
-      }
-      // Outros documentos: não alteram o status do contrato
+      });
+    } else {
+      // Sem mudança de status: atualiza normalmente fora de transaction
+      updated = await prisma.internshipDocument.update({
+        where: { id: params.docId },
+        data: updateData,
+      });
     }
-
-    const updated = await prisma.internshipDocument.update({
-      where: { id: params.docId },
-      data: updateData,
-    });
 
     return NextResponse.json({
       ok: true,

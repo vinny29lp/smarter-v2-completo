@@ -2,8 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { handleApiError } from "@/lib/api-response";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = session.user.role || "";
@@ -40,4 +42,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     include: { student: true, vacancy: { include: { company: true } } },
   });
   return NextResponse.json({ application: app });
+  } catch (e) {
+    return handleApiError(e, "PROCESSO_ID_PATCH");
+  }
 }

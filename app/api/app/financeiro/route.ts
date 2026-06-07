@@ -4,10 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { logAudit, getClientIP } from "@/lib/audit";
 import { criarLancamentoSchema, zodError } from "@/lib/api-schemas";
+import { handleApiError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -51,9 +53,13 @@ export async function GET(req: Request) {
   ]);
 
   return NextResponse.json({ lancamentos, total, page, totalPages: Math.ceil(total / limit) });
+  } catch (e) {
+    return handleApiError(e, "FINANCEIRO_GET_001");
+  }
 }
 
 export async function POST(req: Request) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -103,4 +109,7 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json({ lancamento });
+  } catch (e) {
+    return handleApiError(e, "FINANCEIRO_POST_001");
+  }
 }

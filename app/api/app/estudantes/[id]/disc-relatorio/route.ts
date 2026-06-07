@@ -4,8 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { gerarRelatorioDisc } from "@/lib/documents/disc-report";
 import { wrapParaPDF } from "@/lib/pdf-wrapper";
 import { NextResponse } from "next/server";
+import { handleApiError } from "@/lib/api-response";
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -33,4 +35,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       "Content-Type": "text/html; charset=utf-8",
     },
   });
+  } catch (e) {
+    return handleApiError(e, "ESTUDANTE_DISC_GET");
+  }
 }

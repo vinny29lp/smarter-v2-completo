@@ -3,8 +3,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { handleApiError } from "@/lib/api-response";
 
 export async function GET() {
+  try {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "FRANQUEADORA") {
     return NextResponse.json({ error: "Nao autorizado" }, { status: 403 });
@@ -20,9 +22,13 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ franqueados });
+  } catch (e) {
+    return handleApiError(e, "FRANQUEADOS_GET_001");
+  }
 }
 
 export async function POST(req: Request) {
+  try {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "FRANQUEADORA") {
     return NextResponse.json({ error: "Nao autorizado" }, { status: 403 });
@@ -56,4 +62,7 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json({ franchise, user, senhaGerada: senha });
+  } catch (e) {
+    return handleApiError(e, "FRANQUEADOS_POST_001");
+  }
 }

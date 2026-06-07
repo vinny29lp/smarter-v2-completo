@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
+import { handleApiError } from "@/lib/api-response";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -17,6 +18,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -48,4 +50,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     },
   });
   return NextResponse.json({ instituicao: inst });
+  } catch (e) {
+    return handleApiError(e, "INSTITUICAO_PATCH");
+  }
 }

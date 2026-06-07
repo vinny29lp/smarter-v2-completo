@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { handleApiError } from "@/lib/api-response";
 
 export async function POST(req: Request) {
+  try {
   const { studentId, vacancyId } = await req.json();
   if (!studentId || !vacancyId) return NextResponse.json({ error: "Dados faltando." }, { status: 400 });
 
@@ -24,4 +26,7 @@ export async function POST(req: Request) {
     data: { studentId, vacancyId, matching },
   });
   return NextResponse.json({ application });
+  } catch (e) {
+    return handleApiError(e, "PROCESSO_CANDIDATAR_POST");
+  }
 }

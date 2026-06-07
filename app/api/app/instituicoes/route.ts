@@ -4,10 +4,12 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { checkPermission } from "@/lib/permissions";
+import { handleApiError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -20,9 +22,13 @@ export async function GET(req: Request) {
     orderBy: { name: "asc" },
   });
   return NextResponse.json({ instituicoes });
+  } catch (e) {
+    return handleApiError(e, "INSTITUICOES_GET");
+  }
 }
 
 export async function POST(req: Request) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -44,4 +50,7 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ instituicao: inst });
+  } catch (e) {
+    return handleApiError(e, "INSTITUICOES_POST");
+  }
 }

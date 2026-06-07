@@ -5,11 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { gerarAvaliacaoRespondidaPDF } from "@/lib/documents/templates";
 import { wrapParaPDF } from "@/lib/pdf-wrapper";
 import { getSystemConfig } from "@/lib/getConfig";
+import { handleApiError } from "@/lib/api-response";
 
 export async function GET(
   _req: Request,
   { params }: { params: { id: string; evalId: string } }
 ) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -76,4 +78,7 @@ export async function GET(
   return new Response(wrapped, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
+  } catch (e) {
+    return handleApiError(e, "AVALIACAO_PDF_GET");
+  }
 }

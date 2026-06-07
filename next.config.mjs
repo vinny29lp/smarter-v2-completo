@@ -1,9 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
+    // TODO: FASE 7 — Remover após corrigir os erros ESLint nos 14 arquivos identificados
+    // Arquivos com erros: ver docs/RELATORIO-BUILD.md
     ignoreDuringBuilds: true,
   },
   typescript: {
+    // TODO: FASE 7 — Remover após corrigir os 54 erros TypeScript identificados
+    // Causa raiz: schema Prisma desatualizado (campos chavePix, cobrarMensalidade,
+    // emailFinanceiro, aIUsageLog, financialSendLog, autentiqueToken, resendApiKey,
+    // origem não estão no Prisma Client gerado).
+    // Correção: rodar `npx prisma generate` após push do schema completo ao Supabase.
+    // Arquivos com erros: ver docs/RELATORIO-BUILD.md
     ignoreBuildErrors: true,
   },
   // ⚡ Compressão de resposta ativa
@@ -44,8 +52,6 @@ const nextConfig = {
   },
   env: {
     // Garante que NEXTAUTH_URL seja correto em produção no Vercel
-    // Se a variável de ambiente já estiver definida corretamente, mantém o valor.
-    // Se for o placeholder ou estiver ausente, usa a URL de produção.
     NEXTAUTH_URL:
       process.env.NEXTAUTH_URL &&
       process.env.NEXTAUTH_URL !== "https://SEU-PROJETO.vercel.app"

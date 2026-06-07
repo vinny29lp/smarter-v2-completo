@@ -80,19 +80,9 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // Criar usuário e estudante
+      // Criar usuário e estudante atomicamente (transaction interativa para poder usar user.id)
       const senhaPlain = Math.random().toString(36).slice(-8);
       const hash = await bcrypt.hash(senhaPlain, 10);
-
-      const user = await prisma.user.create({
-        data: {
-          name: nome,
-          email,
-          password: hash,
-          role: "ESTUDANTE",
-          franchiseId: franchiseId || undefined,
-        },
-      });
 
       // Parsear data de nascimento
       let dataNasc: Date | null = null;
@@ -101,24 +91,36 @@ export async function POST(req: Request) {
         if (!isNaN(d.getTime())) dataNasc = d;
       }
 
-      await prisma.student.create({
-        data: {
-          userId: user.id,
-          name: nome,
-          cpf: cpfLimpo || null,
-          email,
-          telefone: (row.telefone || row.celular || "").replace(/\D/g, "").slice(0, 20) || null,
-          dataNasc,
-          curso: row.curso || "Não informado",
-          cep: row.cep || null,
-          endereco: row.endereco || null,
-          bairro: row.bairro || null,
-          cidade: row.cidade || null,
-          uf: row.uf ? row.uf.toUpperCase().slice(0, 2) : null,
-          franchiseId: franchiseId || undefined,
-          habilidades: [],
-          status: "DISPONIVEL",
-        },
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            name: nome,
+            email,
+            password: hash,
+            role: "ESTUDANTE",
+            franchiseId: franchiseId || undefined,
+          },
+        });
+
+        await tx.student.create({
+          data: {
+            userId: user.id,
+            name: nome,
+            cpf: cpfLimpo || null,
+            email,
+            telefone: (row.telefone || row.celular || "").replace(/\D/g, "").slice(0, 20) || null,
+            dataNasc,
+            curso: row.curso || "Não informado",
+            cep: row.cep || null,
+            endereco: row.endereco || null,
+            bairro: row.bairro || null,
+            cidade: row.cidade || null,
+            uf: row.uf ? row.uf.toUpperCase().slice(0, 2) : null,
+            franchiseId: franchiseId || undefined,
+            habilidades: [],
+            status: "DISPONIVEL",
+          },
+        });
       });
 
       resultado.importados++;
