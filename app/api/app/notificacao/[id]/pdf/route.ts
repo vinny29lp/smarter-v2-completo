@@ -27,7 +27,7 @@ export async function GET(
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  const dt = new Date(notification.createdAt).toLocaleDateString("pt-BR", {
+  const dt = new Date(notification.createdAt ?? new Date()).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "long",
     year: "numeric",

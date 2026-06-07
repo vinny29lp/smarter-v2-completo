@@ -990,7 +990,7 @@ export function gerarAvaliacaoRespondidaPDF(params: {
   cidade: string;
   periodo: string;
   respondidoAt?: string;
-  respostas: Record<string, number>;
+  respostas: Record<string, string | number>;
   observacoes?: string;
 }): string {
   const { numero, nomeEstagiario, cursoEstagiario, nomeEmpresa, supervisor, nomeAgente, cidade, periodo, respondidoAt, respostas, observacoes } = params;
@@ -1010,14 +1010,17 @@ export function gerarAvaliacaoRespondidaPDF(params: {
   const CONCEITO = (n: number) => n >= 5 ? "Excelente" : n === 4 ? "Otimo" : n === 3 ? "Bom" : n === 2 ? "Regular" : "Insuficiente";
   const COR = (n: number) => n >= 4 ? "#10b981" : n === 3 ? "#3b82f6" : n === 2 ? "#f59e0b" : "#ef4444";
 
-  const totalNotas = CRITERIOS.reduce((acc, cr) => acc + (respostas[cr.key] || 0), 0);
+  // Campos numéricos: cast explícito para garantir type-safety (respostas é Record<string, string|number>)
+  const numVal = (key: string) => Number(respostas[key]) || 0;
+
+  const totalNotas = CRITERIOS.reduce((acc, cr) => acc + numVal(cr.key), 0);
   const media = totalNotas / CRITERIOS.length;
   const mediaFormatada = media.toFixed(1);
   const corMedia = media >= 4 ? "#10b981" : media >= 3 ? "#3b82f6" : media >= 2 ? "#f59e0b" : "#ef4444";
   const conceitoMedia = CONCEITO(Math.round(media));
 
   const rows = CRITERIOS.map(cr => {
-    const nota = respostas[cr.key] || 0;
+    const nota = numVal(cr.key);
     const cor = COR(nota);
     const estrelas = [1,2,3,4,5].map(s =>
       `<span style="font-size:14px;color:${s <= nota ? "#f5c400" : "#d1d5db"}">&#9733;</span>`

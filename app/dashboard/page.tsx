@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { unstable_cache } from "next/cache";
 import { Card }  from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
@@ -185,6 +186,47 @@ async function getFranqueadosResumo() {
   });
 }
 
+// ─── Cache wrappers (unstable_cache – TTL 30s) ───────────────────
+// Apenas operações de LEITURA são cacheadas.
+// Escritas e mutações NUNCA passam por estas funções — sem risco de cache stale em dados críticos.
+// Cache-key inclui os argumentos → entradas separadas por franchiseId.
+// Após 30s o Next.js revalida automaticamente na próxima requisição (stale-while-revalidate).
+const cachedGetKpis = unstable_cache(
+  getKpis,
+  ["dashboard-kpis"],
+  { revalidate: 30, tags: ["dashboard"] }
+);
+const cachedGetFranquias = unstable_cache(
+  getFranquias,
+  ["dashboard-franquias"],
+  { revalidate: 30, tags: ["dashboard"] }
+);
+const cachedGetFinanceiro = unstable_cache(
+  getFinanceiro,
+  ["dashboard-financeiro"],
+  { revalidate: 30, tags: ["dashboard"] }
+);
+const cachedGetProximos5Dias = unstable_cache(
+  getProximos5Dias,
+  ["dashboard-agenda"],
+  { revalidate: 30, tags: ["dashboard"] }
+);
+const cachedGetContratacoesRecentes = unstable_cache(
+  getContratacoesRecentes,
+  ["dashboard-recentes"],
+  { revalidate: 30, tags: ["dashboard"] }
+);
+const cachedGetFranqueadosResumo = unstable_cache(
+  getFranqueadosResumo,
+  ["dashboard-franqueados"],
+  { revalidate: 30, tags: ["dashboard"] }
+);
+const cachedGetRanking = unstable_cache(
+  getRanking,
+  ["dashboard-ranking"],
+  { revalidate: 30, tags: ["dashboard"] }
+);
+
 // ─── Page ────────────────────────────────────────────────────────
 export default async function DashboardPage() {
   const session    = await getServerSession(authOptions);
@@ -195,17 +237,19 @@ export default async function DashboardPage() {
   // Admin vê apenas os seus lembretes — para ver de outras unidades, acessa o cadastro delas.
   const filtroAgenda: string | undefined = session!.user.franchiseId ?? undefined;
 
-  // ⚡ Todas as queries em paralelo — de sequencial para Promise.all
+  // ⚡ Todas as queries em paralelo com cache de 30s (unstable_cache)
+  // Leituras: servidas do cache → reduz carga no banco.
+  // Solicitações de usuário específico: não cacheadas (dado pessoal/tempo-real).
   const [kpis, fin, agenda, recentes, ranking, franquias, franqueados, solicitations] =
     await Promise.all([
-      getKpis(filtro),
-      getFinanceiro(filtro),
-      getProximos5Dias(filtroAgenda),
-      getContratacoesRecentes(filtro),
-      getRanking(),
-      isMaster ? getFranquias()         : Promise.resolve(null),
-      isMaster ? getFranqueadosResumo() : Promise.resolve([]),
-      // Solicitações de estagiário não lidas (apenas FRANQUEADO e FUNCIONARIO da unidade)
+      cachedGetKpis(filtro),
+      cachedGetFinanceiro(filtro),
+      cachedGetProximos5Dias(filtroAgenda),
+      cachedGetContratacoesRecentes(filtro),
+      cachedGetRanking(),
+      isMaster ? cachedGetFranquias()         : Promise.resolve(null),
+      isMaster ? cachedGetFranqueadosResumo() : Promise.resolve([]),
+      // Solicitações NÃO cacheadas — dado pessoal e tempo-real por usuário
       (role === "FRANQUEADO" || role === "FUNCIONARIO")
         ? prisma.notification.findMany({
             where: { userId: (session!.user as any).id, tipo: "SOLICITACAO_ESTAGIARIO", lida: false },
@@ -243,7 +287,7 @@ export default async function DashboardPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {solicitations.map(s => {
-              const dt = new Date(s.createdAt);
+              const dt = new Date(s.createdAt ?? new Date());
               return (
                 <Card key={s.id} className="p-4 border-l-4 border-blue-400 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between gap-2">

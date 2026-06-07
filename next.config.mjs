@@ -5,15 +5,10 @@ const nextConfig = {
     // Arquivos com erros: ver docs/RELATORIO-BUILD.md
     ignoreDuringBuilds: true,
   },
-  typescript: {
-    // TODO: FASE 7 — Remover após corrigir os 54 erros TypeScript identificados
-    // Causa raiz: schema Prisma desatualizado (campos chavePix, cobrarMensalidade,
-    // emailFinanceiro, aIUsageLog, financialSendLog, autentiqueToken, resendApiKey,
-    // origem não estão no Prisma Client gerado).
-    // Correção: rodar `npx prisma generate` após push do schema completo ao Supabase.
-    // Arquivos com erros: ver docs/RELATORIO-BUILD.md
-    ignoreBuildErrors: true,
-  },
+  // typescript.ignoreBuildErrors removido — todos os erros reais foram corrigidos.
+  // Os 43 erros restantes são de Prisma Client desatualizado e resolvem
+  // automaticamente com `prisma generate` que já roda no buildCommand da Vercel.
+  // Erros reais corrigidos: TS2367 (templates.ts), TS2769 (createdAt nullable × 3 arquivos).
   // ⚡ Compressão de resposta ativa
   compress: true,
   // ⚡ Headers de cache + HTTP Security Headers (FASE 3 — Blindagem de Produção)

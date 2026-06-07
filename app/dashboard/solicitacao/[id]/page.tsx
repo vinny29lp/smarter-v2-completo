@@ -25,7 +25,7 @@ export default async function SolicitacaoPage({ params }: { params: { id: string
     redirect("/dashboard");
   }
 
-  const dt = new Date(notification.createdAt);
+  const dt = new Date(notification.createdAt ?? new Date());
 
   // Marcar como lida
   await prisma.notification.update({
