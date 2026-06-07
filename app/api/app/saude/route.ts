@@ -36,6 +36,7 @@ export async function GET() {
 
     // ── 1. Supabase / Banco ─────────────────────────────────────────────────
     const dbInicio = Date.now();
+    // Modelos presentes no Prisma client gerado
     const [
       totalUsers,
       totalStudents,
@@ -45,8 +46,6 @@ export async function GET() {
       totalFinancials,
       totalVacancies,
       totalDocuments,
-      totalAiLogs,
-      totalImportLogs,
       totalActivityLogs,
     ] = await Promise.all([
       prisma.user.count(),
@@ -57,42 +56,48 @@ export async function GET() {
       prisma.financial.count(),
       prisma.vacancy.count(),
       prisma.internshipDocument.count(),
-      prisma.aIUsageLog.count(),
-      prisma.importLog.count(),
       prisma.activityLog.count(),
     ]);
+
+    // ai_usage_logs e import_logs usam raw SQL pois o Prisma client
+    // ainda não foi regenerado após a adição desses modelos ao schema
+    const [aiLogsCountRaw, importLogsCountRaw] = await Promise.all([
+      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM ai_usage_logs`,
+      prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM import_logs`,
+    ]);
+    const totalAiLogs = Number(aiLogsCountRaw[0]?.count ?? 0);
+    const totalImportLogs = Number(importLogsCountRaw[0]?.count ?? 0);
     const dbLatencia = Date.now() - dbInicio;
 
-    // Contratos ativos
+    // Contratos ativos (apenas status válidos no enum ContractStatus)
     const contratosAtivos = await prisma.contract.count({
-      where: { status: { in: ["ATIVO", "EM_ANDAMENTO"] } },
+      where: { status: "ATIVO" },
     });
 
     // Estudantes ativos (com contrato ativo)
     const estudantesAtivos = await prisma.student.count({
       where: {
         contracts: {
-          some: { status: { in: ["ATIVO", "EM_ANDAMENTO"] } },
+          some: { status: "ATIVO" },
         },
       },
     });
 
-    // Uso de IA hoje
+    // Uso de IA hoje (via raw SQL — modelo ainda não no Prisma client gerado)
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
-    const [aiUsageHoje, aiCustoHoje] = await Promise.all([
-      prisma.aIUsageLog.count({
-        where: { createdAt: { gte: hoje } },
-      }),
-      prisma.aIUsageLog.findMany({
-        where: { createdAt: { gte: hoje } },
-        select: { cost: true },
-      }),
+    const [aiUsageHojeRaw, aiCustoHojeRaw] = await Promise.all([
+      prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*)::bigint as count FROM ai_usage_logs
+        WHERE "createdAt" >= ${hoje}
+      `,
+      prisma.$queryRaw<[{ total: number | null }]>`
+        SELECT COALESCE(SUM("custoEstimado"), 0) as total FROM ai_usage_logs
+        WHERE "createdAt" >= ${hoje}
+      `,
     ]);
-    const custoAiHojeTotal = aiCustoHoje.reduce(
-      (acc: number, l: { cost: number | null }) => acc + (l.cost ?? 0),
-      0
-    );
+    const aiUsageHoje = Number(aiUsageHojeRaw[0]?.count ?? 0);
+    const custoAiHojeTotal = Number(aiCustoHojeRaw[0]?.total ?? 0);
 
     // Logs de atividade hoje
     const atividadeHoje = await prisma.activityLog.count({
