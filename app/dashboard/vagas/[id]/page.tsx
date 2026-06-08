@@ -92,7 +92,7 @@ export default async function VagaDetailPage({ params }: { params: { id: string 
                 <tr key={a.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
                   <td className="px-4 py-3">
                     <p className="text-sm font-semibold">{a.student.name}</p>
-                    <p className="text-xs text-slate-400">{a.student.user.email}</p>
+                    <p className="text-xs text-slate-400">{a.student.email}</p>
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-600">{a.student.curso||"—"}</td>
                   <td className="px-4 py-3 text-xs text-slate-500">{(a.student as any).institution?.name||"—"}</td>

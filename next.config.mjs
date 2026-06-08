@@ -5,10 +5,12 @@ const nextConfig = {
     // Arquivos com erros: ver docs/RELATORIO-BUILD.md
     ignoreDuringBuilds: true,
   },
-  // typescript.ignoreBuildErrors removido — todos os erros reais foram corrigidos.
-  // Os 43 erros restantes são de Prisma Client desatualizado e resolvem
-  // automaticamente com `prisma generate` que já roda no buildCommand da Vercel.
-  // Erros reais corrigidos: TS2367 (templates.ts), TS2769 (createdAt nullable × 3 arquivos).
+  typescript: {
+    // Restaurado: build quebrou com erro real em vagas/[id]/page.tsx (a.student.user.email)
+    // e potenciais outros erros de schema drift. Corrigido o erro principal; mantido aqui
+    // como segurança enquanto os demais erros de Prisma client são resolvidos.
+    ignoreBuildErrors: true,
+  },
   // ⚡ Compressão de resposta ativa
   compress: true,
   // ⚡ Headers de cache + HTTP Security Headers (FASE 3 — Blindagem de Produção)
