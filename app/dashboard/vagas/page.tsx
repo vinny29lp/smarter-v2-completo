@@ -7,7 +7,7 @@ import Link from "next/link";
 
 export default async function VagasPage() {
   const session = await getServerSession(authOptions);
-  const { vagas } = await getVacancies(
+  const vagas = await getVacancies(
     session?.user?.franchiseId,
     session?.user?.companyId
   );

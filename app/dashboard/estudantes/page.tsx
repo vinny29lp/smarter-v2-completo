@@ -19,8 +19,9 @@ export default async function EstudantesPage({ searchParams }: {
   searchParams: { q?:string; status?:string; cidade?:string; disc?:string; curso?:string }
 }) {
   const session = await getServerSession(authOptions);
-  // Estudantes são visíveis para todos os painéis (franqueadora e unidades)
-  const all = await getStudents();
+  // FRANQUEADORA vê todos; FRANQUEADO/FUNCIONARIO vê apenas da própria unidade
+  const franchiseId = session?.user?.franchiseId || undefined;
+  const all = await getStudents(franchiseId);
 
   // Filtros server-side
   let estudantes = all;

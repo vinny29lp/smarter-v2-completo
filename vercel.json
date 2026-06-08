@@ -3,5 +3,11 @@
   "buildCommand": "rm -rf .vercel/output && prisma generate && next build",
   "installCommand": "npm install",
   "outputDirectory": ".next",
-  "regions": ["gru1"]
+  "regions": ["gru1"],
+  "crons": [
+    {
+      "path": "/api/app/admin/cleanup",
+      "schedule": "0 3 * * 0"
+    }
+  ]
 }
