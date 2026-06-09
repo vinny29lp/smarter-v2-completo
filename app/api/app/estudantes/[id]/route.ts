@@ -9,16 +9,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   // SEC-A06: guarda explícita de autenticação
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const role = session.user.role || "";
-  const viewerFranchiseId = session.user.franchiseId;
-
   const estudante = await prisma.student.findUnique({
     where: { id: params.id },
     include: {
       user: { select: { id: true, email: true, active: true, lastLoginAt: true } },
       institution: true,
       contracts: {
-        where: viewerFranchiseId ? { franchiseId: viewerFranchiseId } : {},
         include: { company: true },
         orderBy: { createdAt: "desc" },
       },
@@ -26,11 +22,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     },
   });
   if (!estudante) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  // Ownership check: FRANQUEADO/FUNCIONARIO só acessa estudante da própria franquia
-  if (role !== "FRANQUEADORA" && estudante.franchiseId && estudante.franchiseId !== viewerFranchiseId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   return NextResponse.json({ estudante });
 }

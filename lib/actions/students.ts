@@ -2,11 +2,10 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-// FRANQUEADO vê apenas estudantes da sua unidade; FRANQUEADORA vê todos
 // ⚡ Otimizado: select apenas campos necessários para listagem (sem user completo, sem franchise completo)
-export async function getStudents(franchiseId?: string) {
+export async function getStudents() {
   return prisma.student.findMany({
-    where: franchiseId ? { franchiseId } : {},
+    where: {},
     select: {
       id: true, name: true, email: true, cpf: true,
       curso: true, cidade: true, uf: true,
