@@ -7,10 +7,17 @@ import Link from "next/link";
 
 export default async function VagasPage() {
   const session = await getServerSession(authOptions);
-  const vagas = await getVacancies(
-    session?.user?.franchiseId,
-    session?.user?.companyId
-  );
+
+  let vagas: Awaited<ReturnType<typeof getVacancies>>["vagas"] = [];
+  try {
+    const result = await getVacancies(
+      session?.user?.franchiseId,
+      session?.user?.companyId
+    );
+    vagas = result.vagas;
+  } catch (err) {
+    console.error("[dashboard/vagas] erro ao carregar vagas:", err);
+  }
 
   const abertas = vagas.filter(v => v.status === "ABERTA").length;
 

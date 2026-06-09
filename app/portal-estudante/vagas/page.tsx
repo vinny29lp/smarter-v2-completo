@@ -4,10 +4,36 @@ import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { VagaInscricaoButton } from "./VagaInscricaoButton";
+import { redirect } from "next/navigation";
 
 export default async function EstudanteVagas() {
   const session = await getServerSession(authOptions);
-  const studentId = session?.user?.studentId!;
+
+  // Garante que a sessão existe e pertence a um estudante com perfil vinculado.
+  // Sem esse guard, studentId seria undefined e:
+  //   1. findUnique({ where: { id: undefined } }) explode com server exception
+  //   2. findMany({ where: { studentId: undefined } }) ignora o filtro e vaza
+  //      as candidaturas de TODOS os estudantes do sistema.
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const studentId = session.user.studentId;
+
+  if (!studentId) {
+    return (
+      <div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-black text-slate-800">Vagas Abertas</h1>
+        </div>
+        <Card className="p-12 text-center">
+          <p className="text-4xl mb-3">💼</p>
+          <p className="text-slate-600 font-semibold">Perfil de estudante não encontrado</p>
+          <p className="text-slate-400 text-sm mt-1">Seu cadastro ainda está sendo processado. Entre em contato com a Smarter Estágios.</p>
+        </Card>
+      </div>
+    );
+  }
 
   const [vagas, student, candidaturas] = await Promise.all([
     prisma.vacancy.findMany({
@@ -46,7 +72,7 @@ export default async function EstudanteVagas() {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <p className="font-bold text-slate-800">{v.titulo}</p>
-                    <p className="text-sm text-slate-500 mt-0.5">{v.company.name} • {v.company.cidade}/{v.company.uf}</p>
+                    <p className="text-sm text-slate-500 mt-0.5">{v.company.name}{v.company.cidade && v.company.uf ? ` • ${v.company.cidade}/${v.company.uf}` : ""}</p>
                   </div>
                   <div className="ml-2">
                     <div className="flex items-center gap-1.5">
