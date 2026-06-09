@@ -82,6 +82,12 @@ function CadastroContent() {
           </div>
           <h1 className="text-2xl font-black text-white">Cadastro de Estudante</h1>
           <p className="text-white/70 text-sm mt-1">Crie seu perfil e encontre oportunidades de estágio</p>
+          <a
+            href="/login"
+            className="inline-block mt-3 px-5 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl border border-white/20 transition-colors"
+          >
+            Já tenho cadastro → Acessar o sistema
+          </a>
         </div>
 
         {/* Steps */}

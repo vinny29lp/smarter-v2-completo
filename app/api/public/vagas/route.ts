@@ -8,9 +8,12 @@ export async function GET(req: Request) {
     const cidade = searchParams.get("cidade");
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
 
+    const uf = searchParams.get("uf");
+
     const where: Record<string, unknown> = { status: "ABERTA" };
     if (area) where.area = { contains: area, mode: "insensitive" };
     if (cidade) where.cidade = { contains: cidade, mode: "insensitive" };
+    if (uf) where.uf = { equals: uf.toUpperCase() };
 
     const vagas = await prisma.vacancy.findMany({
       where,
