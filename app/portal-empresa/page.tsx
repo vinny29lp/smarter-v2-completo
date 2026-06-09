@@ -11,15 +11,32 @@ export default async function PortalEmpresaHome() {
   if (!companyId) return <div className="text-center py-12 text-slate-400">Empresa não vinculada à sua conta.</div>;
 
   const [empresa, contratos, avaliacoesPendentes, financeiros] = await Promise.all([
-    prisma.company.findUnique({ where: { id: companyId } }),
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, name: true, status: true },
+    }),
+    // select em vez de include completo — evita carregar CPF, RG, endereço e outros campos
+    // sensíveis do Student que a home da empresa não precisa exibir.
+    // take: 50 previne OOM em empresas com histórico longo de contratos.
     prisma.contract.findMany({
       where: { companyId, status: { in: ["ATIVO","PENDENTE","AGUARDANDO_ASSINATURA"] } },
-      include: { student: true, documents: true },
+      select: {
+        id: true, status: true, bolsa: true, dataFim: true,
+        student: { select: { id: true, name: true } },
+        documents: { select: { id: true, titulo: true, status: true } },
+      },
       orderBy: { createdAt: "desc" },
+      take: 50,
     }),
+    // Avaliações pendentes: select mínimo para exibir o nome do estudante no alerta.
+    // take: 20 — improvável ter mais de 20 avaliações pendentes simultâneas.
     prisma.evaluation.findMany({
       where: { contract: { companyId }, status: "pendente" },
-      include: { contract: { include: { student: true } } },
+      select: {
+        id: true,
+        contract: { select: { student: { select: { name: true } } } },
+      },
+      take: 20,
     }),
     prisma.financial.findMany({
       where: { companyId, status: "PENDENTE" },

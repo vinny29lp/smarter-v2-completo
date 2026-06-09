@@ -22,11 +22,7 @@ export async function GET(req: Request) {
   const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
   const skip  = (page - 1) * limit;
 
-  // FRANQUEADO vê apenas estudantes da sua franquia
-  const role = session.user.role;
-  const where = role === "FRANQUEADO" && session.user.franchiseId
-    ? { franchiseId: session.user.franchiseId }
-    : {};
+  const where = {};
 
   const [estudantes, total] = await Promise.all([
     prisma.student.findMany({

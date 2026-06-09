@@ -35,24 +35,42 @@ export default async function EngajamentoPage({
     },
   });
 
-  // Se tem foco em uma unidade, buscar detalhes
+  // Se tem foco em uma unidade, buscar detalhes.
+  // take: 100 em todas as queries — evita timeout de 30s da Vercel em franqueadas com
+  // histórico longo. A page de engajamento exibe métricas/contagens, não lista completa.
   let focusData: any = null;
   if (focusId) {
     const [contratos, vagas, leads, pontos] = await Promise.all([
       prisma.contract.findMany({
         where: { franchiseId: focusId, createdAt: { gte: dataLimite } },
-        include: { student: true, company: true },
+        select: {
+          id: true, status: true, createdAt: true,
+          student: { select: { id: true, name: true } },
+          company: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
       }),
       prisma.vacancy.findMany({
         where: { franchiseId: focusId, createdAt: { gte: dataLimite } },
-        include: { company: true },
+        select: {
+          id: true, titulo: true, status: true, createdAt: true,
+          company: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
       }),
       prisma.crmLead.findMany({
         where: { franchiseId: focusId, updatedAt: { gte: dataLimite } },
+        select: { id: true, empresa: true, situacao: true, updatedAt: true, pontos: true },
+        orderBy: { updatedAt: "desc" },
+        take: 100,
       }),
       prisma.gamificationPoint.findMany({
         where: { franchiseId: focusId, createdAt: { gte: dataLimite } },
+        select: { id: true, acao: true, pontos: true, createdAt: true },
         orderBy: { createdAt: "desc" },
+        take: 100,
       }),
     ]);
     focusData = { contratos, vagas, leads, pontos };

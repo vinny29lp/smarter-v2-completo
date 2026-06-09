@@ -20,12 +20,15 @@ export default async function EstudanteProcessos() {
     return <p className="text-slate-400 text-center py-12">Perfil de estudante não encontrado.</p>;
   }
 
+  // take: 50 — evita carregar histórico ilimitado de candidaturas.
+  // Estudantes que se candidatam a muitas vagas não travam a page.
   const candidaturas = await prisma.application.findMany({
     where: { studentId },
     include: {
       vacancy: { include: { company: { select: { name: true, cidade: true, uf: true } } } },
     },
     orderBy: { createdAt: "desc" },
+    take: 50,
   });
 
   return (

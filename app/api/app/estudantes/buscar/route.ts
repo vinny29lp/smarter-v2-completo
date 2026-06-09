@@ -20,14 +20,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ estudantes: [] });
   }
 
-  const role = session.user.role;
-  const franchiseId = role === "FRANQUEADORA" ? undefined : (session.user.franchiseId || undefined);
-  const franchiseWhere = franchiseId ? { franchiseId } : {};
-
   try {
     const estudantes = await prisma.student.findMany({
       where: {
-        ...franchiseWhere,
         OR: [
           { name: { contains: q, mode: "insensitive" } },
           { cpf:  { contains: q, mode: "insensitive" } },
