@@ -667,14 +667,33 @@ ${docFooter("Rescisão ao TCE", c.numero, sm)}`);
 }
 
 // ── RECIBO DE RESCISÃO ─────────────────────────────────────────────────────────
-export function gerarReciboRescisao(c: ContratoData, diasBolsa: number, mesesRecesso: number, descontos: number): string {
+export type DescontoRescisao = { descricao: string; valor: number };
+
+export function gerarReciboRescisao(
+  c: ContratoData,
+  diasBolsa: number,
+  mesesRecesso: number,
+  descontos: DescontoRescisao[],
+  dozeavosVal?: number
+): string {
   const { estudante: e, empresa: emp, smarter: sm, estagio: est } = c;
   const bolsaDia = Number(est.valorBolsa)/30;
   const bolsaProp = bolsaDia * diasBolsa;
   const recessoProp = (Number(est.valorBolsa)/12) * mesesRecesso;
-  const total = bolsaProp + recessoProp - descontos;
+  const dozeaVos = dozeavosVal || 0;
+  const totalDescontos = descontos.reduce((s, d) => s + (d.valor || 0), 0);
+  const total = bolsaProp + recessoProp + dozeaVos - totalDescontos;
   const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2});
   const hoje = new Date().toLocaleDateString("pt-BR");
+
+  const dozeaVosRow = dozeaVos > 0
+    ? fld("1/12 Avos (proporcional)", "") + fld("Valor", fmt(dozeaVos))
+    : "";
+
+  const descontosRows = descontos.length > 0
+    ? descontos.map(d => fld(`(-) ${d.descricao || "Desconto"}`, "") + fld("Valor", fmt(d.valor || 0))).join("")
+    : "";
+
   return wrap(`
 ${premiumHeader("Recibo de Rescisão", "Lei Nº 11.788/2008", c.numero, sm)}
 ${infoBar([
@@ -689,8 +708,13 @@ ${infoBar([
 ${fld("Estagiário(a)", e.nome)}${fld("CPF", e.cpf)}
 ${fld("Empresa Concedente", emp.razaoSocial, true)}
 ${fld("Dias de Bolsa Proporcional", String(diasBolsa) + " dia(s)")}${fld("Valor", fmt(bolsaProp))}
-${fld("Recesso Proporcional", `${mesesRecesso}/12`)}${fld("Valor", fmt(recessoProp))}
-${fld("Descontos", fmt(descontos))}${fld("TOTAL A RECEBER", fmt(total))}
+${fld("Recesso Proporcional", `${mesesRecesso} meses`)}${fld("Valor", fmt(recessoProp))}
+${dozeaVosRow}
+${descontosRows}
+<div class="fld full" style="background:#f0f9ff;border-top:2px solid #0f2a5e;padding:6px 8px">
+  <label style="font-size:8px;font-weight:900;text-transform:uppercase;color:#0f2a5e;display:block;margin-bottom:2px">TOTAL A RECEBER</label>
+  <span style="font-size:14px;font-weight:900;color:#0f2a5e">${fmt(total)}</span>
+</div>
 </div></div>
 
 <div class="obj-box" style="margin:14px 0">

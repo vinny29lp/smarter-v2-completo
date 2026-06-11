@@ -18,8 +18,15 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const [contract, setContract] = useState<any>(null);
   const [loadError, setLoadError] = useState("");
   const [rescisaoModal, setRescisaoModal] = useState(false);
-  const [rescisao, setRescisao] = useState({ ultimoDia: "", motivo: "" });
+  const [rescisao, setRescisao] = useState<{
+    ultimoDia: string;
+    motivo: string;
+    descontos: Array<{descricao: string; valor: number}>;
+  }>({ ultimoDia: "", motivo: "", descontos: [] });
   const [calc, setCalc] = useState<any>(null);
+  const [gerandoRecibo, setGerandoRecibo] = useState(false);
+  const [reciboGerado, setReciboGerado] = useState(false);
+  const [reciboError, setReciboError] = useState<string | null>(null);
   const [enviandoAval, setEnviandoAval] = useState(false);
   const [avalMsg, setAvalMsg] = useState<string|null>(null);
 
@@ -170,8 +177,8 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const assinados = contract.documents?.filter((d: any) => d.status === "ASSINADO").length || 0;
 
   // ── Calculadora de Rescisão ──────────────────────────────────────────
-  const calcularRescisao = () => {
-    if (!rescisao.ultimoDia) return;
+  const calcularRescisao = async () => {
+    if (!rescisao.ultimoDia || gerandoRecibo) return;
     const inicio = new Date(contract.dataInicio);
     const ultimo = new Date(rescisao.ultimoDia);
 
@@ -186,7 +193,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
 
     // Recesso: 30 dias a cada 12 meses trabalhados (proporcional)
     const recessoProporcional = (mesesTrabalhados % 12 === 0)
-      ? (30 / 12) * 12  // mês completo
+      ? (30 / 12) * 12
       : (30 / 12) * (mesesTrabalhados % 12);
     const recessoValor = (bolsaMensal / 30) * recessoProporcional;
 
@@ -194,8 +201,9 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
     const dozeavos = (bolsaMensal / 12) * (mesesTrabalhados % 12 || 12);
 
     const totalBruto = bolsaProporcional + recessoValor + dozeavos;
+    const totalDescontos = rescisao.descontos.reduce((s, d) => s + (d.valor || 0), 0);
 
-    setCalc({
+    const newCalc = {
       diasTrabalhados,
       mesesTrabalhados,
       diasProporcional,
@@ -204,7 +212,47 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
       recessoValor,
       dozeavos,
       totalBruto,
-    });
+      totalDescontos,
+      totalLiquido: totalBruto - totalDescontos,
+    };
+    setCalc(newCalc);
+
+    // Gerar e salvar o Recibo de Rescisão (tipo "rr")
+    setGerandoRecibo(true);
+    setReciboError(null);
+    setReciboGerado(false);
+    try {
+      const rrDoc = contract.documents?.find((d: any) => d.tipo === "rr");
+      if (!rrDoc) throw new Error("Documento de recibo não encontrado no contrato");
+
+      const res = await fetch(`/api/app/contratos/${contract.id}/documentos/${rrDoc.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          diasBolsa: newCalc.diasProporcional,
+          mesesRecesso: mesesTrabalhados % 12 || 12,
+          descontos: rescisao.descontos,
+          dozeavos: newCalc.dozeavos,
+          ultimoDia: rescisao.ultimoDia,
+          motivo: rescisao.motivo,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar recibo");
+
+      // Abre o recibo em nova aba
+      const w = window.open("", "_blank");
+      if (w) { w.document.write(data.html); w.document.close(); }
+
+      // Recarrega contrato para atualizar status do documento
+      const updated = await fetch(`/api/app/contratos/${params.id}`).then(r => r.json());
+      setContract(updated.contract || updated);
+      setReciboGerado(true);
+    } catch (e: any) {
+      setReciboError(e.message || "Erro ao gerar recibo de rescisão");
+    } finally {
+      setGerandoRecibo(false);
+    }
   };
 
   const downloadDoc = (docId: string, titulo: string) => {
@@ -687,11 +735,48 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
       </Modal>
 
       {/* Modal Calculadora de Rescisão */}
-      <Modal open={rescisaoModal} onClose={() => { setRescisaoModal(false); setCalc(null); }} title="🧮 Calculadora de Rescisão">
+      <Modal
+        open={rescisaoModal}
+        onClose={() => {
+          setRescisaoModal(false);
+          setCalc(null);
+          setReciboGerado(false);
+          setReciboError(null);
+          setRescisao({ ultimoDia: "", motivo: "", descontos: [] });
+        }}
+        title="🧮 Calculadora de Rescisão"
+      >
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
             Calcule os valores proporcionais para rescisão do estágio de <strong>{contract.student?.name}</strong>.
           </p>
+
+          {/* Recibo anterior salvo */}
+          {(() => {
+            const rrDoc = contract.documents?.find((d: any) => d.tipo === "rr");
+            if (rrDoc?.htmlContent) {
+              return (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
+                  <p className="text-xs text-blue-700">
+                    <span className="font-semibold">Recibo anterior salvo</span>
+                    {rrDoc.updatedAt && ` — ${new Date(rrDoc.updatedAt).toLocaleDateString("pt-BR")}`}
+                  </p>
+                  <button
+                    onClick={() => {
+                      const w = window.open("", "_blank");
+                      if (w) { w.document.write(rrDoc.htmlContent); w.document.close(); }
+                    }}
+                    className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                  >
+                    📄 Abrir Recibo Salvo
+                  </button>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {/* Campos principais */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Último dia de estágio *</label>
@@ -714,47 +799,131 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-          <Button onClick={calcularRescisao} disabled={!rescisao.ultimoDia}>Calcular</Button>
+          {/* Seção de Descontos */}
+          <div className="border-2 border-slate-100 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-600">Descontos</label>
+              <button
+                type="button"
+                onClick={() => setRescisao(p => ({ ...p, descontos: [...p.descontos, { descricao: "", valor: 0 }] }))}
+                className="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 font-semibold transition-colors"
+              >
+                + Adicionar Desconto
+              </button>
+            </div>
+            {rescisao.descontos.length === 0 && (
+              <p className="text-xs text-slate-400 italic">Nenhum desconto. Clique em "+ Adicionar Desconto" para incluir.</p>
+            )}
+            {rescisao.descontos.map((d, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Descrição (ex: Vale Transporte)"
+                  className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                  value={d.descricao}
+                  onChange={e => {
+                    const descs = [...rescisao.descontos];
+                    descs[i] = { ...descs[i], descricao: e.target.value };
+                    setRescisao(p => ({ ...p, descontos: descs }));
+                  }}
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  className="w-28 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                  value={d.valor || ""}
+                  onChange={e => {
+                    const descs = [...rescisao.descontos];
+                    descs[i] = { ...descs[i], valor: parseFloat(e.target.value) || 0 };
+                    setRescisao(p => ({ ...p, descontos: descs }));
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setRescisao(p => ({ ...p, descontos: p.descontos.filter((_, j) => j !== i) }))}
+                  className="text-red-400 hover:text-red-600 font-bold px-2 text-base"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <Button onClick={calcularRescisao} disabled={!rescisao.ultimoDia || gerandoRecibo}>
+            {gerandoRecibo ? "⏳ Gerando recibo..." : "🧮 Calcular e Gerar Recibo"}
+          </Button>
 
           {calc && (
             <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Resultado do Cálculo</p>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Período:</span>
-                    <span className="font-semibold">{calc.mesesTrabalhados} meses ({calc.diasTrabalhados} dias)</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Bolsa proporcional ({calc.diasProporcional} dias):</span>
-                    <span className="font-semibold text-emerald-600">{fmt(calc.bolsaProporcional)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Recesso ({calc.recessoProporcional} dias):</span>
-                    <span className="font-semibold text-emerald-600">{fmt(calc.recessoValor)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">1/12 avos:</span>
-                    <span className="font-semibold text-emerald-600">{fmt(calc.dozeavos)}</span>
-                  </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Período:</span>
+                  <span className="font-semibold">{calc.mesesTrabalhados} meses ({calc.diasTrabalhados} dias)</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Bolsa proporcional ({calc.diasProporcional} dias):</span>
+                  <span className="font-semibold text-emerald-600">{fmt(calc.bolsaProporcional)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Recesso ({calc.recessoProporcional} dias):</span>
+                  <span className="font-semibold text-emerald-600">{fmt(calc.recessoValor)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">1/12 avos:</span>
+                  <span className="font-semibold text-emerald-600">{fmt(calc.dozeavos)}</span>
+                </div>
+                {calc.totalDescontos > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">(-) Descontos:</span>
+                    <span className="font-semibold text-red-500">- {fmt(calc.totalDescontos)}</span>
+                  </div>
+                )}
               </div>
               <div className="border-t border-slate-200 pt-3 flex justify-between items-center">
-                <span className="font-bold text-slate-700">Total a Pagar:</span>
-                <span className="text-xl font-black text-[#0f2a5e]">{fmt(calc.totalBruto)}</span>
+                <span className="font-bold text-slate-700">Total a Receber:</span>
+                <span className="text-xl font-black text-[#0f2a5e]">{fmt(calc.totalLiquido)}</span>
               </div>
               <p className="text-xs text-slate-400">
-                * Bolsa mensal: {fmt(contract.bolsa)} • Cálculo automático (sem descontos). Revise com o contador.
+                * Bolsa mensal: {fmt(contract.bolsa)} • Revise com o contador.
               </p>
-              <Button variant="secondary" size="sm" onClick={() => {
-                // Pré-preencher os campos do documento TR com os valores calculados
-                const trDocLocal = contract.documents?.find((d: any) => d.tipo === "tr");
-                if (trDocLocal) {
-                  window.location.href = `/dashboard/contratos/${contract.id}/documentos/${trDocLocal.id}`;
-                }
-              }}>
-                📄 Ir para Termo de Rescisão
-              </Button>
+
+              {/* Status da geração do recibo */}
+              {reciboGerado && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-2">
+                  <p className="text-xs text-emerald-700 font-semibold">✅ Recibo gerado e salvo com sucesso!</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        const rrDoc = contract.documents?.find((d: any) => d.tipo === "rr");
+                        if (rrDoc?.htmlContent) {
+                          const w = window.open("", "_blank");
+                          if (w) { w.document.write(rrDoc.htmlContent); w.document.close(); }
+                        }
+                      }}
+                      className="text-xs px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold"
+                    >
+                      📄 Abrir Recibo
+                    </button>
+                    <button
+                      onClick={() => {
+                        const trDocLocal = contract.documents?.find((d: any) => d.tipo === "tr");
+                        if (trDocLocal) {
+                          window.location.href = `/dashboard/contratos/${contract.id}/documentos/${trDocLocal.id}`;
+                        }
+                      }}
+                      className="text-xs px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-semibold"
+                    >
+                      📋 Ir para Termo de Rescisão
+                    </button>
+                  </div>
+                </div>
+              )}
+              {reciboError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 p-2 rounded-lg">❌ {reciboError}</p>
+              )}
             </div>
           )}
         </div>

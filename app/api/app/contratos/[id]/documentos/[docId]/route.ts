@@ -94,9 +94,16 @@ export async function POST(
     case "tr":
       html = gerarRescisao(contratoData, body.ultimoDia || "—", body.motivo || "", body.tipoRescisao || "");
       break;
-    case "rr":
-      html = gerarReciboRescisao(contratoData, body.diasBolsa || 30, body.mesesRecesso || 1, body.descontos || 0);
+    case "rr": {
+      // normaliza descontos: aceita número legado ou array novo
+      const descontosRR = Array.isArray(body.descontos)
+        ? body.descontos
+        : body.descontos > 0
+          ? [{ descricao: "Descontos", valor: Number(body.descontos) }]
+          : [];
+      html = gerarReciboRescisao(contratoData, body.diasBolsa || 30, body.mesesRecesso || 1, descontosRR, body.dozeavos || 0);
       break;
+    }
     case "rec":
       html = gerarTermoRecesso(contratoData, body.diasRecesso || 30, body.dataIni || "", body.dataFim || "", body.periodo || "");
       break;
@@ -123,16 +130,22 @@ export async function POST(
 
   const updated = await saveDocumentHtml(params.docId, html);
 
-  // Para TR: salvar ultimoDia e motivo no metaData (contrato fica INATIVO apenas ao ENVIAR para assinatura)
-  if (doc.tipo === "tr" && (body.ultimoDia || body.motivo || body.tipoRescisao)) {
+  // Salva metaData para TR e RR
+  if ((doc.tipo === "tr" || doc.tipo === "rr") && (body.ultimoDia || body.motivo || body.tipoRescisao || body.descontos || body.dozeavos)) {
     await prisma.internshipDocument.update({
       where: { id: params.docId },
       data: {
         metaData: {
           ...((doc.metaData as any) || {}),
-          ultimoDia: body.ultimoDia || null,
-          motivo: body.motivo || null,
-          tipoRescisao: body.tipoRescisao || null,
+          ...(body.ultimoDia ? { ultimoDia: body.ultimoDia } : {}),
+          ...(body.motivo ? { motivo: body.motivo } : {}),
+          ...(body.tipoRescisao ? { tipoRescisao: body.tipoRescisao } : {}),
+          ...(doc.tipo === "rr" ? {
+            diasBolsa: body.diasBolsa,
+            mesesRecesso: body.mesesRecesso,
+            dozeavos: body.dozeavos,
+            descontos: body.descontos,
+          } : {}),
         },
       },
     });
