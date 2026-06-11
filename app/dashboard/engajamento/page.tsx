@@ -62,7 +62,7 @@ export default async function EngajamentoPage({
       }),
       prisma.crmLead.findMany({
         where: { franchiseId: focusId, updatedAt: { gte: dataLimite } },
-        select: { id: true, empresa: true, situacao: true, updatedAt: true, pontos: true },
+        select: { id: true, empresa: true, situacao: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },
         take: 100,
       }),
