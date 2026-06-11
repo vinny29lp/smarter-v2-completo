@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smarter Estágios — A nova geração da gestão de estágios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="site-header" data-screen-label="Home">
+  <div class="site-header__inner">
+    <a href="index.html" class="logo" aria-label="Smarter Estágios"><img src="assets/logo-smarter.png" alt="Smarter Estágios"></a>
+    <nav class="nav">
+      <a href="index.html" class="is-active">Início</a>
+      <a href="empresas.html">Para Empresas</a>
+      <a href="estudantes.html">Para Estudantes</a>
+      <a href="index.html#vagas">Vagas Abertas</a>
+      <a href="instituicoes.html">Instituições</a>
+      <a href="franqueado.html">Seja franqueado</a>
+      <a href="sobre.html">Sobre</a>
+      <a href="contato.html">Contato</a>
+    </nav>
+    <div class="header-cta">
+      <div class="login-menu">
+        <button class="login-menu__trigger" aria-haspopup="menu" aria-expanded="false">Entrar <svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 9L1 4h10z"/></svg></button>
+        <div class="login-menu__panel" role="menu">
+          <a href="https://smarter-v2-completo.vercel.app/cadastro/empresa" target="_blank" rel="noopener"><span><span class="kind">cadastro · empresa</span><br>Painel da Empresa</span><span class="arrow">↗</span></a>
+          <a href="https://smarter-v2-completo.vercel.app/cadastro/estudante" target="_blank" rel="noopener"><span><span class="kind">cadastro · estudante</span><br>Painel do Estudante</span><span class="arrow">↗</span></a>
+          <a href="https://smarter-v2-completo.vercel.app/login" target="_blank" rel="noopener"><span><span class="kind">acesso · instituição</span><br>Painel da Instituição</span><span class="arrow">↗</span></a>
+          <a href="https://smarter-v2-completo.vercel.app/login" target="_blank" rel="noopener"><span><span class="kind">acesso · franqueado</span><br>Painel do Franqueado</span><span class="arrow">↗</span></a>
+        </div>
+      </div>
+      <a href="contato.html" class="btn btn--yellow">Falar com a Smarter <span class="arrow">→</span></a>
+      <button class="mobile-toggle" aria-label="Abrir menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="index.html">Início</a>
+  <a href="empresas.html">Para Empresas</a>
+  <a href="estudantes.html">Para Estudantes</a>
+  <a href="instituicoes.html">Instituições de Ensino</a>
+  <a href="franqueado.html">Seja um Franqueado</a>
+  <a href="sobre.html">Sobre a Smarter</a>
+  <a href="contato.html">Contato</a>
+  <div class="mobile-menu__access">
+    <a href="https://smarter-v2-completo.vercel.app/cadastro/empresa" target="_blank" rel="noopener">Painel da Empresa <span class="kind">empresa ↗</span></a>
+    <a href="https://smarter-v2-completo.vercel.app/cadastro/estudante" target="_blank" rel="noopener">Painel do Estudante <span class="kind">estudante ↗</span></a>
+    <a href="https://smarter-v2-completo.vercel.app/login" target="_blank" rel="noopener">Painel da Instituição <span class="kind">instituição ↗</span></a>
+    <a href="https://smarter-v2-completo.vercel.app/login" target="_blank" rel="noopener">Painel do Franqueado <span class="kind">franqueado ↗</span></a>
+  </div>
+</div>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="hero__blob hero__blob--1" data-parallax="-0.08"></div>
+  <div class="container">
+    <div class="hero__top reveal">
+      <span class="eyebrow">Startup brasileira · gestão de estágios</span>
+      <span class="tag tag--dark">v. 2026 — Disponível em todo o Brasil</span>
+    </div>
+
+    <h1 class="hero__title reveal" data-d="1">
+      Estágio que faz<br>
+      <span class="circle-word">sentido</span> para<br>
+      todo mundo<span style="color:var(--blue)">.</span>
+    </h1>
+
+    <div class="split split--7-5" style="margin-top: 56px; align-items: end;">
+      <p class="lede reveal" data-d="2">
+        A Smarter conecta <strong style="color:var(--ink)">estudantes, empresas, instituições de ensino e franqueados</strong> em uma única plataforma — tecnologia + atendimento humano para transformar estágio em oportunidade real de carreira.
+      </p>
+      <div class="row reveal" data-d="3" style="gap:14px;">
+        <a href="contato.html" class="btn btn--yellow btn--lg">Quero contratar estagiários <span class="arrow">→</span></a>
+        <a href="estudantes.html" class="btn btn--ghost btn--lg">Sou estudante</a>
+      </div>
+    </div>
+
+    <div class="hero__meta">
+      <div class="hero__meta-item reveal" data-d="2">
+        <div class="num"><span data-counter="2000" data-suffix="+">0</span></div>
+        <div class="lbl">estagiários ativos</div>
+      </div>
+      <div class="hero__meta-item reveal" data-d="3">
+        <div class="num"><span data-counter="200" data-suffix="+">0</span></div>
+        <div class="lbl">empresas parceiras</div>
+      </div>
+      <div class="hero__meta-item reveal" data-d="4">
+        <div class="num"><span data-counter="70" data-suffix="+">0</span></div>
+        <div class="lbl">instituições parceiras</div>
+      </div>
+      <div class="hero__meta-item reveal" data-d="5">
+        <div class="num">100%</div>
+        <div class="lbl">processo digital com atendimento humano</div>
+      </div>
+    </div>
+
+    <div class="photo" style="margin-top: 64px; aspect-ratio: 21/9;">
+      <img src="https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=2000&q=80" alt="Equipe Smarter trabalhando">
+    </div>
+  </div>
+</section>
+
+<!-- ============ RIBBON ============ -->
+<div class="ribbon" style="margin-top: 80px;">
+  <div class="ribbon__track">
+    <span>tecnologia + humanização</span>
+    <span>processo 100% digital</span>
+    <span>segurança jurídica</span>
+    <span>atendimento humano</span>
+    <span>formação de talentos</span>
+    <span>tecnologia + humanização</span>
+    <span>processo 100% digital</span>
+    <span>segurança jurídica</span>
+    <span>atendimento humano</span>
+    <span>formação de talentos</span>
+  </div>
+</div>
+
+<!-- ============ AUDIENCES ============ -->
+<section class="section" id="solucoes">
+  <div class="container">
+    <div class="section-head">
+      <div class="reveal">
+        <span class="eyebrow">Para quem a Smarter existe</span>
+        <h2 style="margin-top:18px;">Uma plataforma. <span class="mark">Quatro perspectivas</span> sobre estágio.</h2>
+      </div>
+      <p class="lede reveal" data-d="1">
+        Cada perfil acessa a Smarter de um jeito diferente — mas todos ganham o mesmo: clareza, agilidade e proteção legal. Escolha sua jornada abaixo.
+      </p>
+    </div>
+
+    <div data-tabs class="reveal">
+      <div class="aud-tabs">
+        <button class="aud-tab is-active" data-target="aud-empresa">Para Empresas</button>
+        <button class="aud-tab" data-target="aud-estudante">Para Estudantes</button>
+        <button class="aud-tab" data-target="aud-instituicao">Instituições de Ensino</button>
+        <button class="aud-tab" data-target="aud-franqueado">Franqueados</button>
+      </div>
+
+      <!-- EMPRESA -->
+      <div class="aud-panel is-active split split--5-7" id="aud-empresa" style="gap: 48px;">
+        <div class="stack">
+          <span class="tag tag--blue">RH + Recrutamento</span>
+          <h3>Contrate estagiários sem dor de cabeça jurídica.</h3>
+          <p class="lede">Publique vagas, recrute candidatos compatíveis e formalize contratos em minutos — tudo com cobertura legal e suporte humano da Smarter por trás.</p>
+          <div>
+            <div class="bullet">
+              <span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span>
+              <div><h4>Processo 100% digital</h4><p>Termo de compromisso, plano de atividades e seguro — assinados online.</p></div>
+            </div>
+            <div class="bullet">
+              <span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span>
+              <div><h4>Recrutamento e seleção</h4><p>Triagem por curso e perfil. Você recebe candidatos alinhados à vaga.</p></div>
+            </div>
+            <div class="bullet">
+              <span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span>
+              <div><h4>Folha + benefícios integrados</h4><p>Pagamento de bolsa, VT e relatórios fiscais em um só lugar.</p></div>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <a href="empresas.html" class="btn btn--primary">Ver solução para empresas <span class="arrow">→</span></a>
+          </div>
+        </div>
+        <div class="photo" style="aspect-ratio: 4/5; min-height: 480px;">
+          <img src="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1200&q=80" alt="Reunião de RH em empresa parceira">
+        </div>
+      </div>
+
+      <!-- ESTUDANTE -->
+      <div class="aud-panel split split--7-5" id="aud-estudante" style="gap: 48px;">
+        <div class="photo" style="aspect-ratio: 4/5; min-height: 480px;">
+          <img src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=1200&q=80" alt="Estudante universitário em primeiro estágio">
+        </div>
+        <div class="stack">
+          <span class="tag tag--yellow">Primeira oportunidade</span>
+          <h3>Seu primeiro emprego começa aqui — e não é um pesadelo de papelada.</h3>
+          <p class="lede">Crie seu perfil, descubra vagas compatíveis com seu curso e fase, e candidate-se com 1 clique. A Smarter te acompanha até a contratação.</p>
+          <div>
+            <div class="bullet"><span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span><div><h4>Vagas para o seu nível</h4><p>Recomendações por curso, fase e cidade.</p></div></div>
+            <div class="bullet"><span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span><div><h4>Plataforma online para acompanhar tudo</h4><p>Acesso pelo navegador, no celular ou no computador. Sua jornada num só lugar.</p></div></div>
+            <div class="bullet"><span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span><div><h4>Mentoria de carreira</h4><p>Conteúdos, simulados e gente de verdade para te orientar.</p></div></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <a href="estudantes.html" class="btn btn--primary">Sou estudante <span class="arrow">→</span></a>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSTITUIÇÃO -->
+      <div class="aud-panel split split--5-7" id="aud-instituicao" style="gap: 48px;">
+        <div class="stack">
+          <span class="tag">Faculdades · Universidades · Escolas técnicas</span>
+          <h3>Acompanhe a vida profissional dos seus alunos em tempo real.</h3>
+          <p class="lede">A Smarter centraliza convênios, contratos e relatórios da sua coordenação de estágios — e dá visibilidade do desempenho dos estudantes em campo.</p>
+          <div>
+            <div class="bullet"><span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span><div><h4>Convênios com 200+ empresas</h4><p>Sua IES entra na nossa rede sem custo de cadastro.</p></div></div>
+            <div class="bullet"><span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span><div><h4>Gestão digital de TCEs</h4><p>Workflow com o coordenador, professor orientador e empresa.</p></div></div>
+            <div class="bullet"><span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span><div><h4>Acompanhamento da jornada</h4><p>Visibilidade sobre vagas, contratos e estágios em andamento dos seus alunos.</p></div></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <a href="instituicoes.html" class="btn btn--primary">Conheça o programa para IES <span class="arrow">→</span></a>
+          </div>
+        </div>
+        <div class="photo" style="aspect-ratio: 4/5; min-height: 480px;">
+          <img src="https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80" alt="Campus universitário">
+        </div>
+      </div>
+
+      <!-- FRANQUEADO -->
+      <div class="aud-panel split split--7-5" id="aud-franqueado" style="gap: 48px;">
+        <div class="photo photo--tint" style="aspect-ratio: 4/5; min-height: 480px;">
+          <img src="https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80" alt="Empreendedor franqueado">
+        </div>
+        <div class="stack">
+          <span class="tag tag--dark">Modelo de franquia</span>
+          <h3>Empreenda em educação e RH no mercado da sua cidade.</h3>
+          <p class="lede">Leve a Smarter para a sua região. Você opera comercialmente; nós entregamos plataforma, marca, jurídico, marketing e atendimento ao estudante.</p>
+          <div>
+            <div class="bullet"><span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span><div><h4>Modelo validado</h4><p>24 unidades em operação no Brasil, com ROI projetado em 12 meses.</p></div></div>
+            <div class="bullet"><span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span><div><h4>Projeto Expansão</h4><p>Taxa de franquia reduzida em regiões estratégicas. Fale com a gente.</p></div></div>
+            <div class="bullet"><span class="bullet__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg></span><div><h4>Suporte 360º</h4><p>Treinamento, playbook comercial e backoffice central.</p></div></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <a href="franqueado.html" class="btn btn--primary">Quero ser franqueado <span class="arrow">→</span></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="section" style="background: var(--paper-warm);">
+  <div class="container">
+    <div class="section-head">
+      <div class="reveal">
+        <span class="eyebrow">Como a Smarter funciona</span>
+        <h2 style="margin-top:18px;">Do cadastro ao<br>estágio ativo — em 5 passos.</h2>
+      </div>
+      <p class="lede reveal" data-d="1">
+        Nada de processo burocrático. A Smarter automatiza o que dá pra automatizar e mantém pessoa de verdade onde o humano faz diferença.
+      </p>
+    </div>
+
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step__num">01<em>cadastro</em></div>
+        <div class="step__body">
+          <h3>Empresa publica a vaga.</h3>
+          <p class="lede">Descrição, atividades, requisitos, bolsa, benefícios. Nosso time de atendimento orienta você em cada passo.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">02<em>recrutamento</em></div>
+        <div class="step__body">
+          <h3>Seleção de candidatos.</h3>
+          <p class="lede">Buscamos perfis compatíveis com a vaga — por curso, fase e cidade — e enviamos para sua avaliação.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">03<em>entrevista</em></div>
+        <div class="step__body">
+          <h3>Empresa entrevista, escolhe e aprova.</h3>
+          <p class="lede">Você avalia os candidatos com nosso suporte. O estudante é informado sobre o andamento do processo.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">04<em>contrato</em></div>
+        <div class="step__body">
+          <h3>TCE digital com três assinaturas.</h3>
+          <p class="lede">Empresa, estudante e instituição assinam online. Seguro contratado. Tudo dentro da Lei 11.788/08.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__num">05<em>jornada</em></div>
+        <div class="step__body">
+          <h3>Smarter acompanha o estágio inteiro.</h3>
+          <p class="lede">Folha mensal, relatórios obrigatórios, prorrogações, rescisão. Mentoria de carreira para o estudante o tempo todo.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MANIFESTO ============ -->
+<section class="section">
+  <div class="container">
+    <div class="split split--5-7" style="gap: 80px; align-items: start;">
+      <div class="stack reveal">
+        <span class="eyebrow">Manifesto Smarter</span>
+        <h2>Estágio<br>é começo.<br>E começo merece<br><span class="circle-word">cuidado</span>.</h2>
+      </div>
+      <div class="stack reveal" data-d="1">
+        <p class="lede" style="color: var(--ink); font-size: clamp(20px, 1.7vw, 28px); line-height: 1.4;">
+          A gente acredita que <strong>primeira oportunidade muda história</strong>. Por isso construímos uma empresa que junta a velocidade da tecnologia com a escuta de quem entende de gente — sem letrinha miúda, sem corrida de papel, sem deixar ninguém pra trás.
+        </p>
+        <p style="font-size: 18px; color: var(--ink-soft);">
+          Para a empresa que contrata, somos previsibilidade. Para o estudante que começa, somos um aliado. Para a faculdade que forma, somos extensão da sala de aula. Para o empreendedor que cresce com a gente, somos um modelo de negócio sólido. Quatro relações, um mesmo compromisso: <strong style="color: var(--ink);">fazer estágio acontecer direito</strong>.
+        </p>
+        <div class="row" style="margin-top:8px;">
+          <a href="sobre.html" class="btn btn--ghost">Conheça a Smarter <span class="arrow">→</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BIG NUMBERS ============ -->
+<section class="section" style="background: var(--ink); color: var(--paper); overflow: hidden; position: relative;">
+  <div class="container" style="position: relative; z-index: 1;">
+    <div class="section-head reveal">
+      <div>
+        <span class="eyebrow" style="color: rgba(244,241,232,0.55);">Smarter em números</span>
+        <h2 style="color: var(--paper); margin-top: 18px;">A rede Smarter<br>em movimento.</h2>
+      </div>
+      <p class="lede" style="color: rgba(244,241,232,0.7);">Números consolidados em 2026, reflexo de uma rede que cresceu de forma consistente desde 2019.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: rgba(244,241,232,0.12); border: 1px solid rgba(244,241,232,0.12); border-radius: var(--radius-lg); overflow: hidden;">
+      <div class="reveal" style="padding: 48px 32px; background: var(--ink);">
+        <div style="font-family: var(--font-display); font-size: clamp(56px, 6vw, 96px); font-weight: 600; letter-spacing: -0.04em; line-height: 0.9; color: var(--yellow);"><span data-counter="2000" data-suffix="+">0</span></div>
+        <div style="margin-top: 12px; font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(244,241,232,0.6);">estagiários ativos</div>
+      </div>
+      <div class="reveal" data-d="1" style="padding: 48px 32px; background: var(--ink);">
+        <div style="font-family: var(--font-display); font-size: clamp(56px, 6vw, 96px); font-weight: 600; letter-spacing: -0.04em; line-height: 0.9;"><span data-counter="200" data-suffix="+">0</span></div>
+        <div style="margin-top: 12px; font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(244,241,232,0.6);">empresas parceiras</div>
+      </div>
+      <div class="reveal" data-d="2" style="padding: 48px 32px; background: var(--ink);">
+        <div style="font-family: var(--font-display); font-size: clamp(56px, 6vw, 96px); font-weight: 600; letter-spacing: -0.04em; line-height: 0.9; color: var(--yellow);"><span data-counter="70" data-suffix="+">0</span></div>
+        <div style="margin-top: 12px; font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(244,241,232,0.6);">instituições parceiras</div>
+      </div>
+      <div class="reveal" data-d="3" style="padding: 48px 32px; background: var(--ink);">
+        <div style="font-family: var(--font-display); font-size: clamp(56px, 6vw, 96px); font-weight: 600; letter-spacing: -0.04em; line-height: 0.9;"><span data-counter="24">0</span></div>
+        <div style="margin-top: 12px; font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(244,241,232,0.6);">franquias ativas</div>
+      </div>
+      <div class="reveal" data-d="4" style="padding: 48px 32px; background: var(--ink);">
+        <div style="font-family: var(--font-display); font-size: clamp(56px, 6vw, 96px); font-weight: 600; letter-spacing: -0.04em; line-height: 0.9; color: var(--yellow);">100%</div>
+        <div style="margin-top: 12px; font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(244,241,232,0.6);">processo digital</div>
+      </div>
+      <div class="reveal" data-d="5" style="padding: 48px 32px; background: var(--ink);">
+        <div style="font-family: var(--font-display); font-size: clamp(56px, 6vw, 96px); font-weight: 600; letter-spacing: -0.04em; line-height: 0.9;">2019</div>
+        <div style="margin-top: 12px; font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(244,241,232,0.6);">fundada no Rio de Janeiro</div>
+      </div>
+    </div>
+
+    <p style="margin-top: 32px; font-family: var(--font-mono); font-size: 12px; color: rgba(244,241,232,0.4); letter-spacing: 0.05em;">
+      * dados internos da Smarter Estágios, consolidados em 2026.
+    </p>
+  </div>
+</section>
+
+<!-- ============ LOGO STRIP REMOVIDA POR ORIENTAÇÃO DO CLIENTE ============ -->
+
+<!-- ============ TESTIMONIALS REMOVIDA — aguardando histórias reais ============ -->
+
+<!-- ============ PLATAFORMA ============ -->
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <div class="reveal">
+        <span class="eyebrow">Plataforma Smarter</span>
+        <h2 style="margin-top:18px;">Tecnologia <span class="mark">de verdade</span><br>onde tem que ter.</h2>
+      </div>
+      <p class="lede reveal" data-d="1">Quatro perfis de acesso, um cadastro único. Acesso pelo navegador, com a comodidade de fazer tudo online — do contrato à folha mensal.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+      <div class="card reveal">
+        <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 16px;">01 · CONTRATOS</div>
+        <h4 style="margin-bottom: 12px;">Contratos digitais</h4>
+        <p style="color: var(--ink-soft);">TCE, plano de atividades, aditivos e rescisão com validade jurídica plena (Lei 11.788/08).</p>
+      </div>
+      <div class="card reveal" data-d="1">
+        <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 16px;">02 · R&amp;S</div>
+        <h4 style="margin-bottom: 12px;">Recrutamento e seleção</h4>
+        <p style="color: var(--ink-soft);">Triagem de candidatos por curso, fase e fit com a vaga. Nosso time avalia perfis para sua empresa.</p>
+      </div>
+      <div class="card reveal" data-d="2">
+        <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 16px;">03 · FOLHA</div>
+        <h4 style="margin-bottom: 12px;">Folha &amp; benefícios</h4>
+        <p style="color: var(--ink-soft);">Bolsa, vale-transporte e recibo fiscal organizados em um só lugar.</p>
+      </div>
+      <div class="card reveal" data-d="3">
+        <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 16px;">04 · GESTÃO</div>
+        <h4 style="margin-bottom: 12px;">Acompanhamento da jornada</h4>
+        <p style="color: var(--ink-soft);">Visão de cada estágio em andamento: situação contratual, vencimentos e renovações.</p>
+      </div>
+      <div class="card reveal" data-d="4">
+        <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 16px;">05 · ACESSO</div>
+        <h4 style="margin-bottom: 12px;">Plataforma online</h4>
+        <p style="color: var(--ink-soft);">Acesso direto pelo navegador, no celular ou no computador. Sem instalação, sem app a baixar.</p>
+      </div>
+      <div class="card reveal" data-d="5">
+        <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 16px;">06 · SUPORTE</div>
+        <h4 style="margin-bottom: 12px;">Atendimento humano</h4>
+        <p style="color: var(--ink-soft);">Time Smarter de plantão para empresa, estudante e instituição. Pessoa atende pessoa.</p>
+      </div>
+    </div>
+
+    <div class="photo" style="margin-top: 56px; aspect-ratio: 21/10;">
+      <img src="https://images.unsplash.com/photo-1531973576160-7125cd663d86?auto=format&fit=crop&w=2000&q=80" alt="Equipe colaborando">
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="section" style="padding-bottom: 80px;">
+  <div class="container">
+    <div style="background: var(--yellow); border-radius: var(--radius-xl); padding: clamp(48px, 8vw, 120px); position: relative; overflow: hidden;">
+      <div style="position:absolute; top:-100px; right:-100px; width: 400px; height: 400px; background: var(--ink); border-radius: 50%; opacity: 0.06;"></div>
+      <div style="position: relative; z-index: 1;">
+        <span class="tag tag--dark reveal">vem ser Smarter</span>
+        <h2 class="reveal" data-d="1" style="margin-top: 24px; font-size: clamp(48px, 8vw, 120px); max-width: 14ch;">
+          Pronto pra começar do jeito <span style="text-decoration: underline; text-decoration-thickness: 6px; text-underline-offset: 8px;">certo</span>?
+        </h2>
+        <p class="lede reveal" data-d="2" style="margin-top: 24px; color: var(--ink); font-size: clamp(18px, 1.4vw, 22px); max-width: 50ch;">
+          Crie sua conta na Smarter Estágios. Sem cartão. Sem letrinha miúda. Nosso time entra em contato para entender o que você precisa.
+        </p>
+        <div class="row reveal" data-d="3" style="margin-top: 40px; gap: 14px;">
+          <a href="contato.html" class="btn btn--primary btn--lg">Criar conta gratuita <span class="arrow">→</span></a>
+          <a href="contato.html" class="btn btn--ghost btn--lg">Falar com um especialista</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VAGAS ABERTAS ============ -->
+<section class="section" id="vagas" style="background: var(--off);">
+  <div class="container">
+    <div class="section-head">
+      <div class="reveal">
+        <span class="eyebrow">Oportunidades em aberto</span>
+        <h2 style="margin-top:18px;">Vagas abertas <span class="mark">agora</span></h2>
+      </div>
+      <p class="lede reveal" data-d="1">
+        Vagas publicadas pelas empresas parceiras da Smarter. Candidate-se diretamente pelo portal do estudante.
+      </p>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row reveal" data-d="2" style="gap:12px; margin-bottom:40px; flex-wrap:wrap;">
+      <input id="vagas-search" type="text" placeholder="Buscar por área, cidade..." style="flex:1;min-width:220px;padding:12px 18px;border:1.5px solid var(--stroke);border-radius:10px;font-family:inherit;font-size:15px;outline:none;background:var(--surface);">
+      <button onclick="carregarVagas()" class="btn btn--primary" style="padding:12px 24px;">Buscar</button>
+    </div>
+
+    <!-- Grid de vagas -->
+    <div id="vagas-grid" class="reveal" data-d="3" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;">
+      <!-- preenchido por JS -->
+      <div class="vagas-loading" style="grid-column:1/-1;text-align:center;padding:60px 0;color:var(--muted)">
+        <svg style="width:32px;height:32px;animation:spin 1s linear infinite;margin-bottom:12px;display:block;margin-inline:auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        Carregando vagas...
+      </div>
+    </div>
+
+    <div id="vagas-empty" style="display:none;text-align:center;padding:60px 0;">
+      <p style="color:var(--muted);font-size:18px;">Nenhuma vaga encontrada no momento.</p>
+      <p style="color:var(--muted);margin-top:8px;">Cadastre-se para receber alertas de novas vagas.</p>
+      <a href="estudantes.html" class="btn btn--primary" style="margin-top:24px;display:inline-flex;">Criar perfil de estudante</a>
+    </div>
+
+    <div style="text-align:center;margin-top:48px;" class="reveal" data-d="4">
+      <a href="https://smarter-v2-completo.vercel.app/portal-estudante" target="_blank" rel="noopener" class="btn btn--ghost btn--lg">Ver todas as vagas no portal →</a>
+    </div>
+  </div>
+</section>
+
+<style>
+@keyframes spin{to{transform:rotate(360deg)}}
+.vaga-card{background:var(--surface);border:1.5px solid var(--stroke);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;transition:border-color .2s,box-shadow .2s}
+.vaga-card:hover{border-color:var(--blue);box-shadow:0 8px 32px rgba(15,42,94,.08)}
+.vaga-card__titulo{font-size:17px;font-weight:700;color:var(--ink);line-height:1.3}
+.vaga-card__empresa{font-size:13px;color:var(--muted);font-weight:500}
+.vaga-card__tags{display:flex;flex-wrap:wrap;gap:6px}
+.vaga-card__tag{font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;background:rgba(15,42,94,.07);color:var(--blue)}
+.vaga-card__tag--green{background:rgba(34,197,94,.1);color:#15803d}
+.vaga-card__bolsa{font-size:22px;font-weight:800;color:var(--ink)}
+.vaga-card__bolsa span{font-size:13px;font-weight:500;color:var(--muted)}
+.vaga-card__footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--stroke)}
+</style>
+
+<script>
+(function(){
+  const API = "https://smarter-v2-completo.vercel.app/api/public/vagas?limit=12";
+  let allVagas = [];
+
+  function renderCard(v){
+    const empresa = v.company?.name || "Empresa";
+    const local = [v.cidade, v.uf].filter(Boolean).join(" — ") || "Remoto";
+    const bolsa = v.bolsa ? "R$ " + Number(v.bolsa).toLocaleString("pt-BR", {minimumFractionDigits:0}) : "A combinar";
+    const slug = v.publicSlug || v.id;
+    return `<div class="vaga-card">
+      <div>
+        <div class="vaga-card__titulo">${v.titulo}</div>
+        <div class="vaga-card__empresa">${empresa} · ${local}</div>
+      </div>
+      <div class="vaga-card__tags">
+        ${v.area ? `<span class="vaga-card__tag">${v.area}</span>` : ""}
+        ${v.modalidade ? `<span class="vaga-card__tag">${v.modalidade}</span>` : ""}
+        ${v.cargaHoraria ? `<span class="vaga-card__tag">${v.cargaHoraria}h/sem</span>` : ""}
+      </div>
+      <div class="vaga-card__bolsa">${bolsa}<span>/mês</span></div>
+      <div class="vaga-card__footer">
+        <a href="https://smarter-v2-completo.vercel.app/portal-estudante/vaga/${slug}" target="_blank" rel="noopener" class="btn btn--primary" style="width:100%;justify-content:center;">
+          Ver vaga e candidatar-se →
+        </a>
+      </div>
+    </div>`;
+  }
+
+  function filterVagas(){
+    const q = (document.getElementById("vagas-search")?.value||"").toLowerCase();
+    return q ? allVagas.filter(v=>[v.titulo,v.area,v.cidade,v.uf,v.company?.name].filter(Boolean).join(" ").toLowerCase().includes(q)) : allVagas;
+  }
+
+  window.carregarVagas = function(){
+    const grid = document.getElementById("vagas-grid");
+    const empty = document.getElementById("vagas-empty");
+    const filtered = filterVagas();
+    if(!filtered.length){
+      grid.style.display="none";
+      empty.style.display="block";
+    } else {
+      empty.style.display="none";
+      grid.style.display="grid";
+      grid.innerHTML = filtered.map(renderCard).join("");
+    }
+  };
+
+  fetch(API)
+    .then(r=>r.json())
+    .then(data=>{
+      allVagas = data.vagas || [];
+      carregarVagas();
+    })
+    .catch(()=>{
+      const grid = document.getElementById("vagas-grid");
+      if(grid) grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 0;color:var(--muted)">Não foi possível carregar as vagas. <a href="https://smarter-v2-completo.vercel.app/portal-estudante" target="_blank">Acesse o portal</a>.</div>`;
+    });
+
+  document.getElementById("vagas-search")?.addEventListener("keydown", e=>{if(e.key==="Enter") carregarVagas();});
+})();
+</script>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a href="index.html" class="logo logo--lg"><img src="assets/logo-smarter-white.png" alt="Smarter Estágios"></a>
+        <p style="margin-top: 24px; max-width: 38ch; color: rgba(244,241,232,0.7);">
+          A startup brasileira que está reescrevendo a relação entre estudantes, empresas e instituições de ensino. Tecnologia + humanização.
+        </p>
+        <div class="row" style="margin-top: 28px;">
+          <a href="contato.html" class="btn btn--yellow">Falar com a Smarter <span class="arrow">→</span></a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h5>Soluções</h5>
+        <a href="empresas.html">Para Empresas</a>
+        <a href="estudantes.html">Para Estudantes</a>
+        <a href="instituicoes.html">Para Instituições</a>
+        <a href="franqueado.html">Seja Franqueado</a>
+      </div>
+      <div class="footer-col">
+        <h5>Smarter</h5>
+        <a href="sobre.html">Sobre</a>
+        <a href="sobre.html#cultura">Carreiras</a>
+        <a href="sobre.html#imprensa">Imprensa</a>
+        <a href="contato.html">Contato</a>
+      </div>
+      <div class="footer-col">
+        <h5>Recursos</h5>
+        <a href="#">Blog Smarter</a>
+        <a href="#">Lei do estágio (11.788/08)</a>
+        <a href="#">Central de ajuda</a>
+        <a href="#">Status da plataforma</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Smarter Estágios · CNPJ 00.000.000/0001-00</span>
+      <span>Feito no Brasil, para o Brasil 🇧🇷</span>
+    </div>
+  </div>
+  <div class="footer-mega" aria-hidden="true">smarter.</div>
+</footer>
+
+<!-- ============ TWEAKS PANEL ============ -->
+<div class="tweaks-panel" id="tweaksPanel">
+  <button class="tweaks-panel__close" aria-label="Fechar">×</button>
+  <h6>Tweaks · sistema visual</h6>
+  <div class="tweaks-panel__row">
+    <label>Cor primária (azul)</label>
+    <div class="swatches" data-tweaks="primary"></div>
+  </div>
+  <div class="tweaks-panel__row">
+    <label>Cor de destaque (amarelo)</label>
+    <div class="swatches" data-tweaks="accent"></div>
+  </div>
+  <div class="tweaks-panel__row">
+    <button class="btn btn--ghost" style="padding: 10px 16px; font-size: 13px;" data-tweaks="theme">modo escuro</button>
+  </div>
+</div>
+
+<script src="site.js"></script>
+</body>
+</html>
