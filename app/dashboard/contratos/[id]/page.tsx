@@ -191,16 +191,10 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
     const bolsaMensal = contract.bolsa || 0;
     const bolsaProporcional = (bolsaMensal / diasNoMes) * diasProporcional;
 
-    // Recesso: 30 dias a cada 12 meses trabalhados (proporcional)
-    const recessoProporcional = (mesesTrabalhados % 12 === 0)
-      ? (30 / 12) * 12
-      : (30 / 12) * (mesesTrabalhados % 12);
-    const recessoValor = (bolsaMensal / 30) * recessoProporcional;
+    // 1/12 avos: 1/12 da bolsa por cada mês trabalhado (total de meses, sem módulo)
+    const dozeavos = (bolsaMensal / 12) * mesesTrabalhados;
 
-    // 1/12 avos = 1 mês de bolsa por ano de contrato (proporcional)
-    const dozeavos = (bolsaMensal / 12) * (mesesTrabalhados % 12 || 12);
-
-    const totalBruto = bolsaProporcional + recessoValor + dozeavos;
+    const totalBruto = bolsaProporcional + dozeavos;
     const totalDescontos = rescisao.descontos.reduce((s, d) => s + (d.valor || 0), 0);
 
     const newCalc = {
@@ -208,8 +202,6 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
       mesesTrabalhados,
       diasProporcional,
       bolsaProporcional,
-      recessoProporcional: Math.round(recessoProporcional),
-      recessoValor,
       dozeavos,
       totalBruto,
       totalDescontos,
@@ -230,7 +222,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           diasBolsa: newCalc.diasProporcional,
-          mesesRecesso: mesesTrabalhados % 12 || 12,
+          mesesTrabalhados: newCalc.mesesTrabalhados,
           descontos: rescisao.descontos,
           dozeavos: newCalc.dozeavos,
           ultimoDia: rescisao.ultimoDia,
@@ -868,11 +860,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
                   <span className="font-semibold text-emerald-600">{fmt(calc.bolsaProporcional)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Recesso ({calc.recessoProporcional} dias):</span>
-                  <span className="font-semibold text-emerald-600">{fmt(calc.recessoValor)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">1/12 avos:</span>
+                  <span className="text-slate-500">1/12 avos ({calc.mesesTrabalhados} meses):</span>
                   <span className="font-semibold text-emerald-600">{fmt(calc.dozeavos)}</span>
                 </div>
                 {calc.totalDescontos > 0 && (

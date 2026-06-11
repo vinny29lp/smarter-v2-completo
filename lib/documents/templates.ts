@@ -679,16 +679,12 @@ export function gerarReciboRescisao(
   const { estudante: e, empresa: emp, smarter: sm, estagio: est } = c;
   const bolsaDia = Number(est.valorBolsa)/30;
   const bolsaProp = bolsaDia * diasBolsa;
-  const recessoProp = (Number(est.valorBolsa)/12) * mesesRecesso;
+  // dozeavos: valor pré-calculado passado pela chamada (bolsa/12 × total de meses trabalhados)
   const dozeaVos = dozeavosVal || 0;
   const totalDescontos = descontos.reduce((s, d) => s + (d.valor || 0), 0);
-  const total = bolsaProp + recessoProp + dozeaVos - totalDescontos;
+  const total = bolsaProp + dozeaVos - totalDescontos;
   const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   const hoje = new Date().toLocaleDateString("pt-BR");
-
-  const dozeaVosRow = dozeaVos > 0
-    ? fld("1/12 Avos (proporcional)", "") + fld("Valor", fmt(dozeaVos))
-    : "";
 
   const descontosRows = descontos.length > 0
     ? descontos.map(d => fld(`(-) ${d.descricao || "Desconto"}`, "") + fld("Valor", fmt(d.valor || 0))).join("")
@@ -707,9 +703,8 @@ ${infoBar([
 <div class="fg">
 ${fld("Estagiário(a)", e.nome)}${fld("CPF", e.cpf)}
 ${fld("Empresa Concedente", emp.razaoSocial, true)}
-${fld("Dias de Bolsa Proporcional", String(diasBolsa) + " dia(s)")}${fld("Valor", fmt(bolsaProp))}
-${fld("Recesso Proporcional", `${mesesRecesso} meses`)}${fld("Valor", fmt(recessoProp))}
-${dozeaVosRow}
+${fld("Bolsa Proporcional", String(diasBolsa) + " dia(s)")}${fld("Valor", fmt(bolsaProp))}
+${fld("1/12 Avos", `${mesesRecesso} meses trabalhados`)}${fld("Valor", fmt(dozeaVos))}
 ${descontosRows}
 <div class="fld full" style="background:#f0f9ff;border-top:2px solid #0f2a5e;padding:6px 8px">
   <label style="font-size:8px;font-weight:900;text-transform:uppercase;color:#0f2a5e;display:block;margin-bottom:2px">TOTAL A RECEBER</label>

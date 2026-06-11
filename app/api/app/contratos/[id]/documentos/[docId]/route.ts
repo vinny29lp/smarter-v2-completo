@@ -101,7 +101,7 @@ export async function POST(
         : body.descontos > 0
           ? [{ descricao: "Descontos", valor: Number(body.descontos) }]
           : [];
-      html = gerarReciboRescisao(contratoData, body.diasBolsa || 30, body.mesesRecesso || 1, descontosRR, body.dozeavos || 0);
+      html = gerarReciboRescisao(contratoData, body.diasBolsa || 30, body.mesesTrabalhados || 0, descontosRR, body.dozeavos || 0);
       break;
     }
     case "rec":
