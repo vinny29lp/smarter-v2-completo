@@ -683,7 +683,7 @@ export function gerarReciboRescisao(
   const dozeaVos = dozeavosVal || 0;
   const totalDescontos = descontos.reduce((s, d) => s + (d.valor || 0), 0);
   const total = bolsaProp + recessoProp + dozeaVos - totalDescontos;
-  const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2});
+  const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   const hoje = new Date().toLocaleDateString("pt-BR");
 
   const dozeaVosRow = dozeaVos > 0

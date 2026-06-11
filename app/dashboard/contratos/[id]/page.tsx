@@ -11,7 +11,7 @@ const statusBadge: Record<string,string> = {ATIVO:"green",PENDENTE:"yellow",AGUA
 const docStatusBadge: Record<string,string> = {NAO_GERADO:"gray",RASCUNHO:"yellow",GERADO:"purple",ENVIADO_ASSINATURA:"blue",AGUARDANDO_ASSINATURA:"blue",ASSINADO:"green",CANCELADO:"red"};
 const docStatusLabel: Record<string,string> = {NAO_GERADO:"Não Gerado",RASCUNHO:"Rascunho",GERADO:"Gerado",ENVIADO_ASSINATURA:"Enviado",AGUARDANDO_ASSINATURA:"Aguardando",ASSINADO:"Assinado ✓",CANCELADO:"Cancelado"};
 
-const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function ContratoDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
