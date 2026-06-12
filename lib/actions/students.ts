@@ -19,7 +19,7 @@ export async function getStudents() {
       },
     },
     orderBy: { createdAt: "desc" },
-    take: 200,
+    take: 1000,
   });
 }
 

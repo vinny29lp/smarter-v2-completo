@@ -56,7 +56,8 @@ export async function POST(req: Request) {
     }, { status: 400 });
   }
 
-  const franchiseId = session.user.franchiseId || undefined;
+  // Estudantes sempre ligados ao Admin (franchiseId = null) para não se perder ao excluir uma unidade
+  const franchiseId: undefined = undefined;
   const userId = (session.user as any).id || session.user.email || "";
 
   // ⚡ ESC-004: Pré-validação e normalização (sem DB) — separar linhas válidas de inválidas

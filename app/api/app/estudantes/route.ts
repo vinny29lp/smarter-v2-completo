@@ -72,7 +72,8 @@ export async function POST(req: Request) {
   let student: any = null;
 
   try {
-    const franchiseId = body.franchiseId || session?.user?.franchiseId || undefined;
+    // Estudantes sempre ligados ao Admin (franchiseId = null) para não se perder ao excluir uma unidade
+    const franchiseId: undefined = undefined;
     const hash = await bcrypt.hash(senhaPlain, 10);
 
     const user = await prisma.user.create({
