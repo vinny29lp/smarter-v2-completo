@@ -15,31 +15,49 @@ const discColor: Record<string,string> = {
   S:"bg-emerald-100 text-emerald-700", C:"bg-blue-100 text-blue-700"
 };
 
+function buildPageUrl(
+  sp: { q?:string; status?:string; cidade?:string; disc?:string; curso?:string },
+  newPage: number
+): string {
+  const p = new URLSearchParams();
+  if (sp.q)       p.set("q",       sp.q);
+  if (sp.status)  p.set("status",  sp.status);
+  if (sp.cidade)  p.set("cidade",  sp.cidade);
+  if (sp.disc)    p.set("disc",    sp.disc);
+  if (sp.curso)   p.set("curso",   sp.curso);
+  if (newPage > 1) p.set("page",   String(newPage));
+  const qs = p.toString();
+  return qs ? `?${qs}` : "?";
+}
+
 export default async function EstudantesPage({ searchParams }: {
-  searchParams: { q?:string; status?:string; cidade?:string; disc?:string; curso?:string }
+  searchParams: { q?:string; status?:string; cidade?:string; disc?:string; curso?:string; page?:string }
 }) {
   const session = await getServerSession(authOptions);
-  const all = await getStudents();
+  const page = Math.max(1, parseInt(searchParams.page || "1"));
 
-  // Filtros server-side
-  let estudantes = all;
-  if (searchParams.q) {
-    const q = searchParams.q.toLowerCase();
-    estudantes = estudantes.filter(e => e.name.toLowerCase().includes(q) || (e.email||"").toLowerCase().includes(q) || (e.cpf||"").includes(q));
-  }
-  if (searchParams.status) estudantes = estudantes.filter(e => e.status === searchParams.status);
-  if (searchParams.cidade) estudantes = estudantes.filter(e => (e.cidade||"").toLowerCase().includes(searchParams.cidade!.toLowerCase()));
-  if (searchParams.disc) estudantes = estudantes.filter(e => e.discResult === searchParams.disc);
-  if (searchParams.curso) estudantes = estudantes.filter(e => (e.curso||"").toLowerCase().includes(searchParams.curso!.toLowerCase()));
+  // Filtros e paginação feitos direto no banco
+  const result = await getStudents({
+    page,
+    q:       searchParams.q,
+    status:  searchParams.status,
+    cidade:  searchParams.cidade,
+    disc:    searchParams.disc,
+    curso:   searchParams.curso,
+  });
 
+  const { students: estudantes, total, totalPages } = result;
   const franchiseRef = session?.user?.franchiseId || undefined;
+
+  const inicio = (page - 1) * result.pageSize + 1;
+  const fim    = Math.min(page * result.pageSize, total);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-black text-slate-800">Estudantes</h1>
-          <p className="text-slate-500 text-sm mt-1">{estudantes.length} estudantes</p>
+          <p className="text-slate-500 text-sm mt-1">{total} estudantes no total</p>
         </div>
         <div className="flex gap-2">
           <ImportarEstudantesButton />
@@ -98,6 +116,38 @@ export default async function EstudantesPage({ searchParams }: {
             ))}
           </tbody>
         </table></div>
+
+        {/* Paginação */}
+        {total > 0 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100">
+            <span className="text-sm text-slate-500">
+              {total === 0 ? "0 resultados" : `${inicio}–${fim} de ${total} estudantes`}
+            </span>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                {page > 1 ? (
+                  <Link href={buildPageUrl(searchParams, page - 1)}
+                    className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 font-medium transition-colors">
+                    ← Anterior
+                  </Link>
+                ) : (
+                  <span className="px-3 py-1.5 text-sm border border-slate-100 rounded-lg text-slate-300 cursor-not-allowed">← Anterior</span>
+                )}
+                <span className="text-sm text-slate-500 px-1">
+                  {page} / {totalPages}
+                </span>
+                {page < totalPages ? (
+                  <Link href={buildPageUrl(searchParams, page + 1)}
+                    className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 font-medium transition-colors">
+                    Próximo →
+                  </Link>
+                ) : (
+                  <span className="px-3 py-1.5 text-sm border border-slate-100 rounded-lg text-slate-300 cursor-not-allowed">Próximo →</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </Card>
     </div>
   );
