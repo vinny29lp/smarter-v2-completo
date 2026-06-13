@@ -43,7 +43,8 @@ export function AIButton({
 
       // Pegar o primeiro campo de conteúdo disponível
       const text = data.descricao || data.atividades || data.parecer
-                || data.testes   || data.analise    || data.resultado || "";
+                || data.testes   || data.analise    || data.resultado
+                || data.requisitos || "";
       setResult(text);
       setShowPanel(true);
     } catch {

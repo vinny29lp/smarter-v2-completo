@@ -373,7 +373,30 @@ Gere um parecer técnico profissional com as seções:
 Seja objetivo, técnico e profissional. Não invente informações.`,
   },
 
-  // 4. Sugestão de Testes
+  // 4a. Sugestão de Requisitos
+  sugestaoRequisitos: {
+    system: `Você é um especialista em recrutamento e seleção para estágios.
+Sua tarefa é sugerir requisitos adequados e realistas para vagas de estágio.
+Foque em requisitos objetivos, alcançáveis por estagiários e relevantes para a função.`,
+
+    user: (data: {
+      titulo: string; area: string; descricao?: string;
+    }) => `Sugira os requisitos para a seguinte vaga de estágio:
+
+VAGA: ${data.titulo}
+ÁREA: ${data.area}
+${data.descricao ? `DESCRIÇÃO DA VAGA:\n${data.descricao}` : ""}
+
+Liste os requisitos no seguinte formato:
+- [Requisito]
+- [Requisito]
+...
+
+Inclua: formação acadêmica, habilidades técnicas básicas e competências comportamentais.
+Seja realista para o nível de estagiário. Máximo 8 requisitos, em português.`,
+  },
+
+  // 4b. Sugestão de Testes
   sugestaoTestes: {
     system: `Você é um especialista em psicologia organizacional e processos seletivos para estágios.
 Sua tarefa é sugerir testes práticos e comportamentais adequados para seleção de estagiários.

@@ -13,6 +13,7 @@ export default function NovaVagaPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [testesIA, setTestesIA] = useState("");
   const [companies, setCompanies] = useState<any[]>([]);
   const [form, setForm] = useState({
     titulo:"", funcao:"", area:"", descricao:"", requisitos:"",
@@ -64,9 +65,37 @@ export default function NovaVagaPage() {
     titulo: form.titulo, area: form.area,
     requisitos: form.requisitos, descricao: form.descricao,
   };
+  const aiRequisitosPayload = {
+    titulo: form.titulo, area: form.area, descricao: form.descricao,
+  };
   const aiDiscPayload = {
     titulo: form.titulo, area: form.area,
     descricao: form.descricao, requisitos: form.requisitos, modalidade: form.modalidade,
+  };
+
+  const downloadTestesPDF = () => {
+    if (!testesIA) return;
+    const content = testesIA
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/### (.*)/g, "<h3>$1</h3>")
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n/g, "<br/>");
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Testes Seletivos — ${form.titulo}</title>
+<style>
+  body{font-family:Arial,sans-serif;padding:40px;max-width:800px;margin:0 auto;color:#1e293b}
+  h1{color:#0f2a5e;border-bottom:2px solid #0f2a5e;padding-bottom:10px}
+  h3{color:#1a3d8f;margin-top:24px}
+  .meta{color:#64748b;font-size:14px;margin-bottom:24px}
+  strong{font-weight:bold}
+  @media print{body{padding:20px}}
+</style></head><body>
+<h1>Testes Seletivos Sugeridos</h1>
+<div class="meta"><strong>Vaga:</strong> ${form.titulo}&nbsp;|&nbsp;<strong>Área:</strong> ${form.area||"—"}</div>
+<div>${content}</div>
+</body></html>`;
+    const win = window.open("", "_blank");
+    if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 400); }
   };
 
   return (
@@ -144,20 +173,52 @@ export default function NovaVagaPage() {
               <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-20 resize-none" value={form.descricao} onChange={e=>set("descricao",e.target.value)} placeholder="Atividades que o estagiário irá desenvolver..."/>
             </div>
 
-            {/* Módulo 4 — Sugestão de Testes */}
+            {/* Requisitos com Sugerir Requisitos */}
             <div className="col-span-2">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-slate-600">Requisitos</label>
                 <AIButton
-                  label="Sugerir testes seletivos"
-                  endpoint="/api/app/ai/sugestao-testes"
-                  payload={aiTestesPayload}
-                  resultLabel="Testes sugeridos pela IA"
+                  label="Sugerir Requisitos"
+                  endpoint="/api/app/ai/sugestao-requisitos"
+                  payload={aiRequisitosPayload}
+                  resultLabel="Requisitos sugeridos pela IA"
                   disabled={!form.titulo}
                   onResult={(text) => set("requisitos", form.requisitos ? form.requisitos + "\n\n" + text : text)}
                 />
               </div>
               <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-16 resize-none" value={form.requisitos} onChange={e=>set("requisitos",e.target.value)} placeholder="Cursando Administração ou áreas correlatas..."/>
+            </div>
+
+            {/* Sugestão de Testes Seletivos — uso interno, não vai para a vaga */}
+            <div className="col-span-2">
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                <div className="flex items-start justify-between gap-3 mb-1">
+                  <div>
+                    <p className="text-xs font-bold text-slate-600">Sugestão de Testes Seletivos</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Apenas para uso interno da unidade — não aparece na divulgação da vaga</p>
+                  </div>
+                  <AIButton
+                    label="Sugerir Testes Seletivos"
+                    endpoint="/api/app/ai/sugestao-testes"
+                    payload={aiTestesPayload}
+                    resultLabel="Testes sugeridos pela IA"
+                    disabled={!form.titulo}
+                    onResult={(text) => setTestesIA(text)}
+                  />
+                </div>
+                {testesIA && (
+                  <div className="mt-3 flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                    <p className="text-xs text-amber-700 font-medium">✓ Testes gerados — apenas para uso interno da unidade</p>
+                    <button
+                      type="button"
+                      onClick={downloadTestesPDF}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition-colors"
+                    >
+                      📄 Baixar PDF
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </Card>
