@@ -195,8 +195,10 @@ model Vacancy {
   cidade        String?
   uf            String?
   endereco      String?
-  discDesejado  String?
-  status        VacancyStatus? @default(ABERTA)
+  discDesejado   String?
+  nivel          String?
+  cursoRequerido String?
+  status         VacancyStatus? @default(ABERTA)
   companyId     String
   franchiseId   String
   createdAt     DateTime?      @default(now()) @db.Timestamptz(6)

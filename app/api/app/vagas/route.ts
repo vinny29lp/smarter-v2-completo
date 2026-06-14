@@ -37,12 +37,12 @@ export async function POST(req: Request) {
     const {
       titulo, funcao, area, descricao, requisitos, beneficios,
       modalidade, bolsa, auxTransporte, cargaHoraria, chDiaria,
-      horario, cidade, uf, discDesejado, companyId,
+      horario, cidade, uf, discDesejado, nivel, cursoRequerido, companyId,
     } = body;
     const vaga = await createVacancy({
       titulo, funcao, area, descricao, requisitos, beneficios,
       modalidade, bolsa, auxTransporte, cargaHoraria, chDiaria,
-      horario, cidade, uf, discDesejado, companyId,
+      horario, cidade, uf, discDesejado, nivel, cursoRequerido, companyId,
       franchiseId: session.user.franchiseId,
     });
     return NextResponse.json({ vaga });

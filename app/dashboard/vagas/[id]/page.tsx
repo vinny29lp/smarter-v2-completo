@@ -45,6 +45,8 @@ export default async function VagaDetailPage({ params }: { params: { id: string 
             {[
               ["Empresa", vaga.company.name],
               ["Área", vaga.area||"—"],
+              ["Nível de Ensino", (vaga as any).nivel||"—"],
+              ["Curso Requerido", (vaga as any).cursoRequerido||"—"],
               ["Modalidade", vaga.modalidade],
               ["Horário", vaga.horario||"—"],
               ["Benefícios", vaga.beneficios||"—"],

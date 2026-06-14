@@ -18,6 +18,8 @@ export type VacancyInput = {
   cidade?: string;
   uf?: string;
   discDesejado?: string;
+  nivel?: string;
+  cursoRequerido?: string;
   companyId: string;
   franchiseId: string;
 };

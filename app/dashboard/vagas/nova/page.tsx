@@ -9,20 +9,66 @@ import Link from "next/link";
 
 const AREAS = ["Administrativo","Comercial","Contabilidade","Design","Engenharia","Financeiro","Jurídico","Logística","Marketing","Recursos Humanos","Tecnologia","Saúde","Outro"];
 
+// Cursos sugeridos por área — Ensino Superior
+const CURSOS_SUPERIOR: Record<string, string[]> = {
+  "Administrativo":     ["Administração","Gestão Comercial","Secretariado Executivo","Gestão de Recursos Humanos","Processos Gerenciais"],
+  "Comercial":          ["Administração","Marketing","Gestão Comercial","Publicidade e Propaganda","Comércio Exterior"],
+  "Contabilidade":      ["Ciências Contábeis","Administração","Economia","Finanças"],
+  "Design":             ["Design Gráfico","Design de Produto","Design de Interiores","Arquitetura e Urbanismo","Publicidade e Propaganda","Artes Visuais"],
+  "Engenharia":         ["Engenharia Civil","Engenharia Elétrica","Engenharia Mecânica","Engenharia de Produção","Engenharia Química","Engenharia Ambiental","Engenharia de Alimentos","Engenharia da Computação"],
+  "Financeiro":         ["Ciências Contábeis","Economia","Administração","Matemática","Atuária"],
+  "Jurídico":           ["Direito"],
+  "Logística":          ["Logística","Administração","Engenharia de Produção","Comércio Exterior","Gestão da Cadeia de Suprimentos"],
+  "Marketing":          ["Marketing","Publicidade e Propaganda","Comunicação Social","Relações Públicas","Jornalismo","Administração"],
+  "Recursos Humanos":   ["Psicologia","Administração","Gestão de Recursos Humanos","Pedagogia"],
+  "Tecnologia":         ["Ciência da Computação","Sistemas de Informação","Engenharia de Software","Análise e Desenvolvimento de Sistemas","Redes de Computadores","Segurança da Informação","Engenharia da Computação","Tecnologia em Desenvolvimento de Sistemas"],
+  "Saúde":              ["Farmácia","Enfermagem","Nutrição","Fisioterapia","Medicina","Odontologia","Psicologia","Biomedicina","Medicina Veterinária","Educação Física","Fonoaudiologia","Terapia Ocupacional"],
+  "Outro":              [],
+};
+
+// Cursos sugeridos por área — Ensino Técnico
+const CURSOS_TECNICO: Record<string, string[]> = {
+  "Administrativo":     ["Técnico em Administração","Técnico em Secretariado","Técnico em Recursos Humanos"],
+  "Comercial":          ["Técnico em Vendas","Técnico em Comércio"],
+  "Contabilidade":      ["Técnico em Contabilidade"],
+  "Design":             ["Técnico em Design Gráfico","Técnico em Artes Gráficas"],
+  "Engenharia":         ["Técnico em Eletrotécnica","Técnico em Mecânica","Técnico em Edificações","Técnico em Eletrônica"],
+  "Financeiro":         ["Técnico em Finanças","Técnico em Contabilidade"],
+  "Jurídico":           ["Técnico em Serviços Jurídicos"],
+  "Logística":          ["Técnico em Logística"],
+  "Marketing":          ["Técnico em Marketing"],
+  "Recursos Humanos":   ["Técnico em Recursos Humanos"],
+  "Tecnologia":         ["Técnico em Informática","Técnico em Redes","Técnico em Desenvolvimento de Sistemas"],
+  "Saúde":              ["Técnico em Enfermagem","Técnico em Farmácia","Técnico em Radiologia","Técnico em Análises Clínicas","Técnico em Saúde Bucal","Técnico em Nutrição e Dietética"],
+  "Outro":              [],
+};
+
 export default function NovaVagaPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [testesIA, setTestesIA] = useState("");
+  const [cursoOutro, setCursoOutro] = useState(false);
   const [companies, setCompanies] = useState<any[]>([]);
   const [form, setForm] = useState({
     titulo:"", funcao:"", area:"", descricao:"", requisitos:"",
     beneficios:"Auxílio Transporte", modalidade:"Presencial",
     bolsa:"", auxTransporte:"200", cargaHoraria:"30", chDiaria:"6",
     horario:"08:00 - 14:00", cidade:"", uf:"",
-    discDesejado:"", companyId:"",
+    discDesejado:"", nivel:"", cursoRequerido:"", companyId:"",
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
+
+  // Quando área muda, resetar cursoRequerido para evitar inconsistências
+  const setArea = (v: string) => { setForm(p => ({ ...p, area: v, cursoRequerido: "" })); setCursoOutro(false); };
+  const setNivel = (v: string) => { setForm(p => ({ ...p, nivel: v, cursoRequerido: v === "Ensino Médio" ? "Ensino Médio Regular" : "" })); setCursoOutro(false); };
+
+  // Lista de cursos disponíveis conforme nível e área selecionados
+  const cursosDisponiveis = form.nivel === "Ensino Superior"
+    ? (CURSOS_SUPERIOR[form.area] || [])
+    : form.nivel === "Ensino Técnico"
+    ? (CURSOS_TECNICO[form.area] || [])
+    : [];
 
   useEffect(()=>{
     fetch("/api/app/empresas").then(r=>r.json()).then(d=>setCompanies(d.empresas||[]));
@@ -57,16 +103,20 @@ export default function NovaVagaPage() {
   const selectedCompany = companies.find(c => c.id === form.companyId);
   const aiDescricaoPayload = {
     titulo: form.titulo, funcao: form.funcao, area: form.area,
+    nivel: form.nivel, cursoRequerido: form.cursoRequerido,
     bolsa: form.bolsa, horario: form.horario, modalidade: form.modalidade,
     requisitos: form.requisitos, empresa: selectedCompany?.name || "",
     cidade: form.cidade, uf: form.uf,
   };
   const aiTestesPayload = {
     titulo: form.titulo, area: form.area,
+    nivel: form.nivel, cursoRequerido: form.cursoRequerido,
     requisitos: form.requisitos, descricao: form.descricao,
   };
   const aiRequisitosPayload = {
-    titulo: form.titulo, area: form.area, descricao: form.descricao,
+    titulo: form.titulo, area: form.area,
+    nivel: form.nivel, cursoRequerido: form.cursoRequerido,
+    descricao: form.descricao,
   };
   const aiDiscPayload = {
     titulo: form.titulo, area: form.area,
@@ -116,11 +166,62 @@ export default function NovaVagaPage() {
             <Input label="Função" value={form.funcao} onChange={e=>set("funcao",e.target.value)} placeholder="Assistente"/>
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Área</label>
-              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.area} onChange={e=>set("area",e.target.value)}>
+              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.area} onChange={e=>setArea(e.target.value)}>
                 <option value="">Selecione...</option>
                 {AREAS.map(a=><option key={a}>{a}</option>)}
               </select>
             </div>
+
+            {/* Nível de Ensino — Lei 11.788/08 */}
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Nível de Ensino <span className="text-slate-400 font-normal">(Lei 11.788/08)</span></label>
+              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.nivel} onChange={e=>setNivel(e.target.value)}>
+                <option value="">Selecione...</option>
+                <option value="Ensino Médio">Ensino Médio</option>
+                <option value="Ensino Técnico">Ensino Técnico</option>
+                <option value="Ensino Superior">Ensino Superior</option>
+              </select>
+            </div>
+
+            {/* Curso Requerido — aparece quando nível é Técnico ou Superior */}
+            {(form.nivel === "Ensino Técnico" || form.nivel === "Ensino Superior") && (
+              <div className="col-span-2">
+                <label className="text-xs font-bold text-slate-600 block mb-1">
+                  Curso Requerido
+                  <span className="text-slate-400 font-normal ml-1">
+                    {cursosDisponiveis.length > 0 ? `— ${cursosDisponiveis.length} sugestões para ${form.area || "a área"}` : ""}
+                  </span>
+                </label>
+                {cursosDisponiveis.length > 0 ? (
+                  <select
+                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+                    value={cursoOutro ? "Outro" : form.cursoRequerido}
+                    onChange={e => {
+                      if (e.target.value === "Outro") {
+                        setCursoOutro(true);
+                        set("cursoRequerido", "");
+                      } else {
+                        setCursoOutro(false);
+                        set("cursoRequerido", e.target.value);
+                      }
+                    }}
+                  >
+                    <option value="">Selecione o curso...</option>
+                    {cursosDisponiveis.map(c => <option key={c}>{c}</option>)}
+                    <option value="Outro">Outro (digitar abaixo)</option>
+                  </select>
+                ) : null}
+                {(cursoOutro || cursosDisponiveis.length === 0) && (
+                  <Input
+                    placeholder="Digite o curso requerido..."
+                    value={form.cursoRequerido}
+                    onChange={e => set("cursoRequerido", e.target.value)}
+                    className={cursosDisponiveis.length > 0 ? "mt-2" : ""}
+                  />
+                )}
+              </div>
+            )}
+
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Empresa *</label>
               <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.companyId} onChange={e=>set("companyId",e.target.value)}>

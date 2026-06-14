@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   if (!franchiseId) return NextResponse.json({ error: "Franquia não identificada" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const { titulo, area, descricao } = body;
+  const { titulo, area, nivel, cursoRequerido, descricao } = body;
 
   if (!titulo || !area) {
     return NextResponse.json({ error: "Campos obrigatórios: título e área." }, { status: 400 });
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       userEmail: session.user.email || undefined,
       tipoUso: "sugestao_requisitos",
       systemPrompt: AI_PROMPTS.sugestaoRequisitos.system,
-      userPrompt: AI_PROMPTS.sugestaoRequisitos.user({ titulo, area, descricao }),
+      userPrompt: AI_PROMPTS.sugestaoRequisitos.user({ titulo, area, nivel, cursoRequerido, descricao }),
       maxTokens: 600,
       temperature: 0.5,
     });

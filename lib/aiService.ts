@@ -14,6 +14,7 @@ export type AITipoUso =
   | "tce_atividades"
   | "parecer"
   | "sugestao_testes"
+  | "sugestao_requisitos"
   | "disc_perfil";
 
 export interface AICallOptions {
@@ -263,15 +264,17 @@ export const AI_PROMPTS = {
 
   // 1. Descrição de Vaga
   vagaDescricao: {
-    system: `Você é um especialista em recrutamento e seleção de estagiários no Brasil.
+    system: `Você é um especialista em recrutamento e seleção de estagiários no Brasil, com profundo conhecimento da Lei do Estágio 11.788/2008.
 Sua tarefa é criar descrições de vagas profissionais, atraentes e completas para o portal Smarter Estágios.
 Escreva em português brasileiro formal mas acessível.
 Seja específico, objetivo e profissional.
 Não invente informações além do que foi fornecido.
-Formate o texto de forma clara com seções bem definidas.`,
+Formate o texto de forma clara com seções bem definidas.
+REGRA OBRIGATÓRIA — Lei 11.788/2008: O estágio deve obrigatoriamente estar relacionado ao projeto pedagógico do curso do estudante (art. 1º e art. 3º). Sempre mencione o curso/nível de ensino exato informado nos requisitos. Nunca escreva "cursando qualquer área" ou "diversas áreas" — use o curso específico fornecido.`,
 
     user: (data: {
       titulo: string; empresa: string; area: string; curso: string;
+      nivel?: string; cursoRequerido?: string;
       bolsa: string; horario: string; modalidade: string;
       requisitos?: string; descricao?: string; beneficios?: string; extras?: string;
     }) => `Crie uma descrição profissional completa para a seguinte vaga de estágio:
@@ -279,7 +282,8 @@ Formate o texto de forma clara com seções bem definidas.`,
 TÍTULO: ${data.titulo}
 EMPRESA: ${data.empresa}
 ÁREA: ${data.area}
-CURSO ALVO: ${data.curso}
+NÍVEL DE ENSINO: ${data.nivel || (data.curso !== "Diversas áreas" ? "Ensino Superior" : "A definir")}
+CURSO REQUERIDO: ${data.cursoRequerido && data.cursoRequerido !== "Outro" ? data.cursoRequerido : data.curso}
 BOLSA: R$ ${data.bolsa}/mês
 HORÁRIO: ${data.horario}
 MODALIDADE: ${data.modalidade}
@@ -287,6 +291,8 @@ ${data.requisitos ? `REQUISITOS INFORMADOS: ${data.requisitos}` : ""}
 ${data.descricao ? `DESCRIÇÃO INICIAL: ${data.descricao}` : ""}
 ${data.beneficios ? `BENEFÍCIOS: ${data.beneficios}` : ""}
 ${data.extras ? `INFORMAÇÕES ADICIONAIS: ${data.extras}` : ""}
+
+IMPORTANTE — Lei 11.788/2008: Na seção Requisitos, mencione EXPLICITAMENTE que o candidato deve estar regularmente matriculado no curso "${data.cursoRequerido && data.cursoRequerido !== "Outro" ? data.cursoRequerido : data.curso}" (${data.nivel || "Ensino Superior"}). Não use "qualquer área" ou "diversas áreas".
 
 Gere uma descrição com as seções:
 ## Sobre a Vaga
@@ -296,7 +302,7 @@ Gere uma descrição com as seções:
 ## Benefícios
 ## Sobre a Empresa (baseado nas informações disponíveis)
 
-Seja profissional, específico e atraente para universitários.`,
+Seja profissional, específico e atraente para o público universitário.`,
   },
 
   // 2. Atividades TCE (Lei 11.788/08)
@@ -375,16 +381,19 @@ Seja objetivo, técnico e profissional. Não invente informações.`,
 
   // 4a. Sugestão de Requisitos
   sugestaoRequisitos: {
-    system: `Você é um especialista em recrutamento e seleção para estágios.
+    system: `Você é um especialista em recrutamento e seleção para estágios no Brasil, com conhecimento da Lei do Estágio 11.788/2008.
 Sua tarefa é sugerir requisitos adequados e realistas para vagas de estágio.
-Foque em requisitos objetivos, alcançáveis por estagiários e relevantes para a função.`,
+Foque em requisitos objetivos, alcançáveis por estagiários e relevantes para a função.
+REGRA OBRIGATÓRIA — Lei 11.788/2008 (art. 1º e 3º): O primeiro requisito SEMPRE deve mencionar explicitamente o curso e nível de ensino requerido. Nunca escreva "qualquer área" ou "diversas áreas" — use o curso e nível específico informado.`,
 
     user: (data: {
-      titulo: string; area: string; descricao?: string;
+      titulo: string; area: string; nivel?: string; cursoRequerido?: string; descricao?: string;
     }) => `Sugira os requisitos para a seguinte vaga de estágio:
 
 VAGA: ${data.titulo}
 ÁREA: ${data.area}
+NÍVEL DE ENSINO: ${data.nivel || "Ensino Superior"}
+CURSO REQUERIDO: ${data.cursoRequerido && data.cursoRequerido !== "Outro" ? data.cursoRequerido : "A definir"}
 ${data.descricao ? `DESCRIÇÃO DA VAGA:\n${data.descricao}` : ""}
 
 Liste os requisitos no seguinte formato:
@@ -392,8 +401,9 @@ Liste os requisitos no seguinte formato:
 - [Requisito]
 ...
 
-Inclua: formação acadêmica, habilidades técnicas básicas e competências comportamentais.
-Seja realista para o nível de estagiário. Máximo 8 requisitos, em português.`,
+O PRIMEIRO requisito deve ser: "Estar regularmente matriculado(a) em ${data.nivel || "Ensino Superior"} no curso de ${data.cursoRequerido && data.cursoRequerido !== "Outro" ? data.cursoRequerido : "área correlata"} (conforme Lei 11.788/2008)"
+Depois inclua: habilidades técnicas básicas e competências comportamentais relevantes para a função.
+Seja realista para o nível de estagiário. Máximo 8 requisitos no total, em português.`,
   },
 
   // 4b. Sugestão de Testes

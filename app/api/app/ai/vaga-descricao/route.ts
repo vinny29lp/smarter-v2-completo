@@ -11,10 +11,22 @@ export async function POST(req: Request) {
   if (!franchiseId) return NextResponse.json({ error: "Franquia não identificada" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const { titulo, empresa, area, curso, bolsa, horario, modalidade, requisitos, descricao, beneficios, extras } = body;
+  const { titulo, empresa, area, curso, nivel, cursoRequerido, bolsa, horario, modalidade, requisitos, descricao, beneficios, extras } = body;
 
   if (!titulo || !empresa || !bolsa) {
     return NextResponse.json({ error: "Campos obrigatórios: título, empresa, bolsa." }, { status: 400 });
+  }
+
+  // Montar descrição do curso/nível para o prompt
+  let cursoParaPrompt = "Diversas áreas";
+  if (nivel === "Ensino Médio") {
+    cursoParaPrompt = "Ensino Médio";
+  } else if (cursoRequerido && cursoRequerido !== "Outro") {
+    cursoParaPrompt = `${cursoRequerido}${nivel ? ` (${nivel})` : ""}`;
+  } else if (nivel) {
+    cursoParaPrompt = nivel;
+  } else if (curso) {
+    cursoParaPrompt = curso;
   }
 
   try {
@@ -25,7 +37,8 @@ export async function POST(req: Request) {
       tipoUso: "vaga_descricao",
       systemPrompt: AI_PROMPTS.vagaDescricao.system,
       userPrompt: AI_PROMPTS.vagaDescricao.user({
-        titulo, empresa, area: area || "—", curso: curso || "Diversas áreas",
+        titulo, empresa, area: area || "—", curso: cursoParaPrompt,
+        nivel: nivel || "", cursoRequerido: cursoRequerido || "",
         bolsa, horario: horario || "A combinar", modalidade: modalidade || "Presencial",
         requisitos, descricao, beneficios, extras,
       }),
