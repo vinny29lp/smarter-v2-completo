@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { handleApiError } from "@/lib/api-response";
+import { enviarBoasVindasFranqueado } from "@/lib/email";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -76,6 +77,32 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const hash = await bcrypt.hash(body.password, 10);
     await prisma.user.update({ where: { id: body.userId }, data: { password: hash } });
     return NextResponse.json({ ok: true });
+  }
+
+  // Reenviar email de boas-vindas (gera nova senha temporária + envia email)
+  if (body.action === "reenviar_boasvindas") {
+    const franchise = await prisma.franchise.findUnique({
+      where: { id: params.id },
+      include: { users: { where: { role: "FRANQUEADO" }, take: 1 } },
+    });
+    if (!franchise) return NextResponse.json({ error: "Franqueado não encontrado." }, { status: 404 });
+    const franqUser = franchise.users[0];
+    if (!franqUser) return NextResponse.json({ error: "Usuário do franqueado não encontrado." }, { status: 404 });
+
+    // Gera nova senha temporária e atualiza no banco
+    const novaSenha = Math.random().toString(36).slice(-8) + "S1@";
+    const hash = await bcrypt.hash(novaSenha, 10);
+    await prisma.user.update({ where: { id: franqUser.id }, data: { password: hash } });
+
+    // Envia email com as novas credenciais
+    const emailEnviado = await enviarBoasVindasFranqueado({
+      email: franqUser.email,
+      nome: franqUser.name || franchise.responsavel || "",
+      nomeUnidade: franchise.name,
+      senha: novaSenha,
+    });
+
+    return NextResponse.json({ ok: true, emailEnviado, email: franqUser.email });
   }
 
   // Toggle cobrarMensalidade

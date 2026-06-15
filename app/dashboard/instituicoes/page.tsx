@@ -2,12 +2,19 @@ import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { InstituicaoDeleteButton } from "@/components/instituicoes/InstituicaoDeleteButton";
 
 export default async function InstituicoesPage() {
-  const instituicoes = await prisma.institution.findMany({
-    include: { _count: { select: { students: true, contracts: true } } },
-    orderBy: { name: "asc" },
-  });
+  const [session, instituicoes] = await Promise.all([
+    getServerSession(authOptions),
+    prisma.institution.findMany({
+      include: { _count: { select: { students: true, contracts: true } } },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+  const isFranqueadora = session?.user?.role === "FRANQUEADORA";
 
   return (
     <div>
@@ -46,9 +53,19 @@ export default async function InstituicoesPage() {
                 <td className="px-5 py-3 text-center"><Badge variant="blue">{(i as any)._count.students}</Badge></td>
                 <td className="px-5 py-3 text-center"><Badge variant="green">{(i as any)._count.contracts}</Badge></td>
                 <td className="px-5 py-3">
-                  <Link href={`/dashboard/instituicoes/${i.id}`}>
-                    <button className="text-xs border border-slate-200 hover:border-[#0f2a5e] px-3 py-1.5 rounded-lg font-semibold transition-colors">Ver →</button>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/dashboard/instituicoes/${i.id}`}>
+                      <button className="text-xs border border-slate-200 hover:border-[#0f2a5e] px-3 py-1.5 rounded-lg font-semibold transition-colors">Ver →</button>
+                    </Link>
+                    {isFranqueadora && (
+                      <InstituicaoDeleteButton
+                        id={i.id}
+                        name={i.name}
+                        studentCount={(i as any)._count.students}
+                        contractCount={(i as any)._count.contracts}
+                      />
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

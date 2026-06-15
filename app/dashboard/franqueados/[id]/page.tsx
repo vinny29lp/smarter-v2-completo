@@ -27,6 +27,7 @@ export default function FranqueadoDetailPage() {
   const [msg, setMsg] = useState("");
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reenviandoEmail, setReenviandoEmail] = useState(false);
 
   const load = () => {
     fetch(`/api/app/franqueados/${params.id}`)
@@ -107,10 +108,27 @@ export default function FranqueadoDetailPage() {
       </div>
 
       {/* Ações rápidas */}
-      <div className="flex gap-2 mb-5">
+      <div className="flex gap-2 mb-5 flex-wrap">
         <Button variant="secondary" size="sm" onClick={()=>setEditModal(true)}>✏️ Editar Dados</Button>
         <Button variant="secondary" size="sm" onClick={()=>setEmailModal(true)}>📧 Alterar E-mail Login</Button>
         <Button variant="secondary" size="sm" onClick={()=>setSenhaModal(true)}>🔑 Alterar Senha</Button>
+        <Button
+          variant="secondary" size="sm"
+          disabled={reenviandoEmail}
+          onClick={async () => {
+            setReenviandoEmail(true); setMsg("");
+            const r = await fetch(`/api/app/franqueados/${params.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "reenviar_boasvindas" }),
+            });
+            const d = await r.json();
+            setReenviandoEmail(false);
+            if (d.error) { setMsg("❌ " + d.error); return; }
+            setMsg(d.emailEnviado ? `✉️ Boas-vindas enviadas para ${d.email}! Nova senha gerada.` : "⚠️ Senha atualizada, mas email falhou. Verifique as configurações.");
+          }}>
+          {reenviandoEmail ? "Enviando..." : "✉️ Reenviar Boas-Vindas"}
+        </Button>
         <Button
           variant={bloqueado?"primary":"danger"} size="sm"
           onClick={()=>action({action:"toggle_access"}).then(()=>setMsg(bloqueado?"Acesso liberado! ✓":"Acesso bloqueado!"))}>

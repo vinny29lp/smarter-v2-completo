@@ -331,3 +331,27 @@ export async function enviarBoasVindasColaborador(params: {
   `;
   return sendMail(params.email, "Bem-vindo(a) à equipe Smarter Estágios", base("Bem-vindo(a) à Equipe!", corpo));
 }
+
+export async function enviarBoasVindasFranqueado(params: {
+  email: string; nome: string; nomeUnidade: string; senha: string; loginUrl?: string;
+}): Promise<boolean> {
+  const url = params.loginUrl || APP_URL;
+  const corpo = `
+    <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! A unidade <strong>${params.nomeUnidade}</strong> foi cadastrada na rede Smarter Estágios. Seja bem-vindo(a)!</p>
+    <div class="box">
+      <div class="label">Credenciais de acesso ao sistema</div>
+      <div style="margin-top:8px">
+        <div class="label">E-mail de login</div><div class="value">${params.email}</div>
+        <div class="label" style="margin-top:8px">Senha temporária</div><div class="value">${params.senha}</div>
+      </div>
+    </div>
+    <p style="color:#475569;font-size:13px">Através do painel você pode gerenciar estudantes, empresas, contratos de estágio e o financeiro da sua unidade.</p>
+    <a href="${url}/login" class="btn">Acessar o Sistema →</a>
+    <p style="color:#94a3b8;font-size:12px;margin-top:16px">Recomendamos alterar sua senha após o primeiro acesso.</p>
+  `;
+  return sendMail(
+    params.email,
+    `Bem-vindo(a) à Smarter Estágios — Acesso da unidade ${params.nomeUnidade} criado`,
+    base("Bem-vindo(a) à Rede Smarter!", corpo),
+  );
+}

@@ -11,7 +11,7 @@ export default function NovoFranqueadoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [sucesso, setSucesso] = useState<{email:string;senha:string}|null>(null);
+  const [sucesso, setSucesso] = useState<{email:string;senha:string;emailEnviado:boolean}|null>(null);
   const [form, setForm] = useState({
     name:"", razaoSocial:"", cnpj:"", responsavel:"", email:"",
     emailLogin:"", telefone:"", cidade:"", uf:"", endereco:"", cep:"",
@@ -44,7 +44,7 @@ export default function NovoFranqueadoPage() {
     });
     const data = await res.json();
     if (data.error) { setError(data.error); setLoading(false); return; }
-    setSucesso({ email: data.user.email, senha: data.senhaGerada });
+    setSucesso({ email: data.user.email, senha: data.senhaGerada, emailEnviado: !!data.emailEnviado });
     setLoading(false);
   };
 
@@ -54,7 +54,11 @@ export default function NovoFranqueadoPage() {
         <Card className="p-8 text-center">
           <div className="text-5xl mb-4">🎉</div>
           <h2 className="text-xl font-black text-slate-800 mb-2">Franqueado Cadastrado!</h2>
-          <p className="text-slate-500 text-sm mb-6">E-mail de boas-vindas enviado com as credenciais de acesso.</p>
+          {sucesso.emailEnviado ? (
+            <p className="text-slate-500 text-sm mb-6">✅ E-mail de boas-vindas enviado com as credenciais de acesso.</p>
+          ) : (
+            <p className="text-amber-600 text-sm mb-6">⚠️ Franqueado cadastrado, mas o e-mail de boas-vindas não foi enviado. Anote a senha abaixo e use o botão "Reenviar Boas-Vindas" na página do franqueado.</p>
+          )}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left mb-6">
             <p className="text-xs font-bold text-slate-400 mb-2">CREDENCIAIS DE ACESSO:</p>
             <p className="text-sm"><strong>Login:</strong> {sucesso.email}</p>
@@ -120,7 +124,7 @@ export default function NovoFranqueadoPage() {
           </div>
         </Card>
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
-          ✉️ Após cadastrar, o franqueado recebe e-mail de boas-vindas com login e senha de acesso ao sistema.
+          ✉️ Após cadastrar, o sistema envia automaticamente o e-mail de boas-vindas com login e senha. Caso o e-mail não chegue, use o botão "Reenviar Boas-Vindas" na página do franqueado.
         </div>
         <div className="flex gap-3">
           <Button variant="secondary" onClick={()=>router.back()}>Cancelar</Button>

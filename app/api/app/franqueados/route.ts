@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { handleApiError } from "@/lib/api-response";
+import { enviarBoasVindasFranqueado } from "@/lib/email";
 
 // ⚡ ESC-002: paginação adicionada — evita payload crescente com 100+ franqueados
 export async function GET(req: Request) {
@@ -92,7 +93,20 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ franchise, user, senhaGerada: senha });
+  // Enviar email de boas-vindas (não-bloqueante: falha no email não cancela o cadastro)
+  let emailEnviado = false;
+  try {
+    emailEnviado = await enviarBoasVindasFranqueado({
+      email: user.email,
+      nome: body.responsavel || user.name || "",
+      nomeUnidade: franchise.name,
+      senha,
+    });
+  } catch (emailErr) {
+    console.error("[Franqueados] Erro ao enviar email de boas-vindas:", emailErr);
+  }
+
+  return NextResponse.json({ franchise, user, senhaGerada: senha, emailEnviado });
   } catch (e) {
     return handleApiError(e, "FRANQUEADOS_POST_001");
   }
