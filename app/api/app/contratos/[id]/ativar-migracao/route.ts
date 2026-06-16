@@ -7,8 +7,9 @@ import { handleApiError } from "@/lib/api-response";
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "FRANQUEADORA") {
-    return NextResponse.json({ error: "Sem permissão. Apenas Admin (Franqueadora)." }, { status: 403 });
+  const allowedRoles = ["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"];
+  if (!session || !allowedRoles.includes(session.user.role || "")) {
+    return NextResponse.json({ error: "Sem permissão para ativar estágio." }, { status: 403 });
   }
 
   const contrato = await prisma.contract.findUnique({ where: { id: params.id } });
