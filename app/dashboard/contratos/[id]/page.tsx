@@ -649,11 +649,38 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           </div>
 
           {/* Dias da semana */}
-          <div>
-            <label className="text-xs font-bold text-slate-600 block mb-1">Dias da Semana</label>
-            <input type="text" value={editForm.diasSemana} onChange={e => setF("diasSemana", e.target.value)}
-              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" placeholder="Segunda a Sexta"/>
-          </div>
+          {(() => {
+            const DIAS_PRESETS_EDIT = [
+              "Segunda a Sexta","Segunda a Sábado","Terça a Sábado","Terça a Domingo",
+              "Quarta a Sábado","Quarta a Domingo","Quinta a Segunda","Sexta a Terça",
+              "Sábado a Quarta","Domingo a Quinta",
+            ];
+            const isPreset = DIAS_PRESETS_EDIT.includes(editForm.diasSemana);
+            const selectVal = isPreset ? editForm.diasSemana : "Personalizado";
+            return (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-600 block">Dias da Semana</label>
+                <select
+                  value={selectVal}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v !== "Personalizado") setF("diasSemana", v);
+                    else setF("diasSemana", "");
+                  }}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+                >
+                  {[...DIAS_PRESETS_EDIT, "Personalizado"].map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                {selectVal === "Personalizado" && (
+                  <input type="text" value={editForm.diasSemana} onChange={e => setF("diasSemana", e.target.value)}
+                    placeholder="Ex: Quarta a Sexta, Seg/Qua/Sex..."
+                    className="w-full border-2 border-blue-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Supervisor */}
           <div>

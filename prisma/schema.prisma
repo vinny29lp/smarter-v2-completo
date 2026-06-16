@@ -95,6 +95,9 @@ model Company {
   pendente         Boolean?       @default(false)
   emailFinanceiro  String?
   valorGestao      Float?
+  cpsStatus        String?        @default("NAO_GERADO")
+  cpsAuthDocId     String?
+  cpsSignedUrl     String?
   franchise        Franchise?     @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   contracts        Contract[]
   crmLeads         CrmLead[]

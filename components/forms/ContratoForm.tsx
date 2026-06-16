@@ -9,6 +9,25 @@ import { AIButton } from "@/components/ai/AIButton";
 
 interface Props { franchiseId: string; }
 
+// ── Dias da Semana ──────────────────────────────────────────────────────────
+const DIAS_SEMANA_OPCOES: { label: string; dias: number | null }[] = [
+  { label: "Segunda a Sexta",   dias: 5 },
+  { label: "Segunda a Sábado",  dias: 6 },
+  { label: "Terça a Sábado",    dias: 5 },
+  { label: "Terça a Domingo",   dias: 6 },
+  { label: "Quarta a Sábado",   dias: 4 },
+  { label: "Quarta a Domingo",  dias: 5 },
+  { label: "Quinta a Segunda",  dias: 5 },
+  { label: "Sexta a Terça",     dias: 5 },
+  { label: "Sábado a Quarta",   dias: 5 },
+  { label: "Domingo a Quinta",  dias: 5 },
+  { label: "Personalizado",     dias: null },
+];
+const DIAS_PRESETS = DIAS_SEMANA_OPCOES.filter(o => o.dias !== null).map(o => o.label);
+const DIAS_MAP: Record<string, number> = Object.fromEntries(
+  DIAS_SEMANA_OPCOES.filter(o => o.dias !== null).map(o => [o.label, o.dias as number])
+);
+
 // ── Autocomplete genérico ─────────────────────────────────────────────────────
 interface AutocompleteProps {
   label: string;
@@ -150,7 +169,14 @@ export function ContratoForm({ franchiseId }: Props) {
   });
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  const chTotal = parseInt(form.chDiaria || "0") * (form.diasSemana.includes("Sábado") ? 6 : 5);
+  // Calcula CH total baseado no preset escolhido; se "Personalizado", usa chSemanal manual
+  const diasCount = DIAS_MAP[form.diasSemana];
+  const chTotal = diasCount !== undefined
+    ? parseInt(form.chDiaria || "0") * diasCount
+    : parseInt(form.chSemanal || "0");
+  // Controla o select de dias: preset vs personalizado
+  const selectDiasValue = DIAS_PRESETS.includes(form.diasSemana) ? form.diasSemana : "Personalizado";
+  const isDiasPersonalizado = selectDiasValue === "Personalizado";
 
   // Payload para IA de atividades TCE
   const aiAtividadesPayload = {
@@ -287,12 +313,45 @@ export function ContratoForm({ franchiseId }: Props) {
                 {["4", "5", "6"].map(h => <option key={h} value={h}>{h}h/dia</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Dias da Semana</label>
-              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.diasSemana} onChange={e => set("diasSemana", e.target.value)}>
-                <option>Segunda a Sexta</option>
-                <option>Segunda a Sábado</option>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-600 block">Dias da Semana</label>
+              <select
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+                value={selectDiasValue}
+                onChange={e => {
+                  const v = e.target.value;
+                  if (v === "Personalizado") {
+                    set("diasSemana", ""); // limpa para o usuário digitar
+                  } else {
+                    set("diasSemana", v);
+                  }
+                }}
+              >
+                {DIAS_SEMANA_OPCOES.map(o => (
+                  <option key={o.label} value={o.label}>{o.label}</option>
+                ))}
               </select>
+              {isDiasPersonalizado && (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={form.diasSemana}
+                    onChange={e => set("diasSemana", e.target.value)}
+                    placeholder="Ex: Quarta a Sexta, Seg/Qua/Sex..."
+                    className="w-full border-2 border-blue-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                  />
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">CH Semanal (horas/semana)</label>
+                    <input
+                      type="number"
+                      value={form.chSemanal}
+                      onChange={e => set("chSemanal", e.target.value)}
+                      min="1" max="40"
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             <Input label="Horário Início" type="time" value={form.horarioInicio} onChange={e => set("horarioInicio", e.target.value)} />
             <Input label="Horário Fim" type="time" value={form.horarioFim} onChange={e => set("horarioFim", e.target.value)} />

@@ -276,10 +276,29 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
   );
 }
 
+const cpsStatusLabel: Record<string,string> = {
+  NAO_GERADO: "Não gerado",
+  GERADO: "Gerado",
+  AGUARDANDO_ASSINATURA: "Aguardando Assinatura",
+  ASSINADO: "Assinado ✓",
+};
+const cpsStatusColor: Record<string,string> = {
+  NAO_GERADO: "text-slate-400",
+  GERADO: "text-purple-600",
+  AGUARDANDO_ASSINATURA: "text-blue-600",
+  ASSINADO: "text-emerald-600 font-bold",
+};
+
 export function EmpresaCPS({ empresa }: { empresa: any }) {
   const [valorGestao, setValorGestao] = useState<string>(empresa.valorGestao ? String(empresa.valorGestao) : "");
   const [cpsMsg, setCpsMsg] = useState<string|null>(null);
   const [savingCps, setSavingCps] = useState(false);
+  const [assinaturaModal, setAssinaturaModal] = useState(false);
+  const [emailAssinar, setEmailAssinar] = useState<string>(empresa.email || "");
+  const [enviandoAssinatura, setEnviandoAssinatura] = useState(false);
+  const [verificando, setVerificando] = useState(false);
+  const [cpsStatus, setCpsStatus] = useState<string>(empresa.cpsStatus || "NAO_GERADO");
+  const [cpsSignedUrl, setCpsSignedUrl] = useState<string|null>(empresa.cpsSignedUrl || null);
   const router = useRouter();
 
   const salvar = async () => {
@@ -298,52 +317,151 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
     else { setCpsMsg("✅ Valor salvo!"); router.refresh(); }
   };
 
-  const gerar = () => window.open(`/api/app/empresas/${empresa.id}/cps`, "_blank");
+  // Baixar CPS como HTML (imprimível como PDF pelo navegador)
+  const baixarCPS = async () => {
+    if (!empresa.valorGestao) { setCpsMsg("❌ Salve o valor de gestão primeiro."); return; }
+    const res = await fetch(`/api/app/empresas/${empresa.id}/cps`);
+    if (!res.ok) { const d = await res.json(); setCpsMsg("❌ " + (d.error || "Erro ao gerar CPS.")); return; }
+    const html = await res.text();
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `CPS-${empresa.name.replace(/\s+/g, "-")}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setCpsStatus("GERADO");
+  };
+
+  const enviarParaAssinatura = async () => {
+    if (!emailAssinar.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAssinar.trim())) {
+      setCpsMsg("❌ Informe um e-mail válido."); return;
+    }
+    setEnviandoAssinatura(true); setCpsMsg(null);
+    const res = await fetch(`/api/app/empresas/${empresa.id}/cps/autentique`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailAssinar.trim() }),
+    });
+    const data = await res.json();
+    setEnviandoAssinatura(false);
+    if (data.error) { setCpsMsg("❌ " + data.error); }
+    else {
+      setCpsMsg("✅ CPS enviado para assinatura!");
+      setCpsStatus("AGUARDANDO_ASSINATURA");
+      setAssinaturaModal(false);
+    }
+  };
+
+  const verificarAssinatura = async () => {
+    setVerificando(true); setCpsMsg(null);
+    const res = await fetch(`/api/app/empresas/${empresa.id}/cps/autentique`);
+    const data = await res.json();
+    setVerificando(false);
+    if (data.error) { setCpsMsg("❌ " + data.error); return; }
+    if (data.allSigned) {
+      setCpsStatus("ASSINADO");
+      setCpsSignedUrl(data.signedUrl || null);
+      setCpsMsg("✅ CPS assinado! Já pode baixar o documento assinado.");
+    } else {
+      const pendentes = (data.signers || []).filter((s: any) => !s.signed).length;
+      setCpsMsg(`🔄 Aguardando ${pendentes} assinatura(s).`);
+    }
+  };
 
   return (
     <Card className="p-5 mb-4">
-      <h3 className="text-sm font-bold text-slate-700 mb-1">📄 Contrato de Prestação de Serviços</h3>
-      <p className="text-xs text-slate-400 mb-4">Contrato comercial entre a empresa e o agente de integração (franquia). Gerado por empresa, não por contrato de estágio.</p>
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-sm font-bold text-slate-700">📄 Contrato de Parceria (CPS)</h3>
+        <span className={`text-xs ${cpsStatusColor[cpsStatus] || "text-slate-400"}`}>
+          {cpsStatusLabel[cpsStatus] || cpsStatus}
+        </span>
+      </div>
+      <p className="text-xs text-slate-400 mb-4">Contrato comercial entre a empresa e a franquia. Pode ser gerado, baixado em PDF e enviado para assinatura digital.</p>
+
       <div className="space-y-3">
+        {/* Valor de gestão */}
         <div>
           <label className="text-xs font-bold text-slate-600 block mb-1">Valor de Gestão por Estagiário (R$/mês)</label>
           <div className="flex gap-2">
             <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={valorGestao}
-              onChange={e => setValorGestao(e.target.value)}
-              placeholder="Ex: 150.00"
+              type="number" min="0" step="0.01" value={valorGestao}
+              onChange={e => setValorGestao(e.target.value)} placeholder="Ex: 150.00"
               className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] transition-colors"
             />
-            <button
-              onClick={salvar}
-              disabled={savingCps}
-              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors disabled:opacity-50"
-            >
+            <button onClick={salvar} disabled={savingCps}
+              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors disabled:opacity-50">
               {savingCps ? "..." : "Salvar"}
             </button>
           </div>
         </div>
+
         {cpsMsg && (
-          <p className={`text-xs p-2 rounded-lg ${cpsMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+          <p className={`text-xs p-2 rounded-lg ${cpsMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : cpsMsg.startsWith("🔄") ? "bg-blue-50 text-blue-700" : "bg-red-50 text-red-700"}`}>
             {cpsMsg}
           </p>
         )}
-        <button
-          onClick={gerar}
-          disabled={!valorGestao}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0f2a5e] text-white rounded-xl text-sm font-bold hover:bg-[#1a3d8f] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          📄 Gerar Contrato (CPS)
-        </button>
-        {empresa.valorGestao && (
-          <p className="text-xs text-center text-slate-400">
-            Valor atual: <strong className="text-slate-600">R$ {Number(empresa.valorGestao).toLocaleString("pt-BR", {minimumFractionDigits:2})}/estagiário</strong>
-          </p>
-        )}
+
+        {/* Ações do CPS */}
+        <div className="flex flex-col gap-2">
+          {/* Baixar como HTML/PDF */}
+          <button onClick={baixarCPS} disabled={!empresa.valorGestao}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0f2a5e] text-white rounded-xl text-sm font-bold hover:bg-[#1a3d8f] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            ⬇ Baixar CPS (abrir e imprimir como PDF)
+          </button>
+
+          {/* Enviar para assinatura digital */}
+          {cpsStatus !== "ASSINADO" && (
+            <button onClick={() => { setAssinaturaModal(true); setCpsMsg(null); }} disabled={!empresa.valorGestao}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              📧 Enviar para Assinatura Digital
+            </button>
+          )}
+
+          {/* Verificar status */}
+          {cpsStatus === "AGUARDANDO_ASSINATURA" && (
+            <button onClick={verificarAssinatura} disabled={verificando}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-50">
+              {verificando ? "Verificando..." : "🔄 Verificar Assinaturas"}
+            </button>
+          )}
+
+          {/* Baixar assinado */}
+          {cpsSignedUrl && (
+            <a href={cpsSignedUrl} target="_blank" rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors">
+              ✅ Baixar CPS Assinado (PDF)
+            </a>
+          )}
+        </div>
       </div>
+
+      {/* Modal: Enviar para Assinatura */}
+      <Modal open={assinaturaModal} onClose={() => setAssinaturaModal(false)} title="📧 Enviar CPS para Assinatura">
+        <div className="space-y-4">
+          <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700">
+            O CPS será enviado ao e-mail da empresa para assinatura digital via Autentique. Após a assinatura, você poderá baixar o documento com firma digital.
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">E-mail para Assinatura *</label>
+            <input type="email" value={emailAssinar} onChange={e => setEmailAssinar(e.target.value)}
+              placeholder="responsavel@empresa.com.br"
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"/>
+            <p className="text-xs text-slate-400 mt-1">Normalmente o e-mail do responsável da empresa.</p>
+          </div>
+          {cpsMsg && (
+            <p className={`text-xs p-2 rounded-lg ${cpsMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {cpsMsg}
+            </p>
+          )}
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setAssinaturaModal(false)} className="flex-1 justify-center">Cancelar</Button>
+            <Button onClick={enviarParaAssinatura} disabled={enviandoAssinatura || !emailAssinar.trim()} className="flex-1 justify-center">
+              {enviandoAssinatura ? "Enviando..." : "📧 Enviar"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Card>
   );
 }
