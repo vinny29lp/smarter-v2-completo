@@ -38,6 +38,8 @@ model Franchise {
   name                 String
   razaoSocial          String?
   cnpj                 String?              @unique
+  cpf                  String?
+  dataNasc             DateTime?            @db.Timestamptz(6)
   responsavel          String
   email                String
   telefone             String?
@@ -674,6 +676,7 @@ model ImportLog {
   importados  Int       @default(0)
   duplicados  Int       @default(0)
   erros       Int       @default(0)
+  detalhes    Json?     // Salva erros e duplicados por linha para consulta posterior
   createdAt   DateTime? @default(now()) @db.Timestamptz(6)
 
   @@map("import_logs")

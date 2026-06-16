@@ -120,6 +120,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     where: { id: params.id },
     data: {
       name: body.name, razaoSocial: body.razaoSocial, cnpj: body.cnpj,
+      cpf: body.cpf !== undefined ? (body.cpf ? body.cpf.replace(/\D/g, "") : null) : undefined,
+      dataNasc: body.dataNasc !== undefined ? (body.dataNasc ? new Date(body.dataNasc) : null) : undefined,
       responsavel: body.responsavel, email: body.email, telefone: body.telefone,
       cidade: body.cidade, uf: body.uf, endereco: body.endereco,
       mensalidade: body.mensalidade ? parseFloat(body.mensalidade) : undefined,

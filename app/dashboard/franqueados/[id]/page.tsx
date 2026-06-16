@@ -152,7 +152,18 @@ export default function FranqueadoDetailPage() {
         <div className="grid grid-cols-2 gap-5">
           <Card className="p-5">
             <h3 className="text-sm font-bold mb-3">Dados da Unidade</h3>
-            {[["CNPJ",data.cnpj],["Responsável",data.responsavel],["E-mail",data.email],["Telefone",data.telefone],["Endereço",data.endereco],["Cidade",data.cidade+"/"+data.uf],["Plano",data.plano],["Mensalidade",fmt(data.mensalidade)]].map(([l,v])=>(
+            {[
+              ["CNPJ",data.cnpj],
+              ["CPF do Responsável", data.cpf ? data.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : null],
+              ["Data de Nascimento", data.dataNasc ? new Date(data.dataNasc).toLocaleDateString("pt-BR", {timeZone:"UTC"}) : null],
+              ["Responsável",data.responsavel],
+              ["E-mail",data.email],
+              ["Telefone",data.telefone],
+              ["Endereço",data.endereco],
+              ["Cidade",data.cidade+"/"+data.uf],
+              ["Plano",data.plano],
+              ["Mensalidade",fmt(data.mensalidade)]
+            ].map(([l,v])=>(
               <div key={l} className="flex justify-between py-1.5 border-b border-slate-50 last:border-0 text-sm">
                 <span className="text-slate-400">{l}</span><span className="font-medium">{v||"—"}</span>
               </div>
@@ -318,9 +329,18 @@ export default function FranqueadoDetailPage() {
 
       <Modal open={editModal} onClose={()=>setEditModal(false)} title="Editar Dados da Franquia" size="lg">
         <div className="grid grid-cols-2 gap-3">
-          {[["name","Nome"],["razaoSocial","Razão Social"],["cnpj","CNPJ"],["responsavel","Responsável"],["email","E-mail"],["telefone","Telefone"],["cidade","Cidade"],["uf","UF"],["mensalidade","Mensalidade (R$)"]].map(([k,l])=>(
+          {[["name","Nome"],["razaoSocial","Razão Social"],["cnpj","CNPJ"],["cpf","CPF do Responsável"],["responsavel","Responsável"],["email","E-mail"],["telefone","Telefone"],["cidade","Cidade"],["uf","UF"],["mensalidade","Mensalidade (R$)"]].map(([k,l])=>(
             <Input key={k} label={l} value={editForm[k]||""} onChange={e=>setEditForm((p:any)=>({...p,[k]:e.target.value}))}/>
           ))}
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Data de Nascimento</label>
+            <input
+              type="date"
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+              value={editForm.dataNasc ? new Date(editForm.dataNasc).toISOString().split("T")[0] : ""}
+              onChange={e=>setEditForm((p:any)=>({...p, dataNasc: e.target.value}))}
+            />
+          </div>
         </div>
         <div className="flex gap-3 mt-4">
           <Button variant="secondary" onClick={()=>setEditModal(false)}>Cancelar</Button>

@@ -71,6 +71,8 @@ export async function POST(req: Request) {
   const franchise = await prisma.franchise.create({
     data: {
       name: body.name, razaoSocial: body.razaoSocial, cnpj: body.cnpj,
+      cpf: body.cpf ? body.cpf.replace(/\D/g, "") : null,
+      dataNasc: body.dataNasc ? new Date(body.dataNasc) : null,
       responsavel: body.responsavel, email: body.email, telefone: body.telefone,
       cidade: body.cidade, uf: body.uf, endereco: body.endereco, cep: body.cep,
       mensalidade: parseFloat(body.mensalidade) || 200,

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import Link from "next/link";
-import { validarCNPJ, validarEmail, validarTelefone, validarCEP, formatarCNPJ, formatarCEP, formatarTelefone, buscarCEP } from "@/lib/validations";
+import { validarCNPJ, validarCPF, validarEmail, validarTelefone, validarCEP, formatarCNPJ, formatarCPF, formatarCEP, formatarTelefone, buscarCEP } from "@/lib/validations";
 
 export default function NovoFranqueadoPage() {
   const router = useRouter();
@@ -13,7 +13,8 @@ export default function NovoFranqueadoPage() {
   const [error, setError] = useState("");
   const [sucesso, setSucesso] = useState<{email:string;senha:string;emailEnviado:boolean}|null>(null);
   const [form, setForm] = useState({
-    name:"", razaoSocial:"", cnpj:"", responsavel:"", email:"",
+    name:"", razaoSocial:"", cnpj:"", cpf:"", dataNasc:"",
+    responsavel:"", email:"",
     emailLogin:"", telefone:"", cidade:"", uf:"", endereco:"", cep:"",
     mensalidade:"200", plano:"completo", senha:"",
   });
@@ -35,6 +36,8 @@ export default function NovoFranqueadoPage() {
   const handleSubmit = async () => {
     setError("");
     if (!form.name||!form.responsavel||!form.email) { setError("Preencha: Nome, Responsável e E-mail."); return; }
+    if (!form.cpf) { setError("CPF do responsável é obrigatório."); return; }
+    if (!validarCPF(form.cpf)) { setError("CPF inválido. Verifique o número informado."); return; }
     if (!validarEmail(form.email)) { setError("E-mail inválido."); return; }
     if (form.cnpj && !validarCNPJ(form.cnpj)) { setError("CNPJ inválido."); return; }
     if (form.telefone && !validarTelefone(form.telefone)) { setError("Telefone inválido."); return; }
@@ -67,7 +70,7 @@ export default function NovoFranqueadoPage() {
           </div>
           <div className="flex gap-3 justify-center">
             <Button variant="secondary" onClick={() => router.push("/dashboard/franqueados")}>Ver Lista</Button>
-            <Button onClick={() => { setSucesso(null); setForm({name:"",razaoSocial:"",cnpj:"",responsavel:"",email:"",emailLogin:"",telefone:"",cidade:"",uf:"",endereco:"",cep:"",mensalidade:"200",plano:"completo",senha:""}); }}>
+            <Button onClick={() => { setSucesso(null); setForm({name:"",razaoSocial:"",cnpj:"",cpf:"",dataNasc:"",responsavel:"",email:"",emailLogin:"",telefone:"",cidade:"",uf:"",endereco:"",cep:"",mensalidade:"200",plano:"completo",senha:""}); }}>
               + Novo Franqueado
             </Button>
           </div>
@@ -104,6 +107,27 @@ export default function NovoFranqueadoPage() {
           <h3 className="text-sm font-bold text-slate-700 mb-4">Responsável e Acesso</h3>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Nome do Responsável *" value={form.responsavel} onChange={e=>set("responsavel",e.target.value)} placeholder="João Silva"/>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">CPF do Responsável *</label>
+              <input
+                type="text"
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+                value={form.cpf}
+                onChange={e=>set("cpf",e.target.value)}
+                onBlur={e=>{ if(e.target.value) set("cpf", formatarCPF(e.target.value)); }}
+                placeholder="000.000.000-00"
+                maxLength={14}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Data de Nascimento</label>
+              <input
+                type="date"
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+                value={form.dataNasc}
+                onChange={e=>set("dataNasc",e.target.value)}
+              />
+            </div>
             <Input label="E-mail de Contato *" type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="contato@franquia.com.br"/>
             <Input label="E-mail de Login (se diferente)" type="email" value={form.emailLogin} onChange={e=>set("emailLogin",e.target.value)} placeholder="joao@franquia.com.br"/>
             <Input label="Telefone" value={form.telefone} onChange={e=>set("telefone",e.target.value)} placeholder="(21) 99999-0000"/>
