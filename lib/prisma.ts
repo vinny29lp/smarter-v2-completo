@@ -4,17 +4,20 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// ⚡ Garantir que a DATABASE_URL tenha connection_limit=1 para Vercel serverless
+// ⚡ Garantir que a DATABASE_URL tenha connection_limit para Vercel serverless
 // Sem isso, Prisma pode abrir múltiplas conexões por invocação, esgotando o pool do Supabase
+// M4: PRISMA_POOL_SIZE permite configurar o limite via env (ex: ao migrar para Supabase Pro)
+//     Se não definida, mantém connection_limit=1 (comportamento atual — sem regressão)
 function buildDatasourceUrl(): string | undefined {
   const url = process.env.DATABASE_URL;
   if (!url) return url;
-  // Adiciona connection_limit=1 e pool_timeout=10 se não presentes
+  const poolSize = process.env.PRISMA_POOL_SIZE || "1";
+  // Adiciona connection_limit e pool_timeout se não presentes
   const hasLimit = url.includes("connection_limit");
   const hasTimeout = url.includes("pool_timeout");
   const separator = url.includes("?") ? "&" : "?";
   let extra = "";
-  if (!hasLimit) extra += `${separator}connection_limit=1`;
+  if (!hasLimit) extra += `${separator}connection_limit=${poolSize}`;
   if (!hasTimeout) extra += `${extra ? "&" : separator}pool_timeout=15`;
   return url + extra;
 }

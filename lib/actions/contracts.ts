@@ -10,7 +10,14 @@ async function gerarNumeroContrato(franchiseId: string): Promise<string> {
   return `${String(count + 1).padStart(3,"0")}/${ano}`;
 }
 
-export async function getContracts(franchiseId?: string, companyId?: string, hideInativo?: boolean) {
+export async function getContracts(
+  franchiseId?: string,
+  companyId?: string,
+  hideInativo?: boolean,
+  page: number = 1,
+  limit: number = 200,
+) {
+  const skip = (page - 1) * limit;
   return prisma.contract.findMany({
     where: {
       ...(franchiseId ? { franchiseId } : {}),
@@ -31,7 +38,8 @@ export async function getContracts(franchiseId?: string, companyId?: string, hid
       _count: { select: { documents: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 200,
+    skip,
+    take: limit,
   });
 }
 
@@ -124,24 +132,7 @@ export async function createContract(data: any) {
   // Gerar número automático se não fornecido
   const numero = _numero || await gerarNumeroContrato(franchiseId);
 
-  let contract;
-  try {
-    contract = await prisma.contract.create({
-      data: { ...safeData, numero },
-    });
-  } catch (dbErr: any) {
-    // Traduzir erros comuns do Prisma para mensagens legíveis
-    const raw: string = dbErr?.message || String(dbErr);
-    if (raw.includes("Unique constraint")) {
-      throw new Error("Já existe um contrato com esses dados. Verifique duplicatas.");
-    }
-    if (raw.includes("Foreign key constraint")) {
-      throw new Error("Referência inválida: verifique se Estudante, Empresa e Instituição ainda existem no sistema.");
-    }
-    throw new Error(`Erro ao salvar no banco de dados: ${raw.slice(0, 200)}`);
-  }
-
-  // Criar 11 documentos automaticamente
+  // Criar contrato e documentos em transaction — se createMany falhar, o contrato é revertido
   const docTipos = [
     { tipo: "tce",  titulo: "Termo de Compromisso de Estagio" },
     { tipo: "pe",   titulo: "Plano de Estagio" },
@@ -156,14 +147,33 @@ export async function createContract(data: any) {
     // "cps" (Contrato de Prestação de Serviços) foi movido para o cadastro da empresa
   ];
 
-  await prisma.internshipDocument.createMany({
-    data: docTipos.map(d => ({
-      contractId: contract.id,
-      tipo: d.tipo,
-      titulo: d.titulo,
-      status: "NAO_GERADO",
-    })),
-  });
+  let contract;
+  try {
+    contract = await prisma.$transaction(async (tx) => {
+      const created = await tx.contract.create({
+        data: { ...safeData, numero },
+      });
+      await tx.internshipDocument.createMany({
+        data: docTipos.map(d => ({
+          contractId: created.id,
+          tipo: d.tipo,
+          titulo: d.titulo,
+          status: "NAO_GERADO",
+        })),
+      });
+      return created;
+    });
+  } catch (dbErr: any) {
+    // Traduzir erros comuns do Prisma para mensagens legíveis
+    const raw: string = dbErr?.message || String(dbErr);
+    if (raw.includes("Unique constraint")) {
+      throw new Error("Já existe um contrato com esses dados. Verifique duplicatas.");
+    }
+    if (raw.includes("Foreign key constraint")) {
+      throw new Error("Referência inválida: verifique se Estudante, Empresa e Instituição ainda existem no sistema.");
+    }
+    throw new Error(`Erro ao salvar no banco de dados: ${raw.slice(0, 200)}`);
+  }
 
   // Atualizar status do estudante
   await prisma.student.update({
@@ -181,7 +191,50 @@ export async function createContract(data: any) {
 }
 
 export async function updateContract(id: string, data: any) {
-  const contract = await prisma.contract.update({ where: { id }, data });
+  // Allowlist explícita de campos editáveis — evita mass assignment
+  const {
+    bolsa, valorEmpresa, auxTransporte, beneficios, vencimento,
+    dataInicio, dataFim, atividades, localEstagio, cidade, uf,
+    chDiaria, chSemanal, diasSemana, horarioInicio, horarioFim, intervalo,
+    supervisorNome, supervisorCargo, supervisorEmail, supervisorTel,
+    coordNome, coordCargo, coordEmail, coordTel,
+    apoliceSeguro, seguradora, tipoEstagio, status, numero,
+  } = data;
+
+  const safeUpdate = {
+    ...(bolsa !== undefined ? { bolsa } : {}),
+    ...(valorEmpresa !== undefined ? { valorEmpresa } : {}),
+    ...(auxTransporte !== undefined ? { auxTransporte } : {}),
+    ...(beneficios !== undefined ? { beneficios } : {}),
+    ...(vencimento !== undefined ? { vencimento } : {}),
+    ...(dataInicio !== undefined ? { dataInicio } : {}),
+    ...(dataFim !== undefined ? { dataFim } : {}),
+    ...(atividades !== undefined ? { atividades } : {}),
+    ...(localEstagio !== undefined ? { localEstagio } : {}),
+    ...(cidade !== undefined ? { cidade } : {}),
+    ...(uf !== undefined ? { uf } : {}),
+    ...(chDiaria !== undefined ? { chDiaria } : {}),
+    ...(chSemanal !== undefined ? { chSemanal } : {}),
+    ...(diasSemana !== undefined ? { diasSemana } : {}),
+    ...(horarioInicio !== undefined ? { horarioInicio } : {}),
+    ...(horarioFim !== undefined ? { horarioFim } : {}),
+    ...(intervalo !== undefined ? { intervalo } : {}),
+    ...(supervisorNome !== undefined ? { supervisorNome } : {}),
+    ...(supervisorCargo !== undefined ? { supervisorCargo } : {}),
+    ...(supervisorEmail !== undefined ? { supervisorEmail } : {}),
+    ...(supervisorTel !== undefined ? { supervisorTel } : {}),
+    ...(coordNome !== undefined ? { coordNome } : {}),
+    ...(coordCargo !== undefined ? { coordCargo } : {}),
+    ...(coordEmail !== undefined ? { coordEmail } : {}),
+    ...(coordTel !== undefined ? { coordTel } : {}),
+    ...(apoliceSeguro !== undefined ? { apoliceSeguro } : {}),
+    ...(seguradora !== undefined ? { seguradora } : {}),
+    ...(tipoEstagio !== undefined ? { tipoEstagio } : {}),
+    ...(status !== undefined ? { status } : {}),
+    ...(numero !== undefined ? { numero } : {}),
+  };
+
+  const contract = await prisma.contract.update({ where: { id }, data: safeUpdate });
   revalidatePath("/dashboard/contratos");
   return contract;
 }

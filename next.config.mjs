@@ -1,16 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    // TODO: FASE 7 — Remover após corrigir os erros ESLint nos 14 arquivos identificados
-    // Arquivos com erros: ver docs/RELATORIO-BUILD.md
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    // Restaurado: build quebrou com erro real em vagas/[id]/page.tsx (a.student.user.email)
-    // e potenciais outros erros de schema drift. Corrigido o erro principal; mantido aqui
-    // como segurança enquanto os demais erros de Prisma client são resolvidos.
-    ignoreBuildErrors: true,
-  },
+  // ESLint: sem config file → Next.js pula ESLint na build automaticamente
+  // TypeScript: prisma generate roda antes de next build (ver package.json "build")
+  // portanto os tipos gerados estão sempre atualizados antes do tsc
   // ⚡ Compressão de resposta ativa
   compress: true,
   // ⚡ Headers de cache + HTTP Security Headers (FASE 3 — Blindagem de Produção)

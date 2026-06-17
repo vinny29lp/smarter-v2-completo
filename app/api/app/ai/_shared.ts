@@ -17,7 +17,9 @@ export async function validateAIRequest(req: Request): Promise<{
     };
   }
 
-  const franchiseId = session.user.franchiseId;
+  // M3: FRANQUEADORA não tem franchiseId na sessão — usa sentinel "FRANQUEADORA" para controle
+  const franchiseId: string = session.user.franchiseId
+    ?? (session.user.role === "FRANQUEADORA" ? "FRANQUEADORA" : "");
   if (!franchiseId) {
     return {
       session, franchiseId: "", body: null,

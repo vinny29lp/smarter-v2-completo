@@ -116,6 +116,8 @@ async function registrarLog(opts: {
   sucesso: boolean;
   erro?: string;
 }): Promise<void> {
+  // M3: FRANQUEADORA usa sentinel — sem FK válida, pula o log para evitar constraint error
+  if (opts.franchiseId === "FRANQUEADORA") return;
   try {
     await prisma.aIUsageLog.create({
       data: {

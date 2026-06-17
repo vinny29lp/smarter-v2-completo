@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
+import { checkRateLimit } from "./rate-limit";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -14,17 +15,23 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // A4: Rate limit por email — 10 tentativas por minuto (proteção contra brute force)
+        if (!checkRateLimit(credentials.email, "auth_login", 10, 60_000)) {
+          return null;
+        }
+
         // ── Instrumentação de tempo (visível nos logs do Vercel) ──────────
+        const DEV = process.env.NODE_ENV === "development";
         const T = { start: Date.now() };
         const lap = (label: string) => {
           const now = Date.now();
-          console.log(`[AUTH_PERF] ${label}: ${now - T.start}ms`);
+          if (DEV) console.log(`[AUTH_PERF] ${label}: ${now - T.start}ms`);
           T.start = now;
         };
         const t0 = Date.now();
         // SEC-B01: email mascarado nos logs — não expor dado pessoal em logs de produção
         const emailMask = credentials.email.replace(/(.{2}).*(@.*)/, "$1***$2");
-        console.log(`[AUTH_PERF] authorize() iniciado para: ${emailMask}`);
+        if (DEV) console.log(`[AUTH_PERF] authorize() iniciado para: ${emailMask}`);
 
         // ⚡ select apenas os campos necessários (evita JOINs desnecessários)
         const user = await prisma.user.findUnique({
@@ -39,7 +46,7 @@ export const authOptions: NextAuthOptions = {
         lap("prisma.user.findUnique");
 
         if (!user || !user.active) {
-          console.log(`[AUTH_PERF] usuário não encontrado ou inativo`);
+          if (DEV) console.log(`[AUTH_PERF] usuário não encontrado ou inativo`);
           return null;
         }
 
@@ -47,7 +54,7 @@ export const authOptions: NextAuthOptions = {
         lap("bcrypt.compare");
 
         if (!valid) {
-          console.log(`[AUTH_PERF] senha inválida`);
+          if (DEV) console.log(`[AUTH_PERF] senha inválida`);
           return null;
         }
 
@@ -65,14 +72,15 @@ export const authOptions: NextAuthOptions = {
           ? (user.employee?.permissoes ?? [])
           : [];
 
-        console.log(`[AUTH_PERF] authorize() TOTAL: ${Date.now() - t0}ms — role=${user.role}`);
+        if (DEV) console.log(`[AUTH_PERF] authorize() TOTAL: ${Date.now() - t0}ms — role=${user.role}`);
 
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           role: user.role ?? "",
-          franchiseId: user.franchiseId ?? undefined,
+          // M3: FRANQUEADORA não tem franchiseId — usa sentinel para não bloquear endpoints de IA
+          franchiseId: user.franchiseId ?? (user.role === "FRANQUEADORA" ? "FRANQUEADORA" : undefined),
           companyId: user.companyId ?? undefined,
           studentId: user.student?.id ?? undefined,
           permissoes,
@@ -91,7 +99,7 @@ export const authOptions: NextAuthOptions = {
         token.companyId = (user as any).companyId;
         token.studentId = (user as any).studentId;
         token.permissoes = (user as any).permissoes ?? [];
-        console.log(`[AUTH_PERF] jwt callback (primeiro login): ${Date.now()-t}ms`);
+        if (process.env.NODE_ENV === "development") console.log(`[AUTH_PERF] jwt callback (primeiro login): ${Date.now()-t}ms`);
       }
       // Requests subsequentes: jwt callback apenas lê o token (sem DB) — muito rápido
       return token;
@@ -107,7 +115,7 @@ export const authOptions: NextAuthOptions = {
         session.user.studentId = token.studentId as string | undefined;
         session.user.permissoes = token.permissoes as string[] | undefined;
       }
-      console.log(`[AUTH_PERF] session callback: ${Date.now()-t}ms`);
+      if (process.env.NODE_ENV === "development") console.log(`[AUTH_PERF] session callback: ${Date.now()-t}ms`);
       return session;
     },
   },
