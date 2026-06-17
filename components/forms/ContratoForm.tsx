@@ -155,6 +155,10 @@ export function ContratoForm({ franchiseId }: Props) {
   const [selectedCompany,  setSelectedCompany]  = useState<any>(null);
   const [selectedInstitution, setSelectedInstitution] = useState<any>(null);
 
+  // Menor de idade — sincronizado com o cadastro do estudante
+  const [menorDeIdade, setMenorDeIdade] = useState(false);
+  const [nomeResponsavel, setNomeResponsavel] = useState("");
+
   const [form, setForm] = useState({
     studentId: "", companyId: "", institutionId: "",
     tipoEstagio: "Nao Obrigatorio",
@@ -198,8 +202,20 @@ export function ContratoForm({ franchiseId }: Props) {
     }
     if (!form.supervisorNome) { setError("Informe o Supervisor da Empresa (obrigatório pela Lei 11.788/2008)."); return; }
     if (!form.apoliceSeguro) { setError("Informe a Apólice de Seguro (obrigatório pela Lei 11.788/2008)."); return; }
+    if (menorDeIdade && !nomeResponsavel.trim()) { setError("Informe o Nome do Responsável Legal do estagiário menor de idade."); return; }
     setLoading(true); setError("");
     try {
+      // Atualiza dados de menor de idade no cadastro do estudante (para a TCE ser gerada corretamente)
+      if (form.studentId) {
+        await fetch(`/api/app/estudantes/${form.studentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            menorDeIdade,
+            nomeResponsavel: menorDeIdade ? (nomeResponsavel.trim() || null) : null,
+          }),
+        });
+      }
       await createContract({
         ...form,
         franchiseId,
@@ -254,8 +270,47 @@ export function ContratoForm({ franchiseId }: Props) {
             onSelect={s => {
               setSelectedStudent(s);
               set("studentId", s?.id || "");
+              // Pré-preenche dados de menor de idade do cadastro do estudante
+              if (s) {
+                setMenorDeIdade(!!(s as any).menorDeIdade);
+                setNomeResponsavel((s as any).nomeResponsavel || "");
+              } else {
+                setMenorDeIdade(false);
+                setNomeResponsavel("");
+              }
             }}
           />
+
+          {/* Menor de Idade — aparece ao selecionar o estudante */}
+          {selectedStudent && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="contrato_menorDeIdade"
+                  checked={menorDeIdade}
+                  onChange={e => setMenorDeIdade(e.target.checked)}
+                  className="w-4 h-4 rounded accent-[#0f2a5e] cursor-pointer"
+                />
+                <label htmlFor="contrato_menorDeIdade" className="text-sm font-bold text-amber-800 cursor-pointer">
+                  Estagiário menor de idade
+                </label>
+              </div>
+              {menorDeIdade && (
+                <div className="pl-6 space-y-1">
+                  <label className="text-xs font-bold text-slate-600 block">Nome do Responsável Legal *</label>
+                  <input
+                    type="text"
+                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                    value={nomeResponsavel}
+                    onChange={e => setNomeResponsavel(e.target.value)}
+                    placeholder="Nome completo do responsável legal"
+                  />
+                  <p className="text-xs text-amber-600">O responsável aparecerá na TCE nas caixas de assinatura.</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <Autocomplete
             label="Empresa Concedente"

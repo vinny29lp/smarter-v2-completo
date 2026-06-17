@@ -81,6 +81,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     "habilidades","idiomas","experiencias","objetivos","curriculo",
     "linkedin","portfolio","observacoes",
     "institutionId",
+    "menorDeIdade","nomeResponsavel",
   ];
   const data: Record<string, any> = {};
   for (const key of allowed) {

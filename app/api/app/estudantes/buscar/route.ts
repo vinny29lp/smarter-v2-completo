@@ -35,6 +35,8 @@ export async function GET(req: Request) {
         cpf: true,
         email: true,
         curso: true,
+        menorDeIdade: true,
+        nomeResponsavel: true,
       },
       orderBy: { name: "asc" },
       take: 10,
