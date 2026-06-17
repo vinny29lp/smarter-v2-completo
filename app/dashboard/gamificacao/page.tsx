@@ -82,25 +82,37 @@ export default function GamificacaoPage() {
             <h3 className="text-sm font-bold text-slate-700">Pontuação por Ação</h3>
             {isMaster && <span className="text-xs text-blue-500 font-semibold">Clique para editar</span>}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {configs.map((cfg: any) => {
-              const meta = ACAO_META[cfg.acao];
-              return (
-                <div key={cfg.id}
-                  className={`flex items-center justify-between p-2.5 rounded-xl transition-colors ${
-                    isMaster ? "bg-slate-50 hover:bg-slate-100 cursor-pointer" : "bg-slate-50"
-                  }`}
-                  onClick={isMaster ? () => { setEditModal(cfg); setEditVal(String(cfg.pontos)); setErrEdit(""); } : undefined}
-                >
-                  <span className="text-xs">{meta?.emoji} {meta?.label || cfg.acao}</span>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="blue">+{cfg.pontos} pts</Badge>
-                    {isMaster && <span className="text-[10px] text-blue-400">✏️</span>}
+          {configs.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-4">Carregando pontuações...</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {configs.map((cfg: any) => {
+                const meta = ACAO_META[cfg.acao];
+                return (
+                  <div key={cfg.id}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-colors ${
+                      isMaster
+                        ? "bg-slate-50 hover:bg-blue-50 hover:border-blue-200 border-slate-100 cursor-pointer"
+                        : "bg-slate-50 border-slate-100"
+                    }`}
+                    onClick={isMaster ? () => { setEditModal(cfg); setEditVal(String(cfg.pontos)); setErrEdit(""); } : undefined}
+                  >
+                    <span className="text-xs text-slate-700">{meta?.emoji} {meta?.label || cfg.acao}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="blue">+{cfg.pontos} pts</Badge>
+                      {isMaster && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setEditModal(cfg); setEditVal(String(cfg.pontos)); setErrEdit(""); }}
+                          className="text-[10px] text-blue-400 hover:text-blue-600 px-1 py-0.5 rounded hover:bg-blue-100"
+                          title="Editar pontuação"
+                        >✏️</button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
           {!isMaster && (
             <p className="text-[10px] text-slate-400 mt-2">
               * Pontuação definida pela Franqueadora.
