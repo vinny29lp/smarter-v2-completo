@@ -26,32 +26,72 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
   const DISP_DAYS = [
     "Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado","Domingo"
   ];
-  const diasStr = (contract.diasSemana || "Segunda a Sexta").toLowerCase();
+  const diasStr = (contract.diasSemana || "Segunda a Sexta").trim().toLowerCase();
 
-  // Detect active days from the string
-  const dayTerms: Record<string, string> = {
-    "Segunda-feira": "segunda", "Terca-feira": "terca",
-    "Quarta-feira": "quarta", "Quinta-feira": "quinta",
-    "Sexta-feira": "sexta", "Sabado": "sab", "Domingo": "dom",
+  // Lookup map for preset ranges (handles accented characters correctly)
+  const PRESET_RANGES: Record<string, number[]> = {
+    "segunda a sexta":   [0,1,2,3,4],
+    "segunda a sábado":  [0,1,2,3,4,5],
+    "segunda a sabado":  [0,1,2,3,4,5],
+    "segunda a domingo": [0,1,2,3,4,5,6],
+    "terça a sexta":     [1,2,3,4],
+    "terca a sexta":     [1,2,3,4],
+    "terça a sábado":    [1,2,3,4,5],
+    "terca a sabado":    [1,2,3,4,5],
+    "terça a domingo":   [1,2,3,4,5,6],
+    "terca a domingo":   [1,2,3,4,5,6],
+    "quarta a sexta":    [2,3,4],
+    "quarta a sábado":   [2,3,4,5],
+    "quarta a sabado":   [2,3,4,5],
+    "quarta a domingo":  [2,3,4,5,6],
+    "quinta a sexta":    [3,4],
+    "quinta a sábado":   [3,4,5],
+    "quinta a sabado":   [3,4,5],
+    "quinta a domingo":  [3,4,5,6],
+    "sexta a sábado":    [4,5],
+    "sexta a sabado":    [4,5],
+    "sexta a domingo":   [4,5,6],
+    "sábado a domingo":  [5,6],
+    "sabado a domingo":  [5,6],
+    // Ranges that wrap around the week
+    "quinta a segunda":  [3,4,5,6,0],
+    "sexta a segunda":   [4,5,6,0],
+    "sexta a terça":     [4,5,6,0,1],
+    "sexta a terca":     [4,5,6,0,1],
+    "sábado a segunda":  [5,6,0],
+    "sabado a segunda":  [5,6,0],
+    "sábado a terça":    [5,6,0,1],
+    "sabado a terca":    [5,6,0,1],
+    "sábado a quarta":   [5,6,0,1,2],
+    "sabado a quarta":   [5,6,0,1,2],
+    "domingo a segunda": [6,0],
+    "domingo a terça":   [6,0,1],
+    "domingo a terca":   [6,0,1],
+    "domingo a quarta":  [6,0,1,2],
+    "domingo a quinta":  [6,0,1,2,3],
+    "domingo a sexta":   [6,0,1,2,3,4],
   };
 
-  // Handle range "X a Y": find start and end day indices and mark all between active
-  const rangeMatch = diasStr.match(/(\w+)\s+a\s+(\w+)/);
+  // Individual day detection (fallback for custom selections)
+  const DAY_KEYWORDS: [string, number][] = [
+    ["segunda", 0], ["terça", 1], ["terca", 1],
+    ["quarta", 2], ["quinta", 3], ["sexta", 4],
+    ["sábado", 5], ["sabado", 5], ["domingo", 6],
+  ];
+
   let activeDays = new Set<number>();
-  if (rangeMatch) {
-    const startTerm = rangeMatch[1];
-    const endTerm = rangeMatch[2];
-    const startIdx = ALL_DAYS.findIndex(d => dayTerms[d] && startTerm.startsWith(dayTerms[d]));
-    const endIdx = ALL_DAYS.findIndex(d => dayTerms[d] && endTerm.startsWith(dayTerms[d]));
-    if (startIdx !== -1 && endIdx !== -1) {
-      for (let i = startIdx; i <= endIdx; i++) activeDays.add(i);
-    }
+
+  // Try preset lookup first (most accurate)
+  if (PRESET_RANGES[diasStr] !== undefined) {
+    PRESET_RANGES[diasStr].forEach(i => activeDays.add(i));
+  } else {
+    // Fallback: check for individual day keywords
+    DAY_KEYWORDS.forEach(([keyword, idx]) => {
+      if (diasStr.includes(keyword)) activeDays.add(idx);
+    });
   }
-  // Also check individual mentions
-  ALL_DAYS.forEach((d, i) => {
-    if (dayTerms[d] && diasStr.includes(dayTerms[d])) activeDays.add(i);
-  });
-  // Fallback: Mon-Fri if nothing detected
+
+  // Final fallback: Mon-Fri if nothing detected
   if (activeDays.size === 0) { for (let i = 0; i < 5; i++) activeDays.add(i); }
 
   const horarios = ALL_DAYS.map((dia, i) => ({
@@ -95,6 +135,9 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       cep: student.cep || "—",
       curso: student.curso || "—",
       periodo: student.periodo || "—",
+      ...((student as any).menorDeIdade && (student as any).nomeResponsavel
+        ? { responsavel: { nome: (student as any).nomeResponsavel } }
+        : {}),
     },
     empresa: {
       nomeFan: company.name,

@@ -24,8 +24,10 @@ export function EstudanteForm({ franchiseId, institutions }: Props) {
     endereco:"", bairro:"", cidade:"", uf:"", cep:"",
     curso:"", periodo:"1", institutionId:"", previsaoConclusao:"",
     observacoes:"", senha:"",
+    menorDeIdade: false, nomeResponsavel:"",
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
+  const setChecked = (k: string, v: boolean) => setForm(p => ({...p, [k]: v}));
 
   // ── Formatação ao sair do campo ───────────────────────────────────────────
   const handleCPFBlur    = () => { if (form.cpf) set("cpf", formatarCPF(form.cpf)); };
@@ -86,6 +88,8 @@ export function EstudanteForm({ franchiseId, institutions }: Props) {
           franchiseId: franchiseId || null,
           observacoes: form.observacoes || null,
           senha: form.senha || undefined,
+          menorDeIdade: form.menorDeIdade || false,
+          nomeResponsavel: form.menorDeIdade ? (form.nomeResponsavel || null) : null,
         }),
       });
       const data = await res.json();
@@ -120,6 +124,25 @@ export function EstudanteForm({ franchiseId, institutions }: Props) {
             <Input label="CPF" value={form.cpf} onChange={e=>set("cpf",e.target.value)} onBlur={handleCPFBlur} placeholder="000.000.000-00"/>
             <Input label="RG" value={form.rg} onChange={e=>set("rg",e.target.value)} placeholder="00.000.000-0"/>
             <Input label="Data de Nascimento" type="date" value={form.dataNasc} onChange={e=>set("dataNasc",e.target.value)}/>
+            {/* Menor de idade */}
+            <div className="col-span-2">
+              <div className="flex items-center gap-2 mb-2">
+                <input type="checkbox" id="menorDeIdade" checked={form.menorDeIdade}
+                  onChange={e => setChecked("menorDeIdade", e.target.checked)}
+                  className="w-4 h-4 rounded accent-[#0f2a5e] cursor-pointer"/>
+                <label htmlFor="menorDeIdade" className="text-sm font-bold text-slate-700 cursor-pointer">
+                  Estagiário menor de idade
+                </label>
+              </div>
+              {form.menorDeIdade && (
+                <div className="pl-6">
+                  <Input label="Nome do Responsável Legal *" value={form.nomeResponsavel}
+                    onChange={e=>set("nomeResponsavel",e.target.value)}
+                    placeholder="Nome completo do responsável"/>
+                  <p className="text-xs text-slate-400 mt-1">O responsável aparecerá nas caixas de assinatura dos documentos.</p>
+                </div>
+              )}
+            </div>
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Sexo</label>
               <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.sexo} onChange={e=>set("sexo",e.target.value)}>

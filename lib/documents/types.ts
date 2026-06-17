@@ -8,6 +8,7 @@ export interface ContratoData {
     telefone: string; celular: string; email: string;
     endereco: string; bairro: string; cidade: string; estado: string; cep: string;
     curso: string; periodo: string;
+    responsavel?: { nome: string };
   };
   empresa: {
     nomeFan: string; razaoSocial: string; cnpj: string;

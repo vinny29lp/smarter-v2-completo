@@ -421,6 +421,12 @@ Em <strong>${c.cidadeAssinatura}</strong>, ${dataExtenso ? dataExtenso(c.dataAss
     <div class="sign-role">AGENTE DE INTEGRAÇÃO</div>
     <div class="sign-detail">CNPJ: ${sm.cnpj}</div>
   </div>
+${e.responsavel?.nome ? `  <div class="sign-box">
+    <div class="sign-line"></div>
+    <div class="sign-name">${e.responsavel.nome}</div>
+    <div class="sign-role">RESPONSÁVEL LEGAL</div>
+    <div class="sign-detail">Responsável pelo menor ${e.nome}</div>
+  </div>` : ""}
 </div>
 
 <div class="sign-cert">
@@ -540,6 +546,12 @@ As partes declaram que leram, compreenderam e concordam com o presente Plano de 
     <div class="sign-role">AGENTE DE INTEGRAÇÃO</div>
     <div class="sign-detail">CNPJ: ${sm.cnpj}</div>
   </div>
+${e.responsavel?.nome ? `  <div class="sign-box">
+    <div class="sign-line"></div>
+    <div class="sign-name">${e.responsavel.nome}</div>
+    <div class="sign-role">RESPONSÁVEL LEGAL</div>
+    <div class="sign-detail">Responsável pelo menor ${e.nome}</div>
+  </div>` : ""}
 </div>
 
 ${pageFooter(c.numero, did, sm)}

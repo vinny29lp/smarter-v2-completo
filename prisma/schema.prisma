@@ -165,6 +165,8 @@ model Student {
   status            StudentStatus? @default(DISPONIVEL)
   createdAt         DateTime?      @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime?      @default(now()) @updatedAt @db.Timestamptz(6)
+  menorDeIdade      Boolean?       @default(false)
+  nomeResponsavel   String?
   linkedin          String?
   portfolio         String?
   experiencias      Json?

@@ -88,6 +88,8 @@ export const criarEstudanteSchema = z.object({
   endereco:          z.string().max(300).optional().nullable(),
   bairro:            z.string().max(100).optional().nullable(),
   semestre:          z.string().max(20).optional().nullable(),
+  menorDeIdade:      z.boolean().optional().nullable(),
+  nomeResponsavel:   z.string().max(200).optional().nullable(),
 });
 
 export const criarLancamentoSchema = z.object({

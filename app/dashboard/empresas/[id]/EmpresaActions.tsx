@@ -294,7 +294,7 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
   const [cpsMsg, setCpsMsg] = useState<string|null>(null);
   const [savingCps, setSavingCps] = useState(false);
   const [assinaturaModal, setAssinaturaModal] = useState(false);
-  const [emailAssinar, setEmailAssinar] = useState<string>(empresa.email || "");
+  const [emailsAssinar, setEmailsAssinar] = useState<string[]>([empresa.email || ""]);
   const [enviandoAssinatura, setEnviandoAssinatura] = useState(false);
   const [verificando, setVerificando] = useState(false);
   const [cpsStatus, setCpsStatus] = useState<string>(empresa.cpsStatus || "NAO_GERADO");
@@ -333,15 +333,24 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
     setCpsStatus("GERADO");
   };
 
+  const setEmail = (idx: number, val: string) => {
+    setEmailsAssinar(prev => prev.map((e, i) => i === idx ? val : e));
+  };
+  const addEmail = () => setEmailsAssinar(prev => [...prev, ""]);
+  const removeEmail = (idx: number) => setEmailsAssinar(prev => prev.filter((_, i) => i !== idx));
+
   const enviarParaAssinatura = async () => {
-    if (!emailAssinar.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAssinar.trim())) {
-      setCpsMsg("❌ Informe um e-mail válido."); return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validos = emailsAssinar.map(e => e.trim()).filter(Boolean);
+    if (validos.length === 0) { setCpsMsg("❌ Informe ao menos um e-mail."); return; }
+    for (const em of validos) {
+      if (!emailRegex.test(em)) { setCpsMsg(`❌ E-mail inválido: ${em}`); return; }
     }
     setEnviandoAssinatura(true); setCpsMsg(null);
     const res = await fetch(`/api/app/empresas/${empresa.id}/cps/autentique`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: emailAssinar.trim() }),
+      body: JSON.stringify({ emails: validos }),
     });
     const data = await res.json();
     setEnviandoAssinatura(false);
@@ -350,6 +359,7 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
       setCpsMsg("✅ CPS enviado para assinatura!");
       setCpsStatus("AGUARDANDO_ASSINATURA");
       setAssinaturaModal(false);
+      router.refresh();
     }
   };
 
@@ -363,6 +373,7 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
       setCpsStatus("ASSINADO");
       setCpsSignedUrl(data.signedUrl || null);
       setCpsMsg("✅ CPS assinado! Já pode baixar o documento assinado.");
+      router.refresh();
     } else {
       const pendentes = (data.signers || []).filter((s: any) => !s.signed).length;
       setCpsMsg(`🔄 Aguardando ${pendentes} assinatura(s).`);
@@ -418,8 +429,8 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
             </button>
           )}
 
-          {/* Verificar status */}
-          {cpsStatus === "AGUARDANDO_ASSINATURA" && (
+          {/* Verificar status — disponível enquanto aguardando ou para re-verificar */}
+          {(cpsStatus === "AGUARDANDO_ASSINATURA" || cpsStatus === "ASSINADO") && (
             <button onClick={verificarAssinatura} disabled={verificando}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-50">
               {verificando ? "Verificando..." : "🔄 Verificar Assinaturas"}
@@ -440,14 +451,28 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
       <Modal open={assinaturaModal} onClose={() => setAssinaturaModal(false)} title="📧 Enviar CPS para Assinatura">
         <div className="space-y-4">
           <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700">
-            O CPS será enviado ao e-mail da empresa para assinatura digital via Autentique. Após a assinatura, você poderá baixar o documento com firma digital.
+            O CPS será enviado para assinatura digital via Autentique. Adicione todos os e-mails que precisam assinar o documento.
           </div>
           <div>
-            <label className="text-xs font-bold text-slate-600 block mb-1">E-mail para Assinatura *</label>
-            <input type="email" value={emailAssinar} onChange={e => setEmailAssinar(e.target.value)}
-              placeholder="responsavel@empresa.com.br"
-              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"/>
-            <p className="text-xs text-slate-400 mt-1">Normalmente o e-mail do responsável da empresa.</p>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-slate-600">E-mails para Assinatura *</label>
+              <button type="button" onClick={addEmail}
+                className="text-xs text-[#0f2a5e] font-bold hover:underline">+ Adicionar e-mail</button>
+            </div>
+            <div className="space-y-2">
+              {emailsAssinar.map((em, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <input type="email" value={em} onChange={e => setEmail(idx, e.target.value)}
+                    placeholder={idx === 0 ? "responsavel@empresa.com.br" : "outro@email.com"}
+                    className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+                  {emailsAssinar.length > 1 && (
+                    <button type="button" onClick={() => removeEmail(idx)}
+                      className="text-red-400 hover:text-red-600 text-lg leading-none px-1">×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Todos os signatários receberão o link por e-mail.</p>
           </div>
           {cpsMsg && (
             <p className={`text-xs p-2 rounded-lg ${cpsMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
@@ -456,7 +481,7 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
           )}
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setAssinaturaModal(false)} className="flex-1 justify-center">Cancelar</Button>
-            <Button onClick={enviarParaAssinatura} disabled={enviandoAssinatura || !emailAssinar.trim()} className="flex-1 justify-center">
+            <Button onClick={enviarParaAssinatura} disabled={enviandoAssinatura || emailsAssinar.every(e => !e.trim())} className="flex-1 justify-center">
               {enviandoAssinatura ? "Enviando..." : "📧 Enviar"}
             </Button>
           </div>

@@ -102,7 +102,11 @@ export async function POST(req: Request) {
   const cpfsDuplicados = new Set(studentsExistentes.map(s => s.cpf).filter(Boolean) as string[]);
 
   // Separar duplicados das linhas a criar
+  // ⚡ FIX: também deduplica por email/CPF DENTRO do próprio lote (evita unique constraint error
+  //   quando o mesmo estudante aparece duas vezes na planilha e está no mesmo batch)
   const linhasParaCriar: (StudentRow & { nome: string; email: string; cpfLimpo: string | null })[] = [];
+  const emailsNesteLote = new Set<string>();
+  const cpfsNesteLote   = new Set<string>();
 
   for (const row of linhasValidas) {
     if (emailsDuplicados.has(row.email)) {
@@ -113,6 +117,17 @@ export async function POST(req: Request) {
       detalhes.push({ nome: row.nome, email: row.email, status: "duplicado", motivo: "CPF já cadastrado no sistema" });
       continue;
     }
+    // Duplicata dentro do próprio lote enviado
+    if (emailsNesteLote.has(row.email)) {
+      detalhes.push({ nome: row.nome, email: row.email, status: "duplicado", motivo: "E-mail repetido no arquivo enviado" });
+      continue;
+    }
+    if (row.cpfLimpo && cpfsNesteLote.has(row.cpfLimpo)) {
+      detalhes.push({ nome: row.nome, email: row.email, status: "duplicado", motivo: "CPF repetido no arquivo enviado" });
+      continue;
+    }
+    emailsNesteLote.add(row.email);
+    if (row.cpfLimpo) cpfsNesteLote.add(row.cpfLimpo);
     linhasParaCriar.push(row);
   }
 
@@ -178,8 +193,12 @@ export async function POST(req: Request) {
   const duplicados = detalhes.filter(d => d.status === "duplicado").length;
   const errosTotal = detalhes.filter(d => d.status === "erro").length;
 
-  // Registrar log de importação
+  // Registrar log de importação — salva detalhes de erros/duplicados para consulta posterior
   try {
+    const detalhesParaSalvar = detalhes
+      .filter(d => d.status !== "importado")  // só erros e duplicados (importados já estão no banco)
+      .map(d => ({ nome: d.nome, email: d.email, status: d.status, motivo: d.motivo }));
+
     await (prisma as any).importLog.create({
       data: {
         tipo: "ESTUDANTES",
@@ -190,6 +209,7 @@ export async function POST(req: Request) {
         importados,
         duplicados,
         erros: errosTotal,
+        detalhes: detalhesParaSalvar,
       },
     });
   } catch {}

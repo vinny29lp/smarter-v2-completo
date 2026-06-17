@@ -108,6 +108,8 @@ export async function POST(req: Request) {
         institutionId: body.institutionId || null,
         franchiseId: franchiseId || undefined,
         observacoes: body.observacoes ? String(body.observacoes).slice(0, 2000) : null,
+        menorDeIdade: body.menorDeIdade || false,
+        nomeResponsavel: body.nomeResponsavel || null,
         habilidades: [],
         status: "DISPONIVEL",
       },

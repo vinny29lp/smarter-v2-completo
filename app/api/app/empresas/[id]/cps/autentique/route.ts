@@ -117,11 +117,22 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
     }
 
-    const { email, emailEmpresa } = await req.json() as { email?: string; emailEmpresa?: string };
-    const emailAssinar = email || emailEmpresa;
-    if (!emailAssinar || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAssinar.trim())) {
-      return NextResponse.json({ error: "Informe um e-mail válido para enviar o contrato." }, { status: 400 });
+    const body = await req.json() as { emails?: string[]; email?: string; emailEmpresa?: string };
+    // Suporta array de emails (novo) ou email único (retrocompatibilidade)
+    const emailsRaw: string[] = body.emails?.length
+      ? body.emails
+      : [(body.email || body.emailEmpresa || "")].filter(Boolean);
+
+    if (emailsRaw.length === 0) {
+      return NextResponse.json({ error: "Informe ao menos um e-mail para enviar o contrato." }, { status: 400 });
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const em of emailsRaw) {
+      if (!emailRegex.test(em.trim())) {
+        return NextResponse.json({ error: `E-mail inválido: ${em}` }, { status: 400 });
+      }
+    }
+    const emailsAssinar = emailsRaw.map(e => e.trim());
 
     const empresa = await prisma.company.findUnique({
       where: { id: params.id },
@@ -136,11 +147,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const html = gerarHtmlCPS(empresa, (empresa as any).franchise, valorGestao);
 
-    // Enviar para Autentique com 1 signatário (empresa)
+    // Enviar para Autentique com todos os signatários
     const resultado = await enviarParaAutentique(
       `CPS — ${empresa.name}`,
       html,
-      [{ email: emailAssinar.trim() }]
+      emailsAssinar.map(e => ({ email: e }))
     );
 
     // Filtrar e-mails internos
@@ -174,7 +185,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ok: true,
       autentiqueId: resultado.id,
       signers: signatariosReais,
-      message: `CPS enviado para assinatura de ${emailAssinar}.`,
+      message: `CPS enviado para assinatura de ${emailsAssinar.join(", ")}.`,
     });
   } catch (e: any) {
     return handleApiError(e, "EMPRESA_CPS_AUTENTIQUE_POST");
