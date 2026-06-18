@@ -15,27 +15,44 @@ const STATUS_LABELS: Record<string,string> = {
   VENCIDO:"⚠️ Vencidos", FINALIZADO:"✓ Finalizados", INATIVO:"🔴 Inativos",
 };
 
+const LIMIT = 100;
+
 export default function ContratosPage() {
   const [contratos, setContratos] = useState<any[]>([]);
   const [filtro, setFiltro]       = useState("TODOS");
   const [busca, setBusca]         = useState("");
   const [loading, setLoading]     = useState(true);
   const [fetchError, setFetchError] = useState("");
+  const [page, setPage]           = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal]         = useState(0);
 
-  const carregarContratos = () => {
+  const carregarContratos = (p: number = 1) => {
     setLoading(true);
     setFetchError("");
-    fetch("/api/app/contratos", { cache: "no-store" })
+    fetch(`/api/app/contratos?page=${p}&limit=${LIMIT}`, { cache: "no-store" })
       .then(r => {
         if (r.status === 401) throw new Error("Sessão expirada. Recarregue a página.");
         if (!r.ok) throw new Error(`Erro ao carregar contratos (${r.status}).`);
         return r.json();
       })
-      .then(d => { setContratos(d.contratos || []); setLoading(false); })
+      .then(d => {
+        setContratos(d.contratos || []);
+        setTotalPages(d.totalPages || 1);
+        setTotal(d.total || 0);
+        setLoading(false);
+      })
       .catch(e => { setFetchError(e.message || "Erro ao carregar contratos."); setLoading(false); });
   };
 
-  useEffect(() => { carregarContratos(); }, []);
+  const irParaPagina = (p: number) => {
+    setPage(p);
+    setFiltro("TODOS");
+    setBusca("");
+    carregarContratos(p);
+  };
+
+  useEffect(() => { carregarContratos(1); }, []);
 
   // Detecta se há múltiplas unidades nos contratos (visão admin)
   const multiUnidade = contratos.some((c, _, arr) => c.franchise?.name && c.franchise?.name !== arr[0]?.franchise?.name);
@@ -52,9 +69,9 @@ export default function ContratosPage() {
         <div>
           <h1 className="text-2xl font-black text-slate-800">Contratos de Estágio</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {contratos.filter(c => c.status === "ATIVO").length} ativos •{" "}
-            {contratos.filter(c => c.status === "PENDENTE").length} pendentes •{" "}
-            {contratos.filter(c => c.status === "AGUARDANDO_ASSINATURA").length} aguardando assinatura
+            {total} contratos no total •{" "}
+            {contratos.filter(c => c.status === "ATIVO").length} ativos nesta página
+            {totalPages > 1 && ` • Página ${page} de ${totalPages}`}
           </p>
         </div>
         <Link href="/dashboard/contratos/novo">
@@ -93,7 +110,7 @@ export default function ContratosPage() {
         {fetchError ? (
           <div className="text-center py-12">
             <p className="text-red-500 font-semibold text-sm mb-3">⚠️ {fetchError}</p>
-            <button onClick={carregarContratos} className="text-xs text-[#0f2a5e] font-bold hover:underline">↻ Tentar novamente</button>
+            <button onClick={() => carregarContratos(page)} className="text-xs text-[#0f2a5e] font-bold hover:underline">↻ Tentar novamente</button>
           </div>
         ) : loading ? (
           <div className="text-center py-12 text-slate-400">Carregando contratos...</div>
@@ -144,6 +161,44 @@ export default function ContratosPage() {
           </table></div>
         )}
       </Card>
+
+      {/* Paginação */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button
+            onClick={() => irParaPagina(page - 1)}
+            disabled={page <= 1 || loading}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            ← Anterior
+          </button>
+
+          <div className="flex gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button
+                key={p}
+                onClick={() => irParaPagina(p)}
+                disabled={loading}
+                className={`w-9 h-9 rounded-xl text-sm font-bold transition-all ${
+                  p === page
+                    ? "bg-[#0f2a5e] text-white"
+                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => irParaPagina(page + 1)}
+            disabled={page >= totalPages || loading}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            Próxima →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
