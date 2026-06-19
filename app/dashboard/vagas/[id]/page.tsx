@@ -61,7 +61,28 @@ export default async function VagaDetailPage({ params }: { params: { id: string 
 
         <Card className="p-5">
           <h3 className="text-sm font-bold text-slate-700 mb-3">Ações</h3>
-          <VagaActions vagaId={vaga.id} status={vaga.status || "ABERTA"} publicSlug={vaga.publicSlug||undefined} titulo={vaga.titulo}/>
+          <VagaActions vaga={{
+            id: vaga.id,
+            titulo: vaga.titulo,
+            funcao: vaga.funcao,
+            area: vaga.area,
+            descricao: vaga.descricao,
+            requisitos: vaga.requisitos,
+            beneficios: vaga.beneficios,
+            modalidade: vaga.modalidade,
+            bolsa: vaga.bolsa,
+            auxTransporte: vaga.auxTransporte,
+            cargaHoraria: vaga.cargaHoraria,
+            chDiaria: vaga.chDiaria,
+            horario: vaga.horario,
+            cidade: vaga.cidade,
+            uf: vaga.uf,
+            discDesejado: vaga.discDesejado,
+            nivel: (vaga as any).nivel,
+            cursoRequerido: (vaga as any).cursoRequerido,
+            status: vaga.status || "ABERTA",
+            publicSlug: vaga.publicSlug,
+          }}/>
           <div className="mt-3 pt-3 border-t border-slate-100">
             <Link
               href={`/dashboard/processos?vagaId=${vaga.id}`}

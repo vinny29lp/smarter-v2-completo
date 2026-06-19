@@ -33,8 +33,10 @@ export async function getVacancies(
 ) {
   const take = Math.min(100, Math.max(1, limit));
   const skip = (Math.max(1, page) - 1) * take;
+  // "FRANQUEADORA" é o sentinel do admin — sem filtro por franquia (retorna toda a rede)
+  const isFranqueadora = franchiseId === "FRANQUEADORA";
   const where = {
-    ...(franchiseId ? { franchiseId } : {}),
+    ...(franchiseId && !isFranqueadora ? { franchiseId } : {}),
     ...(companyId   ? { companyId }   : {}),
   };
   const [vagas, total] = await Promise.all([
