@@ -538,11 +538,11 @@ model UploadedFile {
 model Employee {
   id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   userId      String    @unique
-  franchiseId String
+  franchiseId String?
   cargo       String?
   permissoes  String[]  @default([])
   createdAt   DateTime? @default(now()) @db.Timestamptz(6)
-  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  franchise   Franchise? @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user        User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([franchiseId])
