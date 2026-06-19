@@ -59,6 +59,20 @@ export function checkPermission(
     return null;
   }
 
+  // EQUIPE (membro da franqueadora): acesso baseado em permissoes, mas com escopo de
+  // dados da FRANQUEADORA (franchiseId = null já é tratado nas queries das APIs)
+  if (role === "EQUIPE") {
+    const permissoes: string[] = (session.user as any)?.permissoes ?? [];
+    const permKey = PERMISSION_MAP[modulo] || modulo;
+    if (!permissoes.includes(permKey)) {
+      return NextResponse.json(
+        { error: "Acesso negado. Sem permissão para este módulo." },
+        { status: 403 }
+      );
+    }
+    return null;
+  }
+
   // Outros roles não deveriam chegar aqui, mas retorna 403 como fallback
   return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
 }

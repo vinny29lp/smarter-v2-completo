@@ -28,7 +28,9 @@ export async function GET() {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const role = session.user.role || "";
-    if (role !== "FRANQUEADORA") {
+    const permissoes: string[] = (session.user as any)?.permissoes ?? [];
+    const isEquipeComSaude = role === "EQUIPE" && permissoes.includes("saude");
+    if (role !== "FRANQUEADORA" && !isEquipeComSaude) {
       return NextResponse.json({ error: "Acesso restrito à FRANQUEADORA." }, { status: 403 });
     }
 

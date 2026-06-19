@@ -67,8 +67,8 @@ export const authOptions: NextAuthOptions = {
         ]).catch(() => {});
         // ↑ fire-and-forget: não esperamos — esses escritos ocorrem em background
 
-        // For FUNCIONARIO, load their permissoes from the Employee record
-        const permissoes: string[] = user.role === "FUNCIONARIO"
+        // For FUNCIONARIO and EQUIPE, load their permissoes from the Employee record
+        const permissoes: string[] = (user.role === "FUNCIONARIO" || user.role === "EQUIPE")
           ? (user.employee?.permissoes ?? [])
           : [];
 

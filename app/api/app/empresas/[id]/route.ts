@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { handleApiError } from "@/lib/api-response";
+import { logAudit, getClientIP } from "@/lib/audit";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -96,6 +97,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(body.site      ? { site: body.site }                         : {}),
     },
   });
+
+  logAudit({
+    userId: session.user.id, role, franchiseId: franchiseId || undefined,
+    acao: body.status !== undefined ? `EMPRESA_STATUS_${body.status}` : "EMPRESA_EDITADA",
+    modulo: "empresas",
+    detalhes: `empresa:${params.id} | nome:${empresa.name}`,
+    ip: getClientIP(req),
+  });
+
   return NextResponse.json({ empresa });
   } catch (e) {
     return handleApiError(e, "EMPRESA_ID_PATCH");

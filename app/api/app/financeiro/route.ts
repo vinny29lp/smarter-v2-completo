@@ -14,10 +14,10 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const role = session.user.role || "";
-  if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(role)) {
+  if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO", "EQUIPE"].includes(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (role === "FUNCIONARIO") {
+  if (role === "FUNCIONARIO" || role === "EQUIPE") {
     const permissoes: string[] = (session.user as any)?.permissoes ?? [];
     if (!permissoes.includes("financeiro")) {
       return NextResponse.json({ error: "Acesso negado. Sem permissão para financeiro." }, { status: 403 });
@@ -29,9 +29,12 @@ export async function GET(req: Request) {
   const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
   const skip  = (page - 1) * limit;
 
-  const where: any = session?.user?.franchiseId
-    ? { franchiseId: session.user.franchiseId }
-    : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
+  // EQUIPE: vê toda a rede (sem filtro); FRANQUEADO/FUNCIONARIO: só sua unidade
+  const where: any = role === "EQUIPE"
+    ? {}
+    : session?.user?.franchiseId
+      ? { franchiseId: session.user.franchiseId }
+      : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
 
   const [lancamentos, total] = await Promise.all([
     prisma.financial.findMany({
@@ -64,10 +67,10 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const postRole = session.user.role || "";
-  if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(postRole)) {
+  if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO", "EQUIPE"].includes(postRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (postRole === "FUNCIONARIO") {
+  if (postRole === "FUNCIONARIO" || postRole === "EQUIPE") {
     const permissoes: string[] = (session.user as any)?.permissoes ?? [];
     if (!permissoes.includes("financeiro")) {
       return NextResponse.json({ error: "Acesso negado. Sem permissão para financeiro." }, { status: 403 });

@@ -6,7 +6,7 @@ import { LayoutDashboard, Building2, GraduationCap, Briefcase, FileText, DollarS
 import clsx from "clsx";
 import { useState } from "react";
 
-// Mapa de permissao-key → item de nav (para FUNCIONARIO)
+// Mapa de permissao-key → item de nav (para FUNCIONARIO e EQUIPE)
 const PERM_NAV_MAP: Record<string, {href:string;label:string;icon:any}> = {
   financeiro:    {href:"/dashboard/financeiro",   label:"Financeiro",          icon:DollarSign},
   contratos:     {href:"/dashboard/contratos",    label:"Contratos",           icon:FileText},
@@ -18,6 +18,12 @@ const PERM_NAV_MAP: Record<string, {href:string;label:string;icon:any}> = {
   instituicoes:  {href:"/dashboard/instituicoes", label:"Instituições",        icon:BookOpen},
   configuracoes: {href:"/dashboard/configuracoes",label:"Configurações",       icon:Settings},
   assinaturas:   {href:"/dashboard/assinaturas",  label:"Assinaturas",         icon:PenTool},
+  // Módulos exclusivos da EQUIPE Smarter (acesso à visão de rede completa)
+  saude:         {href:"/dashboard/saude",        label:"Saúde do Sistema",    icon:HeartPulse},
+  seguros:       {href:"/dashboard/seguros",      label:"Seguros",             icon:Shield},
+  gamificacao:   {href:"/dashboard/gamificacao",  label:"Gamificação",         icon:Star},
+  franqueados:   {href:"/dashboard/franqueados",  label:"Franqueados",         icon:Users},
+  engajamento:   {href:"/dashboard/engajamento",  label:"Engajamento",         icon:Activity},
 };
 
 // Bottom nav items for mobile — most important 4 + "Mais"
@@ -85,8 +91,8 @@ function SidebarPanel({ onClose }: { onClose?: () => void }) {
   const { data: session } = useSession();
   const role = session?.user?.role || "FRANQUEADO";
 
-  // Para FUNCIONARIO, monta o menu apenas com os módulos autorizados
-  const sections: {href:string;label:string;icon:any;badge?:number}[][] = role === "FUNCIONARIO"
+  // Para FUNCIONARIO e EQUIPE, monta o menu apenas com os módulos autorizados
+  const sections: {href:string;label:string;icon:any;badge?:number}[][] = (role === "FUNCIONARIO" || role === "EQUIPE")
     ? [[
         {href:"/dashboard", label:"Dashboard", icon:LayoutDashboard},
         ...((session?.user?.permissoes ?? [])
@@ -154,8 +160,8 @@ function MobileBottomNav() {
   const { data: session } = useSession();
   const [moreOpen, setMoreOpen] = useState(false);
   const role = session?.user?.role || "FRANQUEADO";
-  // Para FUNCIONARIO, monta o bottom nav a partir das permissoes
-  const items: {href:string;label:string;icon:any}[] = role === "FUNCIONARIO"
+  // Para FUNCIONARIO e EQUIPE, monta o bottom nav a partir das permissoes
+  const items: {href:string;label:string;icon:any}[] = (role === "FUNCIONARIO" || role === "EQUIPE")
     ? [
         {href:"/dashboard", label:"Início", icon:LayoutDashboard},
         ...((session?.user?.permissoes ?? [])

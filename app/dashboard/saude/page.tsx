@@ -247,13 +247,16 @@ export default function SaudeDoSistema() {
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
-  // Redirecionar se não for FRANQUEADORA
+  // Redirecionar se não for autorizado (FRANQUEADORA ou EQUIPE com permissão "saude")
+  const isAuthorized = session?.user?.role === "FRANQUEADORA" ||
+    (session?.user?.role === "EQUIPE" && ((session?.user as any)?.permissoes ?? []).includes("saude"));
+
   useEffect(() => {
     if (status === "loading") return;
-    if (!session || session.user.role !== "FRANQUEADORA") {
+    if (!session || !isAuthorized) {
       router.replace("/dashboard");
     }
-  }, [session, status, router]);
+  }, [session, status, router, isAuthorized]);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -275,10 +278,10 @@ export default function SaudeDoSistema() {
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated" && session?.user?.role === "FRANQUEADORA") {
+    if (status === "authenticated" && isAuthorized) {
       carregar();
     }
-  }, [status, session, carregar]);
+  }, [status, session, carregar, isAuthorized]);
 
   // Auto-refresh a cada 60s
   useEffect(() => {
@@ -287,7 +290,7 @@ export default function SaudeDoSistema() {
     return () => clearInterval(id);
   }, [autoRefresh, carregar]);
 
-  if (status === "loading" || (status === "authenticated" && session?.user?.role !== "FRANQUEADORA")) {
+  if (status === "loading" || (status === "authenticated" && !isAuthorized)) {
     return null;
   }
 

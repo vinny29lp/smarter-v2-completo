@@ -32,7 +32,17 @@ export async function GET(req: Request) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ employees });
+  // FRANQUEADORA também vê membros da Equipe Smarter (franchiseId=null, role=EQUIPE)
+  let equipe: any[] = [];
+  if (session.user.role === "FRANQUEADORA") {
+    equipe = await prisma.employee.findMany({
+      where: { franchiseId: null, user: { role: "EQUIPE" } },
+      include: { user: { select: { id: true, name: true, email: true, active: true, role: true, createdAt: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  return NextResponse.json({ employees, equipe });
 }
 
 export async function POST(req: Request) {
@@ -43,10 +53,17 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { name, email, cargo, permissoes = [], senha, franchiseId: bodyFranchiseId } = body;
+  const { name, email, cargo, permissoes = [], senha, franchiseId: bodyFranchiseId, tipo } = body;
 
-  const franchiseId = await getEffectiveFranchiseId(session, bodyFranchiseId);
-  if (!franchiseId) return NextResponse.json({ error: "Unidade não identificada. Selecione uma unidade." }, { status: 400 });
+  // tipo "equipe" → cria membro da Equipe Smarter (role=EQUIPE, franchiseId=null, só FRANQUEADORA)
+  const isEquipe = tipo === "equipe";
+  if (isEquipe && session.user.role !== "FRANQUEADORA") {
+    return NextResponse.json({ error: "Apenas a Franqueadora pode criar membros da Equipe Smarter." }, { status: 403 });
+  }
+
+  // Para Equipe Smarter, franchiseId é null (vê dados de toda a rede)
+  const franchiseId = isEquipe ? null : await getEffectiveFranchiseId(session, bodyFranchiseId);
+  if (!isEquipe && !franchiseId) return NextResponse.json({ error: "Unidade não identificada. Selecione uma unidade." }, { status: 400 });
 
   if (!name || !email) return NextResponse.json({ error: "Nome e e-mail são obrigatórios" }, { status: 400 });
   if (!senha || senha.length < 6) return NextResponse.json({ error: "Senha deve ter pelo menos 6 caracteres" }, { status: 400 });
@@ -63,7 +80,7 @@ export async function POST(req: Request) {
         name,
         email,
         password: hash,
-        role: "FUNCIONARIO" as any,
+        role: (isEquipe ? "EQUIPE" : "FUNCIONARIO") as any,
         franchiseId,
         active: true,
       },
@@ -74,7 +91,7 @@ export async function POST(req: Request) {
       data: {
         userId: user.id,
         franchiseId,
-        cargo: cargo || "Colaborador",
+        cargo: cargo || (isEquipe ? "Equipe Smarter" : "Colaborador"),
         permissoes: Array.isArray(permissoes) ? permissoes : [],
       },
       include: { user: { select: { id: true, name: true, email: true, active: true, role: true, createdAt: true } } },

@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createVacancy, getVacancies } from "@/lib/actions/vacancies";
 import { NextResponse } from "next/server";
+import { logAudit, getClientIP } from "@/lib/audit";
 
 export async function GET(req: Request) {
   try {
@@ -45,6 +46,14 @@ export async function POST(req: Request) {
       horario, cidade, uf, discDesejado, nivel, cursoRequerido, companyId,
       franchiseId: session.user.franchiseId,
     });
+
+    logAudit({
+      userId: session.user.id, role: session.user.role || "", franchiseId: session.user.franchiseId || undefined,
+      acao: "VAGA_CRIADA", modulo: "vagas",
+      detalhes: `vaga:${vaga.id} | titulo:${titulo}`,
+      ip: getClientIP(req),
+    });
+
     return NextResponse.json({ vaga });
   } catch (err: any) {
     console.error("[POST /api/app/vagas]", err);

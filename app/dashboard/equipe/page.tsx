@@ -1,11 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { Card }   from "@/components/ui/Card";
 import { Badge }  from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input }  from "@/components/ui/Input";
 import { Modal }  from "@/components/ui/Modal";
 
+// Módulos para colaboradores de unidade (FUNCIONARIO)
 const MODULOS = [
   { key: "financeiro",    label: "💰 Financeiro" },
   { key: "contratos",     label: "📄 Contratos" },
@@ -18,10 +21,36 @@ const MODULOS = [
   { key: "configuracoes", label: "⚙️ Configurações" },
 ];
 
+// Módulos para Equipe Smarter (EQUIPE) — acesso à visão da rede completa
+const MODULOS_EQUIPE = [
+  { key: "financeiro",    label: "💰 Financeiro" },
+  { key: "contratos",     label: "📄 Contratos" },
+  { key: "estudantes",    label: "🎓 Estudantes" },
+  { key: "empresas",      label: "🏢 Empresas" },
+  { key: "vagas",         label: "💼 Vagas" },
+  { key: "processos",     label: "📋 Processos Seletivos" },
+  { key: "crm",           label: "📞 CRM" },
+  { key: "instituicoes",  label: "🏫 Instituições" },
+  { key: "configuracoes", label: "⚙️ Configurações" },
+  { key: "saude",         label: "❤️ Saúde do Sistema" },
+  { key: "seguros",       label: "🛡️ Seguros" },
+  { key: "gamificacao",   label: "🎮 Gamificação" },
+  { key: "franqueados",   label: "🏪 Franqueados" },
+  { key: "engajamento",   label: "📊 Engajamento" },
+];
+
 const EMPTY_FORM = { name: "", email: "", cargo: "", senha: "", confirmarSenha: "", permissoes: [] as string[] };
 
 export default function EquipePage() {
+  const { data: session } = useSession();
+  const isFranqueadora = session?.user?.role === "FRANQUEADORA";
+
+  // aba: "colaboradores" = FUNCIONARIO por unidade | "equipe" = Equipe Smarter (só FRANQUEADORA)
+  const [aba, setAba] = useState<"colaboradores"|"equipe">("colaboradores");
+  const modulosAtivos = aba === "equipe" ? MODULOS_EQUIPE : MODULOS;
+
   const [employees, setEmployees] = useState<any[]>([]);
+  const [equipeMembers, setEquipeMembers] = useState<any[]>([]);
   const [novoModal,  setNovoModal]  = useState(false);
   const [editModal,  setEditModal]  = useState<any>(null);
   const [senhaModal, setSenhaModal] = useState<any>(null); // { emp } — change password modal
@@ -32,8 +61,14 @@ export default function EquipePage() {
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarNovaSenha, setConfirmarNovaSenha] = useState("");
 
+  // Lista ativa com base na aba selecionada
+  const activeList = aba === "equipe" ? equipeMembers : employees;
+
   const load = () =>
-    fetch("/api/app/equipe").then(r => r.json()).then(d => setEmployees(d.employees || []));
+    fetch("/api/app/equipe").then(r => r.json()).then(d => {
+      setEmployees(d.employees || []);
+      setEquipeMembers(d.equipe || []);
+    });
 
   useEffect(() => { load(); }, []);
 
@@ -50,11 +85,12 @@ export default function EquipePage() {
     setLoading(true);
     const res  = await fetch("/api/app/equipe", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: form.name, email: form.email, cargo: form.cargo, permissoes: form.permissoes, senha: form.senha }),
+      body: JSON.stringify({ name: form.name, email: form.email, cargo: form.cargo, permissoes: form.permissoes, senha: form.senha, tipo: aba === "equipe" ? "equipe" : "funcionario" }),
     });
     const data = await res.json();
     if (res.ok) {
-      setEmployees(p => [data.employee, ...p]);
+      if (aba === "equipe") setEquipeMembers(p => [data.employee, ...p]);
+      else setEmployees(p => [data.employee, ...p]);
       setNovoModal(false);
       setForm({ ...EMPTY_FORM });
     } else {
@@ -80,7 +116,8 @@ export default function EquipePage() {
     });
     const data = await res.json();
     if (res.ok) {
-      setEmployees(p => p.map(e => e.id === editModal.id ? data.employee : e));
+      if (aba === "equipe") setEquipeMembers(p => p.map(e => e.id === editModal.id ? data.employee : e));
+      else setEmployees(p => p.map(e => e.id === editModal.id ? data.employee : e));
       setEditModal(null);
     } else {
       setErroForm(data.error || "Erro ao salvar");
@@ -117,34 +154,62 @@ export default function EquipePage() {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: novoAtivo }),
     });
-    setEmployees(p => p.map(e => e.id === emp.id ? { ...e, user: { ...e.user, active: novoAtivo } } : e));
+    const updater = (p: any[]) => p.map(e => e.id === emp.id ? { ...e, user: { ...e.user, active: novoAtivo } } : e);
+    if (aba === "equipe") setEquipeMembers(updater); else setEmployees(updater);
   };
 
   // ── DELETE ────────────────────────────────────────────────────────────────────
   const confirmarDelete = async () => {
     if (!deleteModal) return;
     await fetch(`/api/app/equipe/${deleteModal.id}`, { method: "DELETE" });
-    setEmployees(p => p.filter(e => e.id !== deleteModal.id));
+    if (aba === "equipe") setEquipeMembers(p => p.filter(e => e.id !== deleteModal.id));
+    else setEmployees(p => p.filter(e => e.id !== deleteModal.id));
     setDeleteModal(null);
   };
 
-  const ativos   = employees.filter(e => e.user.active).length;
-  const inativos = employees.filter(e => !e.user.active).length;
+  const ativos   = activeList.filter(e => e.user.active).length;
+  const inativos = activeList.filter(e => !e.user.active).length;
 
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-black text-slate-800">Equipe</h1>
           <p className="text-slate-500 text-sm mt-1">
             {ativos} ativo{ativos !== 1 ? "s" : ""}{inativos > 0 ? ` · ${inativos} inativo${inativos !== 1 ? "s" : ""}` : ""}
           </p>
         </div>
-        <Button onClick={() => { setForm({ ...EMPTY_FORM }); setErroForm(""); setNovoModal(true); }}>
-          + Novo Colaborador
-        </Button>
+        <div className="flex items-center gap-2">
+          {isFranqueadora && aba === "equipe" && (
+            <Link href="/dashboard/equipe/relatorio">
+              <Button variant="secondary">📊 Relatório Diário</Button>
+            </Link>
+          )}
+          <Button onClick={() => { setForm({ ...EMPTY_FORM }); setErroForm(""); setNovoModal(true); }}>
+            {aba === "equipe" ? "+ Novo Membro" : "+ Novo Colaborador"}
+          </Button>
+        </div>
       </div>
+
+      {/* Abas — Equipe Smarter só visível para FRANQUEADORA */}
+      {isFranqueadora && (
+        <div className="flex gap-1 mb-6 bg-slate-100 rounded-xl p-1">
+          <button onClick={() => setAba("colaboradores")}
+            className={"px-4 py-2 rounded-lg text-xs font-semibold transition-all " + (aba === "colaboradores" ? "bg-white shadow text-[#0f2a5e]" : "text-slate-500 hover:text-slate-700")}>
+            👥 Colaboradores das Unidades
+          </button>
+          <button onClick={() => setAba("equipe")}
+            className={"px-4 py-2 rounded-lg text-xs font-semibold transition-all " + (aba === "equipe" ? "bg-white shadow text-[#0f2a5e]" : "text-slate-500 hover:text-slate-700")}>
+            ⭐ Equipe Smarter
+          </button>
+        </div>
+      )}
+      {aba === "equipe" && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+          <strong>Equipe Smarter:</strong> membros com acesso a dados de toda a rede. As permissões selecionadas determinam quais módulos cada pessoa pode acessar.
+        </div>
+      )}
 
       {/* Table */}
       <Card>
@@ -157,15 +222,15 @@ export default function EquipePage() {
             </tr>
           </thead>
           <tbody>
-            {employees.length === 0 ? (
+            {activeList.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center py-12 text-slate-400">
-                  <p className="text-3xl mb-2">👥</p>
-                  <p className="font-semibold">Nenhum colaborador cadastrado</p>
-                  <p className="text-sm mt-1">Clique em "Novo Colaborador" para começar</p>
+                  <p className="text-3xl mb-2">{aba === "equipe" ? "⭐" : "👥"}</p>
+                  <p className="font-semibold">{aba === "equipe" ? "Nenhum membro da Equipe Smarter" : "Nenhum colaborador cadastrado"}</p>
+                  <p className="text-sm mt-1">Clique em "{aba === "equipe" ? "Novo Membro" : "Novo Colaborador"}" para começar</p>
                 </td>
               </tr>
-            ) : employees.map(emp => (
+            ) : activeList.map(emp => (
               <tr key={emp.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors ${!emp.user.active ? "opacity-50" : ""}`}>
                 <td className="px-4 py-3">
                   <p className="text-sm font-semibold">{emp.user.name}</p>
@@ -220,7 +285,7 @@ export default function EquipePage() {
       </Card>
 
       {/* ── Modal Novo Colaborador ── */}
-      <Modal open={novoModal} onClose={() => setNovoModal(false)} title="Novo Colaborador">
+      <Modal open={novoModal} onClose={() => setNovoModal(false)} title={aba === "equipe" ? "Novo Membro — Equipe Smarter" : "Novo Colaborador"}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Input label="Nome completo *" value={form.name}
@@ -241,7 +306,7 @@ export default function EquipePage() {
           <div>
             <label className="text-xs font-bold text-slate-600 block mb-2">Módulos com acesso</label>
             <div className="grid grid-cols-2 gap-2">
-              {MODULOS.map(m => (
+              {modulosAtivos.map(m => (
                 <label key={m.key} className={`flex items-center gap-2 p-2.5 rounded-xl border-2 cursor-pointer transition-colors text-sm ${form.permissoes.includes(m.key) ? "border-[#0f2a5e] bg-blue-50 text-[#0f2a5e] font-semibold" : "border-slate-200 hover:border-slate-300"}`}>
                   <input type="checkbox" className="w-3.5 h-3.5"
                     checked={form.permissoes.includes(m.key)}
@@ -279,7 +344,7 @@ export default function EquipePage() {
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-2">Módulos com acesso</label>
               <div className="grid grid-cols-2 gap-2">
-                {MODULOS.map(m => (
+                {modulosAtivos.map(m => (
                   <label key={m.key} className={`flex items-center gap-2 p-2.5 rounded-xl border-2 cursor-pointer transition-colors text-sm ${editModal.permissoes.includes(m.key) ? "border-[#0f2a5e] bg-blue-50 text-[#0f2a5e] font-semibold" : "border-slate-200 hover:border-slate-300"}`}>
                     <input type="checkbox" className="w-3.5 h-3.5"
                       checked={editModal.permissoes.includes(m.key)}

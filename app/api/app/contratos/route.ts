@@ -27,12 +27,13 @@ export async function GET(req: Request) {
     const role = session.user.role;
     const where: any = {};
 
-    if (role === "FRANQUEADO" && session.user.franchiseId) {
+    if ((role === "FRANQUEADO" || role === "FUNCIONARIO") && session.user.franchiseId) {
+      // FRANQUEADO e FUNCIONARIO veem apenas os contratos da sua unidade
       where.franchiseId = session.user.franchiseId;
     } else if (role === "EMPRESA" && session.user.companyId) {
       where.companyId = session.user.companyId;
     }
-    // FRANQUEADORA vê todos
+    // FRANQUEADORA e EQUIPE (franchiseId=undefined) vêem toda a rede
 
     const [contratos, total] = await Promise.all([
       prisma.contract.findMany({

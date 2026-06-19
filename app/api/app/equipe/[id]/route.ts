@@ -8,7 +8,12 @@ import { handleApiError } from "@/lib/api-response";
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.franchiseId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const role = session.user.role || "";
+  if (!["FRANQUEADORA", "FRANQUEADO"].includes(role)) {
+    return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+  }
 
   const body = await req.json();
   const { cargo, permissoes, active, name, email, novaSenha } = body;
@@ -17,8 +22,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     where: { id: params.id },
     include: { user: true },
   });
-  if (!emp || emp.franchiseId !== session.user.franchiseId)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!emp) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // FRANQUEADORA pode gerenciar apenas membros EQUIPE (franchiseId=null)
+  // FRANQUEADO pode gerenciar apenas colaboradores da sua própria unidade
+  if (role === "FRANQUEADORA") {
+    if (emp.franchiseId !== null || emp.user.role !== "EQUIPE") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  } else {
+    // FRANQUEADO: só sua unidade, nunca EQUIPE
+    if (emp.franchiseId !== session.user.franchiseId || emp.user.role === "EQUIPE") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  }
 
   // Update employee fields
   const empUpdates: any = {};
@@ -65,11 +82,27 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   try {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.franchiseId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const role = session.user.role || "";
+  if (!["FRANQUEADORA", "FRANQUEADO"].includes(role)) {
+    return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+  }
 
   const emp = await prisma.employee.findUnique({ where: { id: params.id }, include: { user: true } });
-  if (!emp || emp.franchiseId !== session.user.franchiseId)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!emp) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // FRANQUEADORA pode excluir apenas membros EQUIPE
+  // FRANQUEADO pode excluir apenas colaboradores da sua unidade, nunca EQUIPE
+  if (role === "FRANQUEADORA") {
+    if (emp.franchiseId !== null || emp.user.role !== "EQUIPE") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  } else {
+    if (emp.franchiseId !== session.user.franchiseId || emp.user.role === "EQUIPE") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+  }
 
   // Delete employee record then deactivate user
   await prisma.employee.delete({ where: { id: params.id } });
