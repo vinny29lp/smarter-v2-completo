@@ -29,12 +29,18 @@ export async function GET(req: Request) {
   const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
   const skip  = (page - 1) * limit;
 
-  // EQUIPE: vê toda a rede (sem filtro); FRANQUEADO/FUNCIONARIO: só sua unidade
+  // EQUIPE: vê toda a rede (sem filtro)
+  // FRANQUEADORA: seus próprios lançamentos (franchiseId null) + cobranças de franquias (categoria Franquia)
+  //   → NÃO usa "FRANQUEADORA" como filtro: é um sentinel da sessão, não um ID real de franquia
+  // FRANQUEADO/FUNCIONARIO: só sua unidade
+  const isFranqueadora = role === "FRANQUEADORA";
   const where: any = role === "EQUIPE"
     ? {}
-    : session?.user?.franchiseId
-      ? { franchiseId: session.user.franchiseId }
-      : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
+    : isFranqueadora
+      ? { OR: [{ franchiseId: null }, { categoria: "Franquia" }] }
+      : session?.user?.franchiseId
+        ? { franchiseId: session.user.franchiseId }
+        : { OR: [{ franchiseId: null }, { categoria: "Franquia" }] };
 
   const [lancamentos, total] = await Promise.all([
     prisma.financial.findMany({
@@ -94,7 +100,8 @@ export async function POST(req: Request) {
       recorrente: body.recorrente || false,
       diaVencimento: body.diaVencimento != null ? parseInt(String(body.diaVencimento)) : null,
       vencimentoAt: body.vencimentoAt ? new Date(body.vencimentoAt) : null,
-      franchiseId: session?.user?.franchiseId || undefined,
+      // FRANQUEADORA: salva franchiseId null (sentinel "FRANQUEADORA" não é ID real de franquia → violaria FK)
+      franchiseId: (postRole === "FRANQUEADORA") ? undefined : (session?.user?.franchiseId || undefined),
       companyId: body.companyId || undefined,
     },
     include: { company: true },
