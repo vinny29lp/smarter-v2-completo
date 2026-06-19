@@ -2,6 +2,87 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+/** Calcula a próxima data de vencimento dado o dia do mês */
+function calcVencimentoAt(dia: number): Date {
+  const hoje = new Date();
+  const d = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
+  // Se o dia já passou neste mês, usa o próximo mês
+  if (d < hoje) d.setMonth(d.getMonth() + 1);
+  return d;
+}
+
+/**
+ * Cria (ou atualiza) o lançamento financeiro vinculado a um contrato.
+ * Chamada na criação do contrato e como fallback na ativação.
+ *
+ * @param contractId   ID do contrato
+ * @param valorEmpresa Valor que a empresa paga à unidade por mês
+ * @param vencimento   Dia do mês para vencimento (padrão: 5)
+ * @param franchiseId  ID da franquia
+ * @param companyId    ID da empresa
+ * @param companyName  Nome da empresa (para a descrição)
+ * @param numero       Número do contrato (para a descrição)
+ */
+export async function criarOuAtualizarLancamentoContrato({
+  contractId,
+  valorEmpresa,
+  vencimento,
+  franchiseId,
+  companyId,
+  companyName,
+  numero,
+}: {
+  contractId: string;
+  valorEmpresa: number;
+  vencimento?: number | null;
+  franchiseId: string;
+  companyId: string;
+  companyName?: string;
+  numero?: string | null;
+}) {
+  if (!valorEmpresa || valorEmpresa <= 0) return null;
+
+  const diaVenc = vencimento || 5;
+  const vencimentoAt = calcVencimentoAt(diaVenc);
+  const nome = companyName || "Empresa";
+  const descricao = `Taxa de Gestão - ${nome} - Contrato ${numero || "s/n"}`;
+
+  // Verifica se já existe lançamento PENDENTE para este contrato
+  const existing = await prisma.financial.findFirst({
+    where: { contractId, cancelado: false },
+    select: { id: true, status: true },
+  });
+
+  if (existing) {
+    // Atualiza lançamento existente se ainda está pendente
+    if (existing.status === "PENDENTE") {
+      return prisma.financial.update({
+        where: { id: existing.id },
+        data: { valor: valorEmpresa, diaVencimento: diaVenc, vencimentoAt, descricao },
+      });
+    }
+    // Já pago/cancelado — não altera
+    return null;
+  }
+
+  // Cria novo lançamento
+  return prisma.financial.create({
+    data: {
+      descricao,
+      tipo: "entrada",
+      valor: valorEmpresa,
+      categoria: "Empresa",
+      status: "PENDENTE",
+      recorrente: true,
+      diaVencimento: diaVenc,
+      vencimentoAt,
+      franchiseId,
+      companyId,
+      contractId,
+    },
+  });
+}
+
 async function gerarNumeroContrato(franchiseId: string): Promise<string> {
   const ano = new Date().getFullYear();
   const count = await prisma.contract.count({
@@ -185,6 +266,20 @@ export async function createContract(data: any) {
   await prisma.gamificationPoint.create({
     data: { franchiseId: data.franchiseId, acao: "contrato_criado", pontos: 400 },
   }).catch(() => {});
+
+  // ── Lançamento financeiro automático ────────────────────────────────────
+  // Cria a parcela mensal em "A Receber" assim que o contrato é gerado.
+  if (safeData.valorEmpresa && safeData.valorEmpresa > 0) {
+    await criarOuAtualizarLancamentoContrato({
+      contractId: contract.id,
+      valorEmpresa: safeData.valorEmpresa,
+      vencimento: safeData.vencimento ?? undefined,
+      franchiseId: safeData.franchiseId,
+      companyId: safeData.companyId,
+      companyName: company?.name,
+      numero,
+    }).catch(() => {}); // fire-and-forget — não cancela o contrato se falhar
+  }
 
   revalidatePath("/dashboard/contratos");
   return contract;

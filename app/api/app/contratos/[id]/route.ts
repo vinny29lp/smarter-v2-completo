@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getContract } from "@/lib/actions/contracts";
+import { getContract, criarOuAtualizarLancamentoContrato } from "@/lib/actions/contracts";
 import { prisma } from "@/lib/prisma";
 import { logAudit, getClientIP } from "@/lib/audit";
 import { checkPermission } from "@/lib/permissions";
@@ -101,6 +101,28 @@ export async function PATCH(
     // Sync student status if contract status changed
     if (data.status !== undefined && contract.studentId) {
       await syncEstudanteStatus(contract.studentId);
+    }
+
+    // ── Sincronizar lançamento financeiro ────────────────────────────────
+    // Se valorEmpresa ou vencimento mudaram, atualiza (ou cria) o lançamento pendente
+    const financialChanged = data.valorEmpresa !== undefined || data.vencimento !== undefined;
+    if (financialChanged) {
+      const valorAtual = (data.valorEmpresa ?? contract.valorEmpresa) as number | null;
+      const vencAtual  = (data.vencimento  ?? contract.vencimento)  as number | null;
+      if (valorAtual && valorAtual > 0) {
+        const comp = contract.companyId
+          ? await prisma.company.findUnique({ where: { id: contract.companyId }, select: { name: true } }).catch(() => null)
+          : null;
+        await criarOuAtualizarLancamentoContrato({
+          contractId: params.id,
+          valorEmpresa: valorAtual,
+          vencimento: vencAtual,
+          franchiseId: contract.franchiseId,
+          companyId: contract.companyId,
+          companyName: comp?.name,
+          numero: contract.numero,
+        }).catch(() => {});
+      }
     }
 
     // Audit log
