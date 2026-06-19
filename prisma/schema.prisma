@@ -591,6 +591,7 @@ enum UserRole {
   EMPRESA
   ESTUDANTE
   FUNCIONARIO
+  EQUIPE
 }
 
 enum FranchiseStatus {
