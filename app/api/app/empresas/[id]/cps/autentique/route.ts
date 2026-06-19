@@ -208,14 +208,18 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     const status = await buscarStatusAutentique(authDocId);
 
-    const updateData: any = { signers: status.signers };
+    // Atualiza apenas campos que existem no model Company
+    // (signers NÃO é um campo do model — não incluir no update)
+    const updateData: any = {};
     if (status.signedUrl) updateData.cpsSignedUrl = status.signedUrl;
     if (status.allSigned) updateData.cpsStatus = "ASSINADO";
 
-    await prisma.company.update({
-      where: { id: params.id },
-      data: updateData as any,
-    });
+    if (Object.keys(updateData).length > 0) {
+      await prisma.company.update({
+        where: { id: params.id },
+        data: updateData as any,
+      });
+    }
 
     return NextResponse.json({
       ok: true,
