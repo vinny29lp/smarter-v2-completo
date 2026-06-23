@@ -111,7 +111,14 @@ export async function POST(
       html = gerarTermoRealizacao(contratoData, body.chTotal || contratoData.estagio.chSemanal * 26, body.desempenho || "Bom");
       break;
     case "ta":
-      html = gerarTermoAditivo(contratoData, body.clausula || "", body.descricao || "", body.vigencia || "");
+      html = gerarTermoAditivo(
+        contratoData,
+        body.clausula || "",
+        body.descricao || "",
+        body.vigencia || "",
+        body.menorDeIdade === "Sim",
+        body.nomeResponsavel || "",
+      );
       break;
     case "cps":
       html = gerarContratoPrestacao(contratoData, body.valorMensal || 200);

@@ -819,9 +819,43 @@ ${docFooter("Termo de Realização de Estágio", c.numero, sm)}`);
 }
 
 // ── TERMO ADITIVO ─────────────────────────────────────────────────────────────
-export function gerarTermoAditivo(c: ContratoData, clausula: string, descricao: string, vigencia: string): string {
+export function gerarTermoAditivo(c: ContratoData, clausula: string, descricao: string, vigencia: string, menorDeIdade?: boolean, nomeResponsavel?: string): string {
   const { estudante: e, empresa: emp, instituicao: ies, smarter: sm, estagio: est } = c;
   const hoje = new Date().toLocaleDateString("pt-BR");
+
+  // Responsável legal: prioriza o informado no form; fallback para o cadastrado no aluno
+  const respNome = (nomeResponsavel || "").trim() || (e.responsavel?.nome || "").trim();
+  const isMinor  = !!(menorDeIdade && respNome);
+
+  // Seção de assinaturas — 4 padrão; 5 quando menor de idade
+  const stampImg = `<img src="data:image/png;base64,${SMARTER_STAMP_B64}" style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);max-width:110px;max-height:46px;object-fit:contain"/>`;
+  const signBox = (nome: string, role: string, detail?: string, isAgente = false) =>
+    `<div class="sign-box"><div class="sign-line">${isAgente ? stampImg : ""}</div><div class="sign-name">${nome}</div><div class="sign-role">${role}</div>${detail ? `<div class="sign-detail">${detail}</div>` : ""}</div>`;
+
+  const assinaturas = isMinor
+    ? `<div class="sign-grid" style="margin-top:24px">
+        ${signBox(ies.razaoSocial, "INSTITUIÇÃO DE ENSINO")}
+        ${signBox(emp.razaoSocial, "EMPRESA CONCEDENTE")}
+        ${signBox(e.nome, "ESTAGIÁRIO(A)", "CPF: " + e.cpf)}
+        ${signBox(sm.razaoSocial, "AGENTE DE INTEGRAÇÃO", "CNPJ: " + sm.cnpj, true)}
+        <div class="sign-box" style="grid-column:1 / -1;max-width:280px;margin:12px auto 0">
+          <div class="sign-line"></div>
+          <div class="sign-name">${respNome}</div>
+          <div class="sign-role">RESPONSÁVEL LEGAL</div>
+          <div class="sign-detail">Responsável pelo(a) menor ${e.nome}</div>
+        </div>
+      </div>`
+    : sign4(
+        [ies.razaoSocial, "INSTITUIÇÃO DE ENSINO"],
+        [emp.razaoSocial, "EMPRESA CONCEDENTE"],
+        [e.nome, "ESTAGIÁRIO(A)", "CPF: " + e.cpf],
+        [sm.razaoSocial, "AGENTE DE INTEGRAÇÃO", "CNPJ: " + sm.cnpj],
+      );
+
+  const menorObs = isMinor
+    ? `<p style="font-size:10px;margin:6px 0;color:#374151">⚠️ Por ser o(a) estagiário(a) menor de idade, o presente Termo é também assinado por seu Responsável Legal <strong>${respNome}</strong>, nos termos do art. 5° do Código Civil e art. 1° da Lei 11.788/2008.</p>`
+    : "";
+
   return wrap(`
 ${premiumHeader("Termo Aditivo ao Contrato de Estágio", "Lei Nº 11.788/2008", c.numero, sm)}
 ${infoBar([
@@ -836,6 +870,7 @@ ${infoBar([
 ${fld("Empresa Concedente", emp.razaoSocial)}${fld("CNPJ", emp.cnpj)}
 ${fld("Representante", emp.representante)}${fld("Cargo", emp.cargoRepresentante)}
 ${fld("Estagiário(a)", e.nome)}${fld("CPF", e.cpf)}
+${isMinor ? fld("Responsável Legal", respNome) : ""}
 ${fld("Curso", e.curso)}${fld("Início do Estágio", est.dataInicio)}
 ${fld("IES", ies.razaoSocial)}${fld("CNPJ da IES", ies.cnpj)}
 ${fld("Agente de Integração", sm.razaoSocial)}${fld("CNPJ", sm.cnpj)}
@@ -851,14 +886,9 @@ ${vigencia ? fld("Nova Vigência", vigencia, true) : ""}
 <div class="obj-box" style="margin:14px 0">
   Pelo presente instrumento, a empresa <strong>${emp.razaoSocial}</strong>, o(a) estudante <strong>${e.nome}</strong>, com interveniência de <strong>${ies.razaoSocial}</strong>, celebram através do Agente de Integração <strong>${sm.razaoSocial}</strong> o presente TERMO ADITIVO, alterando a cláusula referente a <strong>${clausula||"—"}</strong>. Permanecem inalteradas as demais cláusulas do TCE, do qual este Termo Aditivo faz parte integrante.
 </div>
-
+${menorObs}
 <p style="text-align:right;font-size:10px;margin:14px 0">${c.cidadeAssinatura}, ${hoje}</p>
-${sign4(
-  [ies.razaoSocial, "INSTITUIÇÃO DE ENSINO"],
-  [emp.razaoSocial, "EMPRESA CONCEDENTE"],
-  [e.nome, "ESTAGIÁRIO(A)", "CPF: " + e.cpf],
-  [sm.razaoSocial, "AGENTE DE INTEGRAÇÃO", "CNPJ: " + sm.cnpj],
-)}
+${assinaturas}
 ${docFooter("Termo Aditivo ao Contrato de Estágio", c.numero, sm)}`);
 }
 

@@ -45,6 +45,8 @@ const EXTRA_FIELDS: Record<string, {label:string;key:string;type?:string;options
     { label:"Cláusula Alterada", key:"clausula", type:"select", options:["Prazo/Vigência","Valor da Bolsa","Carga Horária","Atividades","Supervisor","Local","Benefícios"] },
     { label:"Descrição da Alteração", key:"descricao", type:"text" },
     { label:"Nova Vigência (opcional)", key:"vigencia", type:"text" },
+    { label:"Estagiário(a) é Menor de Idade?", key:"menorDeIdade", type:"select", options:["Não","Sim"] },
+    { label:"Nome do Responsável Legal (obrigatório se menor)", key:"nomeResponsavel", type:"text" },
   ],
   cps: [{ label:"Valor Mensal por Estagiário (R$)", key:"valorMensal", type:"number" }],
 };
