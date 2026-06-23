@@ -60,6 +60,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(body.descricao ? { descricao: body.descricao } : {}),
       ...(body.valor ? { valor: parseFloat(body.valor) } : {}),
       ...(body.cancelado !== undefined ? { cancelado: body.cancelado, status: body.cancelado ? "CANCELADO" as any : undefined } : {}),
+      ...("vencimentoAt" in body ? { vencimentoAt: body.vencimentoAt ? new Date(body.vencimentoAt) : null } : {}),
     },
   });
 

@@ -349,7 +349,11 @@ export default function FinanceiroPage() {
     if (!editModal) return;
     await fetch(`/api/app/financeiro/${editModal.id}`, {
       method:"PATCH", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ descricao:editModal.descricao, valor:editModal.valor }),
+      body:JSON.stringify({
+        descricao: editModal.descricao,
+        valor: editModal.valor,
+        vencimentoAt: editModal.vencimentoAt || null,
+      }),
     });
     setEditModal(null); load();
   };
@@ -1064,6 +1068,15 @@ export default function FinanceiroPage() {
           <div className="space-y-3">
             <Input label="Descrição" value={editModal.descricao || ""} onChange={e => setEditModal((p:any) => ({...p, descricao: e.target.value}))}/>
             <Input label="Valor (R$)" type="number" value={editModal.valor || ""} onChange={e => setEditModal((p:any) => ({...p, valor: e.target.value}))}/>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Data de Vencimento</label>
+              <input
+                type="date"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f2a5e]/30"
+                value={editModal.vencimentoAt ? new Date(editModal.vencimentoAt).toISOString().split("T")[0] : ""}
+                onChange={e => setEditModal((p:any) => ({...p, vencimentoAt: e.target.value ? new Date(e.target.value).toISOString() : null}))}
+              />
+            </div>
             <div className="flex gap-3 pt-2">
               <Button variant="secondary" onClick={() => setEditModal(null)}>Cancelar</Button>
               <Button onClick={salvarEdicao}>Salvar</Button>
