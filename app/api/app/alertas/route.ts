@@ -206,11 +206,11 @@ export async function GET() {
 
     return NextResponse.json({
       alertas: {
-        contratosVencendo:           contratosVencendo.map(c => ({ ...c, diasRestantes: Math.ceil((new Date(c.dataFim).getTime() - hoje.getTime()) / 86_400_000) })),
+        contratosVencendo:           contratosVencendo.map(c => ({ ...c, diasRestantes: c.dataFim ? Math.ceil((new Date(c.dataFim).getTime() - hoje.getTime()) / 86_400_000) : 0 })),
         contratosVencidosSemFinalizar,
-        contratosPendentes1Mes:      contratosPendentes1Mes.map(c => ({ ...c, diasPendente: DIAS(new Date(c.createdAt)) })),
-        contratosPendentes2Mes:      contratosPendentes2Mes.map(c => ({ ...c, diasPendente: DIAS(new Date(c.createdAt)) })),
-        avaliacoesDevidas:           avaliacoesDevidas.map(c => ({ ...c, mesesAtivo: Math.floor(DIAS(new Date(c.dataInicio)) / 30) })),
+        contratosPendentes1Mes:      contratosPendentes1Mes.map(c => ({ ...c, diasPendente: DIAS(c.createdAt ?? new Date()) })),
+        contratosPendentes2Mes:      contratosPendentes2Mes.map(c => ({ ...c, diasPendente: DIAS(c.createdAt ?? new Date()) })),
+        avaliacoesDevidas:           avaliacoesDevidas.map(c => ({ ...c, mesesAtivo: Math.floor(DIAS(c.dataInicio ?? new Date()) / 30) })),
         leadsCrmVencidos,
         // FRANQUEADORA:
         unidadesComPendentes2Mes,
