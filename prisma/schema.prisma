@@ -678,6 +678,67 @@ model AIUsageLog {
   @@index([createdAt])
 }
 
+// ─── CRM DE VENDA DE FRANQUIAS ────────────────────────────────────────────────
+// Separado do CrmLead (que é para parcerias empresariais).
+// Leads captados de tráfego pago (Meta Ads), indicações ou orgânico.
+
+model FranquiaLead {
+  id            String         @id @default(cuid())
+  nomeCompleto  String
+  email         String?
+  telefone      String?
+  cidade        String?
+  estado        String?
+  etapa         String         @default("novo_lead")
+  situacao      String         @default("ativo") // ativo | vendido | perdido
+  origem        String?        // meta_ads | indicacao | organico | evento | outro
+  leadFrio      Boolean        @default(false)   // importado com dados antigos
+  optIn         Boolean        @default(true)
+  anotacao      String?
+  proximaAcao   String?
+  ultimoContato DateTime?      @db.Timestamptz(6)
+  retornoAt     DateTime?      @db.Timestamptz(6)
+  etapaChangedAt DateTime?     @db.Timestamptz(6)
+  valorInvestimento Float?     // valor negociado (taxa de franquia)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
+  notas         FranquiaNota[]
+  tarefas       FranquiaTarefa[]
+
+  @@index([etapa])
+  @@index([situacao])
+  @@index([leadFrio])
+  @@index([createdAt])
+  @@map("franquia_leads")
+}
+
+model FranquiaNota {
+  id        String       @id @default(cuid())
+  leadId    String
+  texto     String
+  tipo      String       @default("anotacao") // anotacao | email | whatsapp | etapa | alerta
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  lead      FranquiaLead @relation(fields: [leadId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([leadId])
+  @@map("franquia_notas")
+}
+
+model FranquiaTarefa {
+  id        String       @id @default(cuid())
+  leadId    String
+  descricao String
+  dueAt     DateTime?    @db.Timestamptz(6)
+  done      Boolean      @default(false)
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  lead      FranquiaLead @relation(fields: [leadId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([leadId])
+  @@map("franquia_tarefas")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 model ImportLog {
   id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   tipo        String
