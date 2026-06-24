@@ -93,6 +93,7 @@ export default function FinanceiroPage() {
   const [editModal, setEditModal]             = useState<any>(null);
   const [cobrModal, setCobrModal]             = useState<any>(null);
   const [boletoLoading, setBoletoLoading]     = useState<string|null>(null);
+  const [verificarTodosLoading, setVerificarTodosLoading] = useState(false);
   const [boletoResultModal, setBoletoResultModal] = useState<any>(null);
   // Nova cobrança + boleto
   const [novaCobrancaModal, setNovaCobrancaModal] = useState(false);
@@ -427,6 +428,22 @@ export default function FinanceiroPage() {
     setBoletoLoading(null);
   };
 
+  // Verificar TODOS os boletos Cora pendentes de uma vez
+  const verificarTodosCora = async () => {
+    setVerificarTodosLoading(true);
+    try {
+      const res = await fetch("/api/cron/verificar-boletos-cora");
+      const data = await res.json();
+      if (data.pagos > 0) {
+        load();
+        alert(`✅ ${data.pagos} boleto(s) dado(s) como PAGO! (${data.verificados} verificados, ${data.erros} erro(s))`);
+      } else {
+        alert(`Nenhum novo pagamento encontrado. (${data.verificados} boleto(s) verificado(s), ${data.erros} erro(s))`);
+      }
+    } catch { alert("Erro ao verificar boletos."); }
+    setVerificarTodosLoading(false);
+  };
+
   // Criar cobrança nova + boleto Cora em um passo
   const gerarNovaCobrancaCora = async () => {
     const { franchiseId, valor, descricao, vencimento } = novaCobrancaForm;
@@ -508,6 +525,11 @@ export default function FinanceiroPage() {
             {config?.chavePix || config?.linkPagamento ? "✓ PIX/Boleto configurado" : "⚠️ Configurar PIX/Boleto"}
             {config?.chavePix && <span className="font-mono text-[10px] opacity-60 max-w-[120px] truncate">{config.chavePix}</span>}
           </button>
+          {session?.user?.role === "FRANQUEADORA" && (
+            <Button variant="secondary" onClick={verificarTodosCora} disabled={verificarTodosLoading}>
+              {verificarTodosLoading ? "⏳ Verificando..." : "🔄 Verificar Todos os Boletos"}
+            </Button>
+          )}
           <Button onClick={() => setNovoModal(true)}>+ Novo Lançamento</Button>
         </div>
       </div>
