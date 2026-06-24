@@ -12,9 +12,10 @@ export function LeadCapturaForm() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const [optIn, setOptIn] = useState(false);
   const [form, setForm] = useState({
     empresa: "", contato: "", cargo: "",
-    email: "", telefone: "", cidade: "", observacao: "",
+    email: "", telefone: "", cidade: "", setor: "", observacao: "",
   });
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -26,7 +27,7 @@ export function LeadCapturaForm() {
     const res = await fetch("/api/public/lead", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, franchiseRef: ref, origem }),
+      body: JSON.stringify({ ...form, franchiseRef: ref, origem, optIn }),
     });
     const data = await res.json();
     if (data.error) { setError(data.error); setLoading(false); return; }
@@ -105,6 +106,19 @@ export function LeadCapturaForm() {
               placeholder="São Paulo / SP"
             />
             <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Setor da Empresa</label>
+              <select
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+                value={form.setor}
+                onChange={e => set("setor", e.target.value)}
+              >
+                <option value="">Selecione...</option>
+                {["Tecnologia","Saúde","Educação","Varejo","Indústria","Financeiro","Logística","Jurídico","Construção Civil","Agronegócio","Marketing","Outro"].map(s=>(
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">
                 Como podemos ajudar? (opcional)
               </label>
@@ -119,14 +133,24 @@ export function LeadCapturaForm() {
             <Button
               className="w-full justify-center"
               onClick={handleSubmit}
-              disabled={loading || !form.empresa || !form.telefone}
+              disabled={loading || !form.empresa || !form.telefone || !optIn}
             >
               {loading ? "Enviando..." : "Quero conhecer a Smarter →"}
             </Button>
 
-            <p className="text-[10px] text-slate-400 text-center">
-              Seus dados estão seguros. Não fazemos spam.
-            </p>
+            <div className="flex items-start gap-2 mt-1">
+              <input
+                id="optin"
+                type="checkbox"
+                checked={optIn}
+                onChange={e => setOptIn(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-slate-300 cursor-pointer flex-shrink-0"
+              />
+              <label htmlFor="optin" className="text-[10px] text-slate-500 leading-tight cursor-pointer">
+                Concordo em receber comunicações da Smarter Estágios por e-mail e WhatsApp sobre soluções de estágio.
+                Seus dados são tratados conforme a <strong>LGPD (Lei 13.709/2018)</strong> e podem ser removidos a qualquer momento.
+              </label>
+            </div>
           </div>
         </Card>
       </div>

@@ -31,16 +31,21 @@ export async function POST(req: Request) {
 
   const lead = await prisma.crmLead.create({
     data: {
-      empresa:     body.empresa || body.contato,
-      contato:     body.contato || null,
-      email:       body.email || null,
-      telefone:    body.telefone || null,
-      etapa:       "novo_lead",
-      situacao:    "ativo",
-      proximaAcao: "Entrar em contato",
-      anotacao:    body.observacao || null,
+      empresa:        body.empresa || body.contato,
+      contato:        body.contato || null,
+      email:          body.email || null,
+      telefone:       body.telefone || null,
+      etapa:          "novo_lead",
+      situacao:       "ativo",
+      proximaAcao:    "Entrar em contato",
+      anotacao:       body.observacao || null,
       franchiseId,
-    },
+      optIn:          body.optIn === true,
+      optInAt:        body.optIn === true ? new Date() : null,
+      origem:         body.origem || "link_publico",
+      setor:          body.setor || null,
+      etapaChangedAt: new Date(),
+    } as any,
   });
 
   // Nota inicial automática

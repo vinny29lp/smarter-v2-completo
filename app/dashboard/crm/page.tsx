@@ -6,20 +6,16 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
+import { slaStatus, diasRestantes, SLA_CONFIG } from "@/lib/crm/sla-config";
 
 const ETAPAS = ["novo_lead","primeiro_contato","apresentacao","proposta","negociacao","fechado"];
-const ETAPA_LABEL: Record<string,string> = {
-  novo_lead:"Novo Lead", primeiro_contato:"1º Contato", apresentacao:"Apresentação",
-  proposta:"Proposta", negociacao:"Negociação", fechado:"Fechado ✓",
-};
-const ETAPA_COLOR: Record<string,string> = {
-  novo_lead:"bg-slate-50 border-slate-200",
-  primeiro_contato:"bg-blue-50 border-blue-200",
-  apresentacao:"bg-purple-50 border-purple-200",
-  proposta:"bg-amber-50 border-amber-200",
-  negociacao:"bg-orange-50 border-orange-200",
-  fechado:"bg-green-50 border-green-200",
-};
+// Labels e cores derivados do SLA_CONFIG para manter sincronismo
+const ETAPA_LABEL: Record<string,string> = Object.fromEntries(
+  Object.entries(SLA_CONFIG).map(([k, v]) => [k, v.label])
+);
+const ETAPA_COLOR: Record<string,string> = Object.fromEntries(
+  Object.entries(SLA_CONFIG).map(([k, v]) => [k, v.cor])
+);
 const PRIO_BADGE: Record<string,"green"|"yellow"|"red"> = {
   baixa:"green", media:"yellow", alta:"red"
 };
@@ -34,6 +30,7 @@ export default function CRMPage() {
   const [linkModal, setLinkModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [slaBreached, setSlaBreached] = useState(0);
   const [form, setForm] = useState({
     empresa:"", contato:"", cargo:"", email:"", telefone:"",
     cidade:"", prioridade:"media", valorNegociado:"", observacao:"",
@@ -49,7 +46,14 @@ export default function CRMPage() {
       .then(r=>r.json()).then(d=>setLeads(d.leads||[]));
   }, [filtro]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    // Dispara verificação de SLA ao carregar a página
+    fetch("/api/app/crm/sla-check")
+      .then(r=>r.json())
+      .then(d=>{ if (d.breached) setSlaBreached(d.breached); })
+      .catch(()=>{});
+  }, [load]);
 
   const criarLead = async () => {
     if (!form.empresa) return;
@@ -78,6 +82,20 @@ export default function CRMPage() {
   const todosLeads = leads;
   const valorPipeline = leads.filter(l=>l.situacao==="ativo").reduce((a,l)=>a+(l.valorNegociado||0),0);
   const vencidos = leads.filter(l=>l.retornoAt && new Date(l.retornoAt)<new Date() && l.situacao==="ativo").length;
+  const slaVencidosLocal = leads.filter(l=>l.situacao==="ativo" && slaStatus(l.etapa, l.etapaChangedAt)==="vencido").length;
+  const totalSlaAlerta = Math.max(slaBreached, slaVencidosLocal);
+
+  // Módulo 9 — Forecast MRR ponderado por etapa
+  const PROB_ETAPA: Record<string,number> = {
+    novo_lead:0.05, primeiro_contato:0.15, apresentacao:0.30,
+    proposta:0.55, negociacao:0.75, fechado:1,
+  };
+  const mrrForecast = leads
+    .filter(l=>l.situacao==="ativo" && l.valorNegociado)
+    .reduce((sum,l)=>sum + ((l.valorNegociado||0) * (PROB_ETAPA[l.etapa||"novo_lead"]||0.05)) / 12, 0);
+  const mrrReal = leads
+    .filter(l=>l.situacao==="vendido" && l.valorNegociado)
+    .reduce((sum,l)=>sum + (l.valorNegociado||0) / 12, 0);
 
   return (
     <div>
@@ -88,6 +106,7 @@ export default function CRMPage() {
             {leads.filter(l=>l.situacao==="ativo").length} leads ativos
             {valorPipeline>0 && ` • R$ ${valorPipeline.toLocaleString("pt-BR")} em pipeline`}
             {vencidos>0 && <span className="text-red-500"> • {vencidos} retorno(s) vencido(s) ⚠️</span>}
+            {totalSlaAlerta>0 && <span className="text-red-600 font-bold"> • 🚨 {totalSlaAlerta} SLA vencido{totalSlaAlerta>1?"s":""}</span>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -95,6 +114,38 @@ export default function CRMPage() {
           <Button onClick={()=>setNovoModal(true)}>+ Novo Lead</Button>
         </div>
       </div>
+
+      {/* Módulo 9 — Forecast MRR */}
+      {(mrrForecast > 0 || mrrReal > 0) && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+          {mrrForecast > 0 && (
+            <div className="bg-gradient-to-br from-[#0f2a5e] to-[#1a3d8f] rounded-xl p-4 text-white">
+              <p className="text-[10px] font-bold uppercase opacity-70 mb-1">MRR Forecast</p>
+              <p className="text-xl font-black">R$ {Math.round(mrrForecast).toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] opacity-60 mt-0.5">receita recorrente ponderada</p>
+            </div>
+          )}
+          {mrrReal > 0 && (
+            <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-xl p-4 text-white">
+              <p className="text-[10px] font-bold uppercase opacity-70 mb-1">MRR Confirmado</p>
+              <p className="text-xl font-black">R$ {Math.round(mrrReal).toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] opacity-60 mt-0.5">contratos fechados</p>
+            </div>
+          )}
+          {valorPipeline > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p className="text-[10px] font-bold uppercase text-amber-600 mb-1">Pipeline Ativo</p>
+              <p className="text-xl font-black text-amber-800">R$ {Math.round(valorPipeline).toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] text-amber-600 mt-0.5">valor total em negociação</p>
+            </div>
+          )}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Leads Ativos</p>
+            <p className="text-xl font-black text-slate-800">{leads.filter(l=>l.situacao==="ativo").length}</p>
+            {totalSlaAlerta > 0 && <p className="text-[10px] text-red-600 mt-0.5 font-bold">🚨 {totalSlaAlerta} SLA vencido(s)</p>}
+          </div>
+        </div>
+      )}
 
       {/* Filtros de situação */}
       <div className="flex gap-1.5 mb-5 bg-slate-100 rounded-xl p-1 w-fit">
@@ -136,7 +187,25 @@ export default function CRMPage() {
                         {/* Cabeçalho do card */}
                         <div className="flex items-start justify-between gap-1 mb-1">
                           <p className="text-xs font-bold text-slate-800 truncate flex-1">{l.empresa}</p>
-                          <Badge variant={PRIO_BADGE[l.prioridade]||"gray"}>{l.prioridade[0].toUpperCase()}</Badge>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {/* Badge SLA */}
+                            {l.situacao==="ativo" && (()=>{
+                              const st = slaStatus(l.etapa, l.etapaChangedAt);
+                              const dr = diasRestantes(l.etapa, l.etapaChangedAt);
+                              if (st==="vencido") return (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-700" title={`SLA vencido há ${Math.abs(dr??0)} dia(s)`}>
+                                  🚨{Math.abs(dr??0)}d
+                                </span>
+                              );
+                              if (st==="alerta") return (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700" title={`SLA: ${dr} dia(s) restante(s)`}>
+                                  ⚠️{dr}d
+                                </span>
+                              );
+                              return null;
+                            })()}
+                            <Badge variant={PRIO_BADGE[l.prioridade]||"gray"}>{l.prioridade[0].toUpperCase()}</Badge>
+                          </div>
                         </div>
                         {l.contato && <p className="text-[10px] text-slate-400">{l.contato}{l.cargo?` · ${l.cargo}`:""}</p>}
                         {l.valorNegociado && (

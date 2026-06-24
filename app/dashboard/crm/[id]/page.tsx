@@ -7,18 +7,40 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
+import { getAllWhatsAppTemplates, buildWhatsAppUrl } from "@/lib/crm/whatsapp-templates";
+import { SLA_CONFIG, slaStatus, diasRestantes } from "@/lib/crm/sla-config";
 
 const ETAPAS = ["novo_lead","primeiro_contato","apresentacao","proposta","negociacao","fechado"];
-const ETAPA_LABEL: Record<string,string> = {
-  novo_lead:"Novo Lead",primeiro_contato:"1º Contato",apresentacao:"Apresentação",
-  proposta:"Proposta",negociacao:"Negociação",fechado:"Fechado ✓"
-};
+const ETAPA_LABEL: Record<string,string> = Object.fromEntries(
+  Object.entries(SLA_CONFIG).map(([k,v])=>[k,v.label])
+);
+
+// Utilitários para módulos 6 e 8 (usados inline no JSX)
+function buildWhatsLink(lead: any, etapa: string) {
+  if (!lead?.telefone) return "#";
+  const tpls = getAllWhatsAppTemplates();
+  const tpl = tpls[etapa] || tpls.reengajamento;
+  return buildWhatsAppUrl(lead.telefone, tpl, { empresa: lead.empresa, contato: lead.contato, setor: lead.setor });
+}
+
+async function logWhatsClick(leadId: string, label: string) {
+  fetch(`/api/app/crm/${leadId}/whatsapp-click`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ templateLabel: label }),
+  }).catch(() => {});
+}
+
+function gerarContrato(leadId: string) {
+  window.open(`/api/app/crm/${leadId}/contrato-parceria`, "_blank");
+}
 const TIPO_NOTA: Record<string,{icon:string;color:string}> = {
   anotacao:    {icon:"📝",color:"bg-slate-100 text-slate-600"},
   ligacao:     {icon:"📞",color:"bg-blue-100 text-blue-700"},
   email:       {icon:"✉️", color:"bg-purple-100 text-purple-700"},
   reuniao:     {icon:"🤝",color:"bg-green-100 text-green-700"},
   whatsapp:    {icon:"📱",color:"bg-emerald-100 text-emerald-700"},
+  etapa:       {icon:"📍",color:"bg-indigo-100 text-indigo-700"},
+  alerta:      {icon:"🚨",color:"bg-red-100 text-red-700"},
 };
 const SITUACAO_BADGE: Record<string,"green"|"yellow"|"red"|"gray"|"blue"> = {
   ativo:"green",vendido:"blue",perdido:"red",pausado:"gray"
@@ -139,6 +161,24 @@ export default function LeadDetailPage() {
   const pendentes = tasks.filter((t: any) => !t.done);
   const concluidas = tasks.filter((t: any) => t.done);
 
+  // Módulo 7 — Timeline unificada (notas + tasks como eventos)
+  const timelineItems = [
+    ...notas.map((n: any) => ({
+      id: n.id, tipo: n.tipo || "anotacao", texto: n.texto,
+      at: new Date(n.createdAt), isTask: false,
+    })),
+    ...tasks.map((t: any) => ({
+      id: t.id, tipo: "tarefa",
+      texto: `${t.done ? "✅" : "⬜"} Tarefa: ${t.descricao}${t.dueAt ? ` · vence ${new Date(t.dueAt).toLocaleDateString("pt-BR")}` : ""}`,
+      at: new Date(t.createdAt), isTask: true, done: t.done,
+    })),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime());
+
+  const TIPO_TIMELINE: Record<string,{icon:string;color:string}> = {
+    ...TIPO_NOTA,
+    tarefa: {icon:"✅",color:"bg-slate-100 text-slate-600"},
+  };
+
   return (
     <div>
       {msg && (
@@ -206,19 +246,41 @@ export default function LeadDetailPage() {
               )}
             </div>
 
-            {/* Ações rápidas */}
+            {/* Ações rápidas — Módulos 6 e 8 */}
             <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
               {lead.telefone && (
-                <a href={`https://wa.me/55${lead.telefone.replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-xs text-green-600 font-semibold hover:underline">
-                  📱 Abrir WhatsApp
-                </a>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">WhatsApp Comercial</p>
+                  {[
+                    {label:"Apresentação Smarter", etapa:"primeiro_contato"},
+                    {label:"Confirmação de Reunião", etapa:"apresentacao"},
+                    {label:"Follow-up da Proposta", etapa:"proposta"},
+                    {label:"Reforço Comercial", etapa:"negociacao"},
+                    {label:"Boas-vindas", etapa:"fechado"},
+                    {label:"Reengajamento", etapa:"reengajamento"},
+                  ].map(({label, etapa}) => (
+                    <a key={etapa}
+                      href={buildWhatsLink(lead, etapa)}
+                      target="_blank" rel="noopener noreferrer"
+                      onClick={() => logWhatsClick(params.id as string, label)}
+                      className="block text-[10px] text-green-700 hover:underline py-0.5">
+                      📱 {label}
+                    </a>
+                  ))}
+                </div>
               )}
               {lead.email && (
                 <a href={`mailto:${lead.email}`}
-                  className="flex items-center gap-2 text-xs text-blue-600 font-semibold hover:underline">
+                  className="flex items-center gap-2 text-xs text-blue-600 font-semibold hover:underline mt-2">
                   ✉️ Enviar E-mail
                 </a>
+              )}
+              {(lead.situacao === "vendido" || lead.etapa === "fechado") && (
+                <button
+                  onClick={() => gerarContrato(params.id as string)}
+                  className="flex items-center gap-2 text-xs text-[#0f2a5e] font-semibold hover:underline mt-1">
+                  📄 Gerar Contrato de Parceria
+                </button>
               )}
             </div>
           </Card>
@@ -318,32 +380,38 @@ export default function LeadDetailPage() {
           </Card>
         </div>
 
-        {/* Coluna 3: Histórico de notas */}
+        {/* Coluna 3: Timeline Unificada (Módulo 7) */}
         <div>
           <Card className="p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-                Histórico ({notas.length})
+                Timeline ({timelineItems.length})
               </h3>
               <button onClick={() => setNotaModal(true)} className="text-[10px] text-blue-500 hover:underline font-bold">
                 + Nota
               </button>
             </div>
 
-            {notas.length === 0 ? (
+            {timelineItems.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-4">Nenhuma interação registrada.</p>
             ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {notas.map((n: any) => {
-                  const meta = TIPO_NOTA[n.tipo] || TIPO_NOTA.anotacao;
+              <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+                {timelineItems.map((item) => {
+                  const meta = TIPO_TIMELINE[item.tipo] || TIPO_TIMELINE.anotacao;
                   return (
-                    <div key={n.id} className="relative pl-4 border-l-2 border-slate-200 pb-3 last:pb-0">
+                    <div key={item.id} className={`relative pl-4 border-l-2 pb-3 last:pb-0 ${
+                      item.tipo==="etapa" ? "border-indigo-200" :
+                      item.tipo==="email" ? "border-purple-200" :
+                      item.tipo==="whatsapp" ? "border-green-200" :
+                      item.tipo==="alerta" ? "border-red-200" :
+                      "border-slate-200"
+                    }`}>
                       <div className="absolute -left-2 top-0">
                         <span className={`text-[10px] px-1 py-0.5 rounded font-bold ${meta.color}`}>{meta.icon}</span>
                       </div>
-                      <p className="text-xs text-slate-700 leading-relaxed">{n.texto}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        {new Date(n.createdAt).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" })}
+                      <p className="text-xs text-slate-700 leading-relaxed">{item.texto}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {item.at.toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" })}
                       </p>
                     </div>
                   );
@@ -351,6 +419,23 @@ export default function LeadDetailPage() {
               </div>
             )}
           </Card>
+
+          {/* SLA badge na etapa atual (Módulo 1 — exibição no detalhe) */}
+          {lead.situacao === "ativo" && (() => {
+            const st = slaStatus(lead.etapa, (lead as any).etapaChangedAt);
+            const dr = diasRestantes(lead.etapa, (lead as any).etapaChangedAt);
+            if (st === "vencido") return (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold">
+                🚨 SLA vencido há <strong>{Math.abs(dr??0)} dia(s)</strong> nesta etapa. Tarefa automática criada.
+              </div>
+            );
+            if (st === "alerta") return (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 font-semibold">
+                ⚠️ SLA: apenas <strong>{dr} dia(s)</strong> restante(s) nesta etapa.
+              </div>
+            );
+            return null;
+          })()}
         </div>
       </div>
 

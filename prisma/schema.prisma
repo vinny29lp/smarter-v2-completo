@@ -365,6 +365,12 @@ model CrmLead {
   enderecoReuniao String?
   reuniaoAt       DateTime? @db.Timestamptz(6)
   situacao        String?   @default("ativo")
+  etapaChangedAt  DateTime? @db.Timestamptz(6)
+  optIn           Boolean?  @default(false)
+  optInAt         DateTime? @db.Timestamptz(6)
+  origem          String?
+  setor           String?
+  contratoHtml    String?   @db.Text
   company         Company?  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   franchise       Franchise? @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   notas           CrmNota[]

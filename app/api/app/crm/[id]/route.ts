@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { handleApiError } from "@/lib/api-response";
+import { sendMail } from "@/lib/email";
+import { getEmailTemplate, resolveSubject } from "@/lib/crm/email-templates";
+import { SLA_CONFIG } from "@/lib/crm/sla-config";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -68,13 +71,33 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   // Ação especial: marcar como vendido
   if (body.action === "vendido") {
+    const leadPre = await prisma.crmLead.findUnique({
+      where: { id: params.id },
+      select: { email: true, optIn: true, empresa: true, contato: true, setor: true },
+    });
     const lead = await prisma.crmLead.update({
       where: { id: params.id },
-      data: { etapa: "fechado", situacao: "vendido", convertido: true, ultimoContato: new Date() },
+      data: { etapa: "fechado", situacao: "vendido", convertido: true, ultimoContato: new Date(), etapaChangedAt: new Date() },
     });
     await prisma.crmNota.create({
-      data: { leadId: params.id, texto: body.observacao || "Lead marcado como VENDIDO.", tipo: "anotacao" },
+      data: { leadId: params.id, texto: body.observacao || "🏆 Lead marcado como VENDIDO!", tipo: "anotacao" },
     });
+    // E-mail de boas-vindas (módulo 5)
+    if (leadPre?.email && leadPre.optIn) {
+      try {
+        const tpl = getEmailTemplate("fechado");
+        if (tpl) {
+          const subject = resolveSubject(tpl, leadPre.empresa);
+          const html = tpl.html({ empresa: leadPre.empresa, contato: leadPre.contato, setor: leadPre.setor });
+          const sent = await sendMail(leadPre.email, subject, html);
+          if (sent) {
+            await prisma.crmNota.create({
+              data: { leadId: params.id, texto: `✉️ E-mail de boas-vindas enviado: "${subject}"`, tipo: "email" },
+            });
+          }
+        }
+      } catch (e) { console.error("[crm] vendido email error:", e); }
+    }
     return NextResponse.json({ lead });
   }
 
@@ -112,7 +135,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const lead = await prisma.crmLead.update({
     where: { id: params.id },
     data: {
-      ...(body.etapa          !== undefined ? { etapa: body.etapa }                           : {}),
+      ...(body.etapa          !== undefined ? { etapa: body.etapa, etapaChangedAt: new Date() } : {}),
       ...(body.prioridade     !== undefined ? { prioridade: body.prioridade }                 : {}),
       ...(body.valorNegociado !== undefined ? { valorNegociado: body.valorNegociado ? parseFloat(body.valorNegociado) : null } : {}),
       ...(body.retornoAt      !== undefined ? { retornoAt: body.retornoAt ? new Date(body.retornoAt) : null } : {}),
@@ -133,6 +156,53 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       notas: { orderBy: { createdAt: "desc" } },
     },
   });
+  // Módulo 5 — trigger de e-mail ao mover de etapa (somente se optIn e email)
+  // Módulo 7 — nota de mudança de etapa na timeline
+  if (body.etapa) {
+    try {
+      const fullLead = await prisma.crmLead.findUnique({
+        where: { id: params.id },
+        select: { email: true, optIn: true, empresa: true, contato: true, setor: true, etapa: true },
+      });
+
+      // Nota de etapa na timeline
+      const novaEtapa = SLA_CONFIG[body.etapa]?.label || body.etapa;
+      await prisma.crmNota.create({
+        data: {
+          leadId: params.id,
+          texto: `📍 Etapa atualizada para "${novaEtapa}".`,
+          tipo: "etapa",
+        },
+      });
+
+      // E-mail comercial (só com optIn)
+      if (fullLead?.email && fullLead.optIn) {
+        const tpl = getEmailTemplate(body.etapa);
+        if (tpl) {
+          const subject = resolveSubject(tpl, fullLead.empresa);
+          const html = tpl.html({
+            empresa: fullLead.empresa,
+            contato: fullLead.contato,
+            setor: fullLead.setor,
+          });
+          const sent = await sendMail(fullLead.email, subject, html);
+          if (sent) {
+            await prisma.crmNota.create({
+              data: {
+                leadId: params.id,
+                texto: `✉️ E-mail comercial enviado: "${subject}"`,
+                tipo: "email",
+              },
+            });
+          }
+        }
+      }
+    } catch (emailErr) {
+      console.error("[crm] email trigger error:", emailErr);
+      // Não interrompe a resposta
+    }
+  }
+
   return NextResponse.json({ lead });
   } catch (e) {
     return handleApiError(e, "CRM_ID_PATCH");
