@@ -67,13 +67,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       vencimento,
     });
 
+    const boletoUrl = invoice.payment_options?.bank_slip?.url || null;
+    const digitableLine = invoice.payment_options?.bank_slip?.digitable || null;
+    const chavePix = invoice.pix?.emv || null;
+
     // Persiste os dados do boleto no lançamento
     await (prisma.financial as any).update({
       where: { id: params.id },
       data: {
         coraInvoiceId: invoice.id,
-        linkPagamento: invoice.bank_slip?.url || null,
-        chavePix: invoice.pix?.qr_code || null,
+        linkPagamento: boletoUrl,
+        chavePix,
       },
     });
 
@@ -87,9 +91,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         descricao: lancamento.descricao,
         valor: lancamento.valor,
         vencimento: lancamento.vencimentoAt?.toISOString(),
-        linkBoleto: invoice.bank_slip?.url,
-        chavePix: invoice.pix?.qr_code,
-        qrCodePixUrl: invoice.pix?.qr_code_image || invoice.pix?.qr_code_url,
+        linkBoleto: boletoUrl || undefined,
+        chavePix: chavePix || undefined,
       });
     } catch (emailErr) {
       console.error("[gerar-boleto] Erro email:", emailErr);
@@ -108,9 +111,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({
       ok: true,
       invoiceId: invoice.id,
-      boletoUrl: invoice.bank_slip?.url,
-      digitableLine: invoice.bank_slip?.digitable_line,
-      pixQrCode: invoice.pix?.qr_code,
+      boletoUrl,
+      digitableLine,
+      pixQrCode: chavePix,
       emailEnviado: emailOk,
     });
   } catch (e: any) {
