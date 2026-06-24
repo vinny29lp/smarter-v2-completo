@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -24,6 +25,8 @@ const SITUACAO_COLOR: Record<string,string> = {
 };
 
 export default function CRMPage() {
+  const { data: session } = useSession();
+  const isFranqueadora = session?.user?.role === "FRANQUEADORA";
   const [leads, setLeads] = useState<any[]>([]);
   const [filtro, setFiltro] = useState<"ativo"|"todos"|"vendido"|"perdido"|"pausado">("ativo");
   const [novoModal, setNovoModal] = useState(false);
@@ -109,7 +112,12 @@ export default function CRMPage() {
             {totalSlaAlerta>0 && <span className="text-red-600 font-bold"> • 🚨 {totalSlaAlerta} SLA vencido{totalSlaAlerta>1?"s":""}</span>}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
+          {isFranqueadora && (
+            <Link href="/dashboard/crm/franqueadora">
+              <Button variant="secondary">🏆 Ranking de Unidades</Button>
+            </Link>
+          )}
           <Button variant="secondary" onClick={()=>setLinkModal(true)}>🔗 Link Captação</Button>
           <Button onClick={()=>setNovoModal(true)}>+ Novo Lead</Button>
         </div>
