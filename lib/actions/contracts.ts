@@ -270,19 +270,11 @@ export async function createContract(data: any) {
     data: { franchiseId: data.franchiseId, acao: "contrato_criado", pontos: 400 },
   }).catch(() => {});
 
-  // ── Lançamento financeiro automático ────────────────────────────────────
-  // Cria a parcela mensal em "A Receber" assim que o contrato é gerado.
-  if (safeData.valorEmpresa && safeData.valorEmpresa > 0) {
-    await criarOuAtualizarLancamentoContrato({
-      contractId: contract.id,
-      valorEmpresa: safeData.valorEmpresa,
-      vencimento: safeData.vencimento ?? undefined,
-      franchiseId: safeData.franchiseId,
-      companyId: safeData.companyId,
-      companyName: company?.name,
-      numero,
-    }).catch(() => {}); // fire-and-forget — não cancela o contrato se falhar
-  }
+  // ── Lançamento financeiro: NÃO criado aqui ──────────────────────────────
+  // O lançamento em "A Receber" só é gerado quando o contrato muda para ATIVO.
+  // Motivo: contrato PENDENTE não gera obrigação de cobrança para a empresa
+  // nem taxa de administração para a franqueadora.
+  // O lançamento é criado em: ativar-migracao/route.ts e documentos/[docId]/route.ts
 
   revalidatePath("/dashboard/contratos");
   return contract;

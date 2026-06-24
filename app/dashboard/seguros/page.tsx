@@ -19,7 +19,7 @@ export default async function SegurosPage({ searchParams }: { searchParams: { me
   const [ativos, encerrados] = await Promise.all([
     prisma.contract.findMany({
       where: {
-        status: { in: ["ATIVO", "PENDENTE", "AGUARDANDO_ASSINATURA"] },
+        status: "ATIVO",
         dataInicio: { lte: fim },
         dataFim: { gte: inicio },
       },

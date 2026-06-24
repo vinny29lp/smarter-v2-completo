@@ -553,6 +553,20 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           </div>
         </div>
 
+        {/* Aviso financeiro: cobrança só é gerada ao ativar */}
+        {contract.status !== "ATIVO" && (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+            <span className="mt-0.5 text-base">💡</span>
+            <span>
+              <strong>Financeiro pendente:</strong> enquanto o estágio estiver como <em>{contract.status}</em>,
+              o valor de <strong>R$ {Number(contract.valorEmpresa || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong> de taxa de gestão
+              <strong> não será computado no financeiro</strong> da unidade.
+              O lançamento em "A Receber" e a taxa de R$13 da Franqueadora são gerados automaticamente
+              apenas quando o estágio é <strong>ativado</strong>.
+            </span>
+          </div>
+        )}
+
         {/* Botão Ativar Estágio */}
         <div className="flex items-center gap-3 pt-3 border-t border-amber-100">
           <button
