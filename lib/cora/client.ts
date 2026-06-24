@@ -63,7 +63,7 @@ async function getAccessToken(): Promise<string> {
 
   const { status, raw } = await httpsRequest({
     hostname: CORA_HOSTNAME,
-    path: "/auth/v1/identity/token",
+    path: "/realms/integration/protocol/openid-connect/token",
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
