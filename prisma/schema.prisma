@@ -427,6 +427,7 @@ model Financial {
   linkPagamento      String?
   chavePix           String?
   instrucaoPagamento String?
+  coraInvoiceId      String?
   sendLogs           FinancialSendLog[]
   company            Company?         @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   contract           Contract?        @relation(fields: [contractId], references: [id], onDelete: NoAction, onUpdate: NoAction)

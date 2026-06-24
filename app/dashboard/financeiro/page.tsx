@@ -92,6 +92,8 @@ export default function FinanceiroPage() {
   const [novoModal, setNovoModal]             = useState(false);
   const [editModal, setEditModal]             = useState<any>(null);
   const [cobrModal, setCobrModal]             = useState<any>(null);
+  const [boletoLoading, setBoletoLoading]     = useState<string|null>(null);
+  const [boletoResultModal, setBoletoResultModal] = useState<any>(null);
   const [relatorioModal, setRelatorioModal]   = useState(false);
   const [taxaGestao, setTaxaGestao]           = useState(100);
   const [editandoTaxa, setEditandoTaxa]       = useState(false);
@@ -389,6 +391,22 @@ export default function FinanceiroPage() {
     if (data.ok) { load(); loadFranquiasPreview(); }
   };
 
+  // Gerar boleto Cora
+  const gerarBoletoCora = async (lancamentoId: string) => {
+    if (!confirm("Gerar boleto + PIX via Cora e enviar por email para a unidade?")) return;
+    setBoletoLoading(lancamentoId);
+    try {
+      const res = await fetch(`/api/app/financeiro/${lancamentoId}/gerar-boleto`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { alert("Erro: " + (data.error || "Verifique o CNPJ da unidade.")); }
+      else {
+        setBoletoResultModal(data);
+        load();
+      }
+    } catch { alert("Erro ao gerar boleto."); }
+    setBoletoLoading(null);
+  };
+
   // Ações inline reutilizáveis
   const RowActions = ({ l }: { l: any }) => (
     <div className="flex gap-1 flex-wrap">
@@ -401,6 +419,14 @@ export default function FinanceiroPage() {
               emailDestino: l.franchise?.email || l.company?.emailFinanceiro || l.company?.email || "",
               mensagemPersonalizada: l.categoria === "Franquia" ? (config?.mensagemCobrancaFranqueado || "") : "",
             })}>📧 Cobrar</Button>
+          )}
+          {l.tipo === "entrada" && l.categoria === "Franquia" && !l.coraInvoiceId && session?.user?.role === "FRANQUEADORA" && (
+            <Button size="sm" variant="yellow" onClick={() => gerarBoletoCora(l.id)} disabled={boletoLoading === l.id}>
+              {boletoLoading === l.id ? "⏳" : "🏦 Boleto Cora"}
+            </Button>
+          )}
+          {l.coraInvoiceId && (
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">✓ Boleto emitido</span>
           )}
         </>
       )}
@@ -624,6 +650,14 @@ export default function FinanceiroPage() {
                                     emailDestino: l.franchise?.email || "",
                                     mensagemPersonalizada: config?.mensagemCobrancaFranqueado || "",
                                   })}>📧 Cobrar</Button>
+                                  {!l.coraInvoiceId && (
+                                    <Button size="sm" variant="yellow" onClick={() => gerarBoletoCora(l.id)} disabled={boletoLoading === l.id}>
+                                      {boletoLoading === l.id ? "⏳ Gerando..." : "🏦 Boleto Cora"}
+                                    </Button>
+                                  )}
+                                  {l.coraInvoiceId && (
+                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-200">✓ Boleto emitido</span>
+                                  )}
                                 </>
                               )}
                               {l.status === "PAGO" && (
@@ -1121,6 +1155,38 @@ export default function FinanceiroPage() {
               </div>
             )}
             <Button onClick={() => setFechamentoModal(false)} variant="secondary" className="w-full">Fechar</Button>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Modal Resultado Boleto Cora ── */}
+      <Modal open={boletoResultModal !== null} onClose={() => setBoletoResultModal(null)} title="🏦 Boleto Cora Gerado!">
+        {boletoResultModal && (
+          <div className="space-y-3">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 font-semibold">
+              ✅ Boleto gerado e email enviado para a unidade!
+            </div>
+            {boletoResultModal.boletoUrl && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1">
+                <p className="text-xs font-bold text-blue-700">📄 Link do Boleto</p>
+                <a href={boletoResultModal.boletoUrl} target="_blank" rel="noopener noreferrer"
+                   className="text-xs text-blue-600 underline break-all">{boletoResultModal.boletoUrl}</a>
+              </div>
+            )}
+            {boletoResultModal.digitableLine && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                <p className="text-xs font-bold text-slate-600">Linha Digitável</p>
+                <p className="text-xs font-mono text-slate-700 break-all">{boletoResultModal.digitableLine}</p>
+              </div>
+            )}
+            {boletoResultModal.pixQrCode && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-xl space-y-1">
+                <p className="text-xs font-bold text-green-700">💳 PIX Copia e Cola</p>
+                <p className="text-xs font-mono text-green-700 break-all max-h-24 overflow-auto">{boletoResultModal.pixQrCode}</p>
+              </div>
+            )}
+            <p className="text-xs text-slate-400">A baixa será automática quando a unidade pagar. Lembretes de atraso são enviados automaticamente pelo sistema.</p>
+            <Button onClick={() => setBoletoResultModal(null)}>Fechar</Button>
           </div>
         )}
       </Modal>
