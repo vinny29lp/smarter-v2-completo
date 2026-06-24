@@ -359,7 +359,7 @@ export default function FranqueadoDetailPage() {
 
       <Modal open={editModal} onClose={()=>setEditModal(false)} title="Editar Dados da Franquia" size="lg">
         <div className="grid grid-cols-2 gap-3">
-          {[["name","Nome"],["razaoSocial","Razão Social"],["cnpj","CNPJ"],["cpf","CPF do Responsável"],["responsavel","Responsável"],["email","E-mail"],["telefone","Telefone"],["cidade","Cidade"],["uf","UF"],["mensalidade","Mensalidade (R$)"]].map(([k,l])=>(
+          {[["name","Nome"],["razaoSocial","Razão Social"],["cnpj","CNPJ (14 dígitos, só números)"],["cpf","CPF do Responsável"],["responsavel","Responsável"],["email","E-mail"],["telefone","Telefone"],["endereco","Endereço"],["cep","CEP (8 dígitos)"],["cidade","Cidade"],["uf","UF"],["mensalidade","Mensalidade (R$)"]].map(([k,l])=>(
             <Input key={k} label={l} value={editForm[k]||""} onChange={e=>setEditForm((p:any)=>({...p,[k]:e.target.value}))}/>
           ))}
           <div>
