@@ -202,11 +202,11 @@ export default function FranqueadoDetailPage() {
       {aba==="contratos" && (
         <Card>
           <table className="w-full">
-            <thead><tr className="border-b border-slate-100">{["Estagiário","Empresa","Bolsa","Início","Término","Status"].map(h=>(
+            <thead><tr className="border-b border-slate-100">{["Estagiário","Empresa","Bolsa","Início","Término","Status",""].map(h=>(
               <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase px-5 py-3">{h}</th>))}</tr></thead>
             <tbody>
               {!data.contracts?.length ? (
-                <tr><td colSpan={6} className="text-center py-8 text-slate-400">Nenhum contrato.</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-slate-400">Nenhum contrato.</td></tr>
               ) : data.contracts.map((c:any)=>(
                 <tr key={c.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
                   <td className="px-5 py-2 text-sm font-semibold">{c.student?.name}</td>
@@ -215,6 +215,11 @@ export default function FranqueadoDetailPage() {
                   <td className="px-5 py-2 text-xs text-slate-400">{new Date(c.dataInicio).toLocaleDateString("pt-BR")}</td>
                   <td className="px-5 py-2 text-xs text-slate-400">{new Date(c.dataFim).toLocaleDateString("pt-BR")}</td>
                   <td className="px-5 py-2"><Badge variant={c.status==="ATIVO"?"green":c.status==="PENDENTE"?"yellow":"gray"}>{c.status}</Badge></td>
+                  <td className="px-5 py-2">
+                    <Link href={`/dashboard/contratos/${c.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#0f2a5e] hover:underline bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition-colors">
+                      👁 Visualizar
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -222,27 +227,52 @@ export default function FranqueadoDetailPage() {
         </Card>
       )}
 
-      {aba==="financeiro" && (
-        <Card>
-          <table className="w-full">
-            <thead><tr className="border-b border-slate-100">{["Descrição","Tipo","Valor","Status","Data"].map(h=>(
-              <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase px-5 py-3">{h}</th>))}</tr></thead>
-            <tbody>
-              {!data.financials?.length ? (
-                <tr><td colSpan={5} className="text-center py-8 text-slate-400">Nenhum lançamento.</td></tr>
-              ) : data.financials.map((f:any)=>(
-                <tr key={f.id} className="border-b border-slate-50 last:border-0">
-                  <td className="px-5 py-2 text-sm font-medium">{f.descricao}</td>
-                  <td className="px-5 py-2"><Badge variant={f.tipo==="entrada"?"green":"red"}>{f.tipo}</Badge></td>
-                  <td className="px-5 py-2 text-sm font-bold"><span className={f.tipo==="entrada"?"text-emerald-600":"text-red-600"}>{fmt(f.valor)}</span></td>
-                  <td className="px-5 py-2"><Badge variant={f.status==="PAGO"?"green":f.status==="PENDENTE"?"yellow":"red"}>{f.status}</Badge></td>
-                  <td className="px-5 py-2 text-xs text-slate-400">{new Date(f.createdAt).toLocaleDateString("pt-BR")}</td>
-                </tr>
+      {aba==="financeiro" && (() => {
+        const fins = data.financials || [];
+        const entradas = fins.filter((f:any)=>!f.cancelado&&f.tipo==="entrada");
+        const saidas   = fins.filter((f:any)=>!f.cancelado&&f.tipo==="saida");
+        const totalEntradas = entradas.reduce((s:number,f:any)=>s+f.valor,0);
+        const totalSaidas   = saidas.reduce((s:number,f:any)=>s+f.valor,0);
+        const totalPago     = entradas.filter((f:any)=>f.status==="PAGO").reduce((s:number,f:any)=>s+f.valor,0);
+        const totalPendente = entradas.filter((f:any)=>f.status==="PENDENTE").reduce((s:number,f:any)=>s+f.valor,0);
+        return (
+          <div className="space-y-4">
+            {/* Resumo rápido */}
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                ["Total Entradas",fmt(totalEntradas),"text-emerald-600"],
+                ["Recebido (Pago)",fmt(totalPago),"text-emerald-700"],
+                ["A Receber",fmt(totalPendente),"text-amber-600"],
+                ["Total Saídas",fmt(totalSaidas),"text-red-600"],
+              ].map(([l,v,c])=>(
+                <Card key={l} className="p-3 text-center">
+                  <p className="text-[10px] text-slate-400 uppercase">{l}</p>
+                  <p className={`text-base font-black mt-1 ${c}`}>{v}</p>
+                </Card>
               ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+            </div>
+            <Card>
+              <table className="w-full">
+                <thead><tr className="border-b border-slate-100">{["Descrição","Tipo","Valor","Status","Data"].map(h=>(
+                  <th key={h} className="text-left text-[10px] font-bold text-slate-400 uppercase px-5 py-3">{h}</th>))}</tr></thead>
+                <tbody>
+                  {!fins.length ? (
+                    <tr><td colSpan={5} className="text-center py-8 text-slate-400">Nenhum lançamento.</td></tr>
+                  ) : fins.filter((f:any)=>!f.cancelado).map((f:any)=>(
+                    <tr key={f.id} className="border-b border-slate-50 last:border-0">
+                      <td className="px-5 py-2 text-sm font-medium">{f.descricao}</td>
+                      <td className="px-5 py-2"><Badge variant={f.tipo==="entrada"?"green":"red"}>{f.tipo}</Badge></td>
+                      <td className="px-5 py-2 text-sm font-bold"><span className={f.tipo==="entrada"?"text-emerald-600":"text-red-600"}>{fmt(f.valor)}</span></td>
+                      <td className="px-5 py-2"><Badge variant={f.status==="PAGO"?"green":f.status==="PENDENTE"?"yellow":"red"}>{f.status}</Badge></td>
+                      <td className="px-5 py-2 text-xs text-slate-400">{new Date(f.createdAt).toLocaleDateString("pt-BR")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+        );
+      })()}
 
       {aba==="empresas" && (
         <Card>

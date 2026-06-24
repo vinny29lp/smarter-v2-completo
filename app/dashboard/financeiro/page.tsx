@@ -508,10 +508,13 @@ export default function FinanceiroPage() {
                   const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
                   return (
                     <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado ? "opacity-40" : ""}`}>
-                      <td className="px-4 py-2.5 text-sm font-medium max-w-xs">{l.descricao}</td>
+                      <td className="px-4 py-2.5 text-sm font-medium max-w-xs">
+                        <span>{l.descricao}</span>
+                        {l.franchise?.name && <p className="text-[10px] text-slate-400 mt-0.5">🏢 {l.franchise.name}</p>}
+                      </td>
                       <td className="px-4 py-2.5 text-sm font-bold text-red-600 whitespace-nowrap">− {fmt(l.valor)}</td>
                       <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">
-                        {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR") : "—"}
+                        {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—"}
                         {vencido && <span className="ml-1 text-red-500 font-bold">⚠️</span>}
                       </td>
                       <td className="px-4 py-2.5">
@@ -597,10 +600,13 @@ export default function FinanceiroPage() {
                       const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
                       return (
                         <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado ? "opacity-40" : ""}`}>
-                          <td className="px-4 py-2.5 text-sm font-medium max-w-xs">{l.descricao}</td>
+                          <td className="px-4 py-2.5 text-sm font-medium max-w-xs">
+                            <span>{l.descricao}</span>
+                            {l.franchise?.name && <p className="text-[10px] text-slate-400 mt-0.5">🏢 {l.franchise.name}</p>}
+                          </td>
                           <td className="px-4 py-2.5 text-sm font-bold text-emerald-600 whitespace-nowrap">+ {fmt(l.valor)}</td>
                           <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">
-                            {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR") : "—"}
+                            {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—"}
                             {vencido && <span className="ml-1 text-red-500 font-bold">⚠️</span>}
                           </td>
                           <td className="px-4 py-2.5">
@@ -712,7 +718,10 @@ export default function FinanceiroPage() {
                   const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
                   return (
                     <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado?"opacity-40":""}`}>
-                      <td className="px-4 py-2.5 text-sm font-medium max-w-xs">{l.descricao}</td>
+                      <td className="px-4 py-2.5 text-sm font-medium max-w-xs">
+                        <span>{l.descricao}</span>
+                        {l.company?.name && <p className="text-[10px] text-slate-400 mt-0.5">🏭 {l.company.name}</p>}
+                      </td>
                       <td className="px-4 py-2.5">
                         <Badge variant={l.tipo==="entrada"?"green":"red"}>{l.tipo==="entrada"?"↑ Entrada":"↓ Saída"}</Badge>
                       </td>
@@ -722,7 +731,7 @@ export default function FinanceiroPage() {
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">
-                        {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR") : l.diaVencimento ? `Dia ${l.diaVencimento}` : "—"}
+                        {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : l.diaVencimento ? `Dia ${l.diaVencimento}` : "—"}
                         {vencido && <span className="ml-1 text-red-500 font-bold">⚠️</span>}
                       </td>
                       <td className="px-4 py-2.5">
@@ -1042,7 +1051,7 @@ export default function FinanceiroPage() {
               </select>
             </div>
           </div>
-          <Input label="Data de Vencimento" type="date" value={form.vencimentoAt} onChange={e => set("vencimentoAt", e.target.value)}/>
+          <Input label="Data de Vencimento" type="date" value={form.vencimentoAt ? form.vencimentoAt.split("T")[0] : ""} onChange={e => set("vencimentoAt", e.target.value ? (e.target.value + "T12:00:00.000Z") : "")}/>
           <label className="flex items-center gap-2 p-3 border-2 border-slate-200 rounded-xl cursor-pointer hover:border-blue-400">
             <input type="checkbox" checked={form.recorrente} onChange={e => set("recorrente", e.target.checked)} className="w-4 h-4"/>
             <div>
@@ -1074,7 +1083,7 @@ export default function FinanceiroPage() {
                 type="date"
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0f2a5e]/30"
                 value={editModal.vencimentoAt ? new Date(editModal.vencimentoAt).toISOString().split("T")[0] : ""}
-                onChange={e => setEditModal((p:any) => ({...p, vencimentoAt: e.target.value ? new Date(e.target.value).toISOString() : null}))}
+                onChange={e => setEditModal((p:any) => ({...p, vencimentoAt: e.target.value ? (e.target.value + "T12:00:00.000Z") : null}))}
               />
             </div>
             <div className="flex gap-3 pt-2">

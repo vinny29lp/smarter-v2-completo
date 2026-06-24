@@ -25,10 +25,12 @@ const EXTRA_FIELDS: Record<string, {label:string;key:string;type?:string;options
     ]},
     { label:"Último Dia de Estágio *", key:"ultimoDia", type:"date" },
     { label:"Motivo / Observações", key:"motivo", type:"text" },
+    { label:"Estagiário(a) é Menor de Idade?", key:"menorDeIdade", type:"select", options:["Não","Sim"] },
+    { label:"Nome do Responsável Legal (obrigatório se menor)", key:"nomeResponsavel", type:"text" },
   ],
   rr: [
-    { label:"Dias de Bolsa", key:"diasBolsa", type:"number" },
-    { label:"Meses de Recesso (/12)", key:"mesesRecesso", type:"number" },
+    { label:"Dias de Bolsa (último mês proporcional)", key:"diasBolsa", type:"number" },
+    { label:"Total de Dias Trabalhados no Estágio", key:"diasTrabalhados", type:"number" },
     { label:"Descontos (R$)", key:"descontos", type:"number" },
   ],
   rec: [
@@ -448,6 +450,20 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
               ⚠️ O estágio ficará <strong>INATIVO</strong> a partir do envio para assinatura (não ao gerar).
             </div>
           )}
+          {doc?.tipo === "rr" && Number(extraFields.diasTrabalhados) > 0 && (() => {
+            const dias = Number(extraFields.diasTrabalhados);
+            const diasRecesso = dias < 12 ? 0 : Math.ceil(dias / 365 * 30 * 2) / 2;
+            return (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 space-y-1">
+                <p className="font-bold">📊 Cálculo automático de recesso proporcional:</p>
+                <p>Dias trabalhados: <strong>{dias} dias</strong></p>
+                {dias < 12
+                  ? <p className="text-red-600">⚠️ Menos de 12 dias — recesso não é computado.</p>
+                  : <p>Recesso proporcional: <strong>{diasRecesso} dias</strong> ({diasRecesso} × bolsa÷30 = gerado automaticamente no documento)</p>
+                }
+              </div>
+            );
+          })()}
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" onClick={() => setExtraModal(false)}>Cancelar</Button>
             <Button onClick={() => gerarDoc(extraFields)} disabled={loading}>{loading?"Gerando...":"Gerar Documento"}</Button>

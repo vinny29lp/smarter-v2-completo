@@ -647,9 +647,42 @@ ${docFooter("Recibo de Pagamento de Bolsa-Auxílio", c.numero, sm)}`);
 }
 
 // ── RESCISÃO AO TCE ────────────────────────────────────────────────────────────
-export function gerarRescisao(c: ContratoData, ultimoDia: string, motivo: string, tipoRescisao?: string): string {
+export function gerarRescisao(c: ContratoData, ultimoDia: string, motivo: string, tipoRescisao?: string, menorDeIdade?: boolean, nomeResponsavel?: string): string {
   const { estudante: e, empresa: emp, instituicao: ies, smarter: sm, estagio: est } = c;
   const hoje = new Date().toLocaleDateString("pt-BR");
+
+  // Responsável legal: prioriza o informado no form; fallback para o cadastrado no aluno
+  const respNome = (nomeResponsavel || "").trim() || (e.responsavel?.nome || "").trim();
+  const isMinor  = !!(menorDeIdade && respNome);
+
+  const stampImg = `<img src="data:image/png;base64,${SMARTER_STAMP_B64}" style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);max-width:110px;max-height:46px;object-fit:contain"/>`;
+  const signBox = (nome: string, role: string, detail?: string, isAgente = false) =>
+    `<div class="sign-box"><div class="sign-line">${isAgente ? stampImg : ""}</div><div class="sign-name">${nome}</div><div class="sign-role">${role}</div>${detail ? `<div class="sign-detail">${detail}</div>` : ""}</div>`;
+
+  const assinaturas = isMinor
+    ? `<div class="sign-grid" style="margin-top:24px">
+        ${signBox(ies.razaoSocial, "INSTITUIÇÃO DE ENSINO")}
+        ${signBox(emp.razaoSocial, "EMPRESA CONCEDENTE")}
+        ${signBox(e.nome, "ESTAGIÁRIO(A)", "CPF: " + e.cpf)}
+        ${signBox(sm.razaoSocial, "AGENTE DE INTEGRAÇÃO", "CNPJ: " + sm.cnpj, true)}
+        <div class="sign-box" style="grid-column:1 / -1;max-width:280px;margin:12px auto 0">
+          <div class="sign-line"></div>
+          <div class="sign-name">${respNome}</div>
+          <div class="sign-role">RESPONSÁVEL LEGAL</div>
+          <div class="sign-detail">Responsável pelo(a) menor ${e.nome}</div>
+        </div>
+      </div>`
+    : sign4(
+        [ies.razaoSocial, "INSTITUIÇÃO DE ENSINO"],
+        [emp.razaoSocial, "EMPRESA CONCEDENTE"],
+        [e.nome, "ESTAGIÁRIO(A)", "CPF: " + e.cpf],
+        [sm.razaoSocial, "AGENTE DE INTEGRAÇÃO", "CNPJ: " + sm.cnpj],
+      );
+
+  const menorObs = isMinor
+    ? `<p style="font-size:10px;margin:6px 0;color:#374151">⚠️ Por ser o(a) estagiário(a) menor de idade, o presente Termo é também assinado por seu Responsável Legal <strong>${respNome}</strong>, nos termos do art. 5° do Código Civil e art. 1° da Lei 11.788/2008.</p>`
+    : "";
+
   return wrap(`
 ${premiumHeader("Rescisão ao Termo de Compromisso de Estágio", "Lei Nº 11.788/2008", c.numero, sm)}
 ${infoBar([
@@ -664,6 +697,7 @@ ${infoBar([
 ${fld("Empresa Concedente", emp.razaoSocial)}${fld("CNPJ", emp.cnpj)}
 ${fld("Representante", emp.representante)}${fld("Cargo", emp.cargoRepresentante)}
 ${fld("Estagiário(a)", e.nome)}${fld("CPF", e.cpf)}
+${isMinor ? fld("Responsável Legal", respNome) : ""}
 ${fld("Início do Estágio", est.dataInicio)}${fld("Último Dia de Estágio", ultimoDia || "—")}
 ${fld("Tipo de Rescisão", tipoRescisao || "—", true)}
 ${motivo ? fld("Motivo / Observações", motivo, true) : ""}
@@ -672,14 +706,9 @@ ${motivo ? fld("Motivo / Observações", motivo, true) : ""}
 <div class="obj-box" style="margin:14px 0">
   A empresa <strong>${emp.razaoSocial}</strong>, CNPJ: <strong>${emp.cnpj}</strong>, denominada <strong>UNIDADE CONCEDENTE</strong>, por seu representante <strong>${emp.representante}</strong>, e de outro lado o(a) ESTAGIÁRIO(A) <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, rescindem de comum acordo o Termo de Compromisso de Estágio firmado em <strong>${est.dataInicio}</strong>, sendo o último dia de estágio em <strong>${ultimoDia||"—"}</strong>, em razão de <strong>${tipoRescisao||"rescisão das partes"}</strong>. As partes conferem-se plena, total e irrevogável quitação de todas as obrigações legais assumidas, conforme art. 11 da Lei 11.788/2008.
 </div>
-
+${menorObs}
 <p style="text-align:right;font-size:10px;margin:14px 0">${c.cidadeAssinatura}, ${hoje}</p>
-${sign4(
-  [ies.razaoSocial, "INSTITUIÇÃO DE ENSINO"],
-  [emp.razaoSocial, "EMPRESA CONCEDENTE"],
-  [e.nome, "ESTAGIÁRIO(A)", "CPF: " + e.cpf],
-  [sm.razaoSocial, "AGENTE DE INTEGRAÇÃO", "CNPJ: " + sm.cnpj],
-)}
+${assinaturas}
 ${docFooter("Rescisão ao TCE", c.numero, sm)}`);
 }
 
@@ -689,23 +718,34 @@ export type DescontoRescisao = { descricao: string; valor: number };
 export function gerarReciboRescisao(
   c: ContratoData,
   diasBolsa: number,
-  mesesRecesso: number,
+  diasTrabalhados: number,
   descontos: DescontoRescisao[],
-  dozeavosVal?: number
+  diasRecesso?: number
 ): string {
   const { estudante: e, empresa: emp, smarter: sm, estagio: est } = c;
-  const bolsaDia = Number(est.valorBolsa)/30;
+  const bolsaDia  = Number(est.valorBolsa) / 30;
   const bolsaProp = bolsaDia * diasBolsa;
-  // dozeavos: valor pré-calculado passado pela chamada (bolsa/12 × total de meses trabalhados)
-  const dozeaVos = dozeavosVal || 0;
+
+  // Recesso proporcional: calcula internamente se não informado
+  // Lei 11.788/2008, Art. 13 — 30 dias/ano; proporcional por dias trabalhados
+  // Mínimo de 12 dias trabalhados para gerar direito a recesso
+  const diasRec = diasRecesso !== undefined
+    ? diasRecesso
+    : (diasTrabalhados >= 12 ? Math.ceil(diasTrabalhados / 365 * 30 * 2) / 2 : 0);
+  const recessoValor = diasRec * bolsaDia;
+
   const totalDescontos = descontos.reduce((s, d) => s + (d.valor || 0), 0);
-  const total = bolsaProp + dozeaVos - totalDescontos;
+  const total = bolsaProp + recessoValor - totalDescontos;
   const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   const hoje = new Date().toLocaleDateString("pt-BR");
 
   const descontosRows = descontos.length > 0
     ? descontos.map(d => fld(`(-) ${d.descricao || "Desconto"}`, "") + fld("Valor", fmt(d.valor || 0))).join("")
     : "";
+
+  const recessoRow = diasRec > 0
+    ? `${fld("Recesso Proporcional", `${diasRec} dia(s) — base: ${diasTrabalhados} dias trabalhados`)}${fld("Valor", fmt(recessoValor))}`
+    : `${fld("Recesso Proporcional", "Não devido (menos de 12 dias trabalhados)")}${fld("Valor", fmt(0))}`;
 
   return wrap(`
 ${premiumHeader("Recibo de Rescisão", "Lei Nº 11.788/2008", c.numero, sm)}
@@ -720,8 +760,9 @@ ${infoBar([
 <div class="fg">
 ${fld("Estagiário(a)", e.nome)}${fld("CPF", e.cpf)}
 ${fld("Empresa Concedente", emp.razaoSocial, true)}
-${fld("Bolsa Proporcional", String(diasBolsa) + " dia(s)")}${fld("Valor", fmt(bolsaProp))}
-${fld("1/12 Avos", `${mesesRecesso} meses trabalhados`)}${fld("Valor", fmt(dozeaVos))}
+${fld("Total de Dias Trabalhados", String(diasTrabalhados || 0) + " dia(s)")}${fld("Bolsa Mensal", fmt(Number(est.valorBolsa)))}
+${fld("Bolsa Proporcional (último mês)", String(diasBolsa) + " dia(s)")}${fld("Valor", fmt(bolsaProp))}
+${recessoRow}
 ${descontosRows}
 <div class="fld full" style="background:#f0f9ff;border-top:2px solid #0f2a5e;padding:6px 8px">
   <label style="font-size:8px;font-weight:900;text-transform:uppercase;color:#0f2a5e;display:block;margin-bottom:2px">TOTAL A RECEBER</label>
@@ -730,7 +771,7 @@ ${descontosRows}
 </div></div>
 
 <div class="obj-box" style="margin:14px 0">
-  Eu, <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, declaro ter recebido de <strong>${emp.razaoSocial}</strong>, CNPJ: <strong>${emp.cnpj}</strong>, a importância de <strong>${fmt(total)} (${valorExtenso(Math.round(total))})</strong>, relativa aos acertos rescisórios do estágio encerrado, conforme detalhamento acima.
+  Eu, <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, declaro ter recebido de <strong>${emp.razaoSocial}</strong>, CNPJ: <strong>${emp.cnpj}</strong>, a importância de <strong>${fmt(total)} (${valorExtenso(Math.round(total))})</strong>, relativa aos acertos rescisórios do estágio encerrado, conforme detalhamento acima. O recesso proporcional foi calculado com base em <strong>${diasTrabalhados || 0} dias trabalhados</strong>, sendo <strong>${diasRec} dia(s)</strong> de recesso (Lei 11.788/2008, Art. 13).
 </div>
 
 <p style="text-align:right;font-size:10px;margin:14px 0">${c.cidadeAssinatura}, ${hoje}</p>

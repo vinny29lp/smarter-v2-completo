@@ -92,7 +92,14 @@ export async function POST(
       html = gerarReciboBolsa(contratoData, body.mesRef || new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" }));
       break;
     case "tr":
-      html = gerarRescisao(contratoData, body.ultimoDia || "—", body.motivo || "", body.tipoRescisao || "");
+      html = gerarRescisao(
+        contratoData,
+        body.ultimoDia || "—",
+        body.motivo || "",
+        body.tipoRescisao || "",
+        body.menorDeIdade === "Sim",
+        body.nomeResponsavel || "",
+      );
       break;
     case "rr": {
       // normaliza descontos: aceita número legado ou array novo
@@ -101,7 +108,13 @@ export async function POST(
         : body.descontos > 0
           ? [{ descricao: "Descontos", valor: Number(body.descontos) }]
           : [];
-      html = gerarReciboRescisao(contratoData, body.diasBolsa || 30, body.mesesTrabalhados || 0, descontosRR, body.dozeavos || 0);
+      // Recesso proporcional — calcula a partir de diasTrabalhados (Lei 11.788/2008, Art. 13)
+      // Mínimo 12 dias para ter direito. Arredonda para 0,5 dia mais próximo.
+      const diasTrabalhados = Number(body.diasTrabalhados) || 0;
+      const diasRecesso = diasTrabalhados >= 12
+        ? Math.ceil(diasTrabalhados / 365 * 30 * 2) / 2
+        : 0;
+      html = gerarReciboRescisao(contratoData, body.diasBolsa || 30, diasTrabalhados, descontosRR, diasRecesso);
       break;
     }
     case "rec":
