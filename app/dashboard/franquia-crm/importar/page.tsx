@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 
 interface ImportResult {
   importados: number;
@@ -214,7 +214,7 @@ export default function ImportarFranquiaLeadsPage() {
                 </Button>
               </Link>
               <Link href="/dashboard/franquia-crm?frio=true">
-                <Button variant="outline" className="text-cyan-700 border-cyan-300">
+                <Button variant="ghost" className="text-cyan-700 border-cyan-300">
                   🧊 Ver somente leads frios
                 </Button>
               </Link>

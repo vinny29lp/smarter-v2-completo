@@ -2,8 +2,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import {
   FRANQUIA_PIPELINE,
   FRANQUIA_ETAPAS_ORDER,
@@ -211,7 +211,7 @@ export default function FranquiaLeadPage() {
                   <textarea className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none" rows={2} placeholder="Anotação interna" value={editForm.anotacao} onChange={(e) => setEditForm((f) => ({ ...f, anotacao: e.target.value }))} />
                   <div className="flex gap-2">
                     <Button onClick={salvarEdicao} disabled={saving} size="sm" className="flex-1 bg-blue-900">Salvar</Button>
-                    <Button onClick={() => setEditando(false)} size="sm" variant="outline" className="flex-1">Cancelar</Button>
+                    <Button onClick={() => setEditando(false)} size="sm" variant="ghost" className="flex-1">Cancelar</Button>
                   </div>
                 </div>
               ) : (
@@ -227,7 +227,7 @@ export default function FranquiaLeadPage() {
                   {lead.anotacao && (
                     <div className="bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-600">{lead.anotacao}</div>
                   )}
-                  <Button onClick={() => setEditando(true)} variant="outline" size="sm" className="w-full text-xs">✏️ Editar dados</Button>
+                  <Button onClick={() => setEditando(true)} variant="ghost" size="sm" className="w-full text-xs">✏️ Editar dados</Button>
                 </>
               )}
 
@@ -282,7 +282,7 @@ export default function FranquiaLeadPage() {
                 <Button
                   onClick={() => setPerdidoModal(true)}
                   disabled={saving}
-                  variant="outline"
+                  variant="ghost"
                   className="flex-1 text-red-600 border-red-200 hover:bg-red-50 text-sm"
                 >
                   ❌ Perdido
@@ -509,7 +509,7 @@ export default function FranquiaLeadPage() {
               onChange={(e) => setPerdidoMotivo(e.target.value)}
             />
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setPerdidoModal(false)} className="flex-1">Cancelar</Button>
+              <Button variant="ghost" onClick={() => setPerdidoModal(false)} className="flex-1">Cancelar</Button>
               <Button
                 className="flex-1 bg-red-600 hover:bg-red-700"
                 onClick={async () => {

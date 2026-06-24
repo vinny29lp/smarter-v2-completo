@@ -2,8 +2,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import {
   FRANQUIA_PIPELINE,
   FRANQUIA_ETAPAS_ORDER,
@@ -100,7 +100,7 @@ function NovoLeadModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           </div>
         </div>
         <div className="flex gap-2 mt-5">
-          <Button variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+          <Button variant="ghost" onClick={onClose} className="flex-1">Cancelar</Button>
           <Button onClick={save} disabled={saving} className="flex-1 bg-blue-900 hover:bg-blue-800">
             {saving ? "Salvando..." : "Criar Lead"}
           </Button>
@@ -192,7 +192,7 @@ export default function FranquiaCrmPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <Link href="/dashboard/franquia-crm/importar">
-            <Button variant="outline" className="text-sm">📥 Importar CSV</Button>
+            <Button variant="ghost" className="text-sm">📥 Importar CSV</Button>
           </Link>
           <Button onClick={() => setNovoModal(true)} className="bg-blue-900 hover:bg-blue-800 text-sm">
             + Novo Lead
