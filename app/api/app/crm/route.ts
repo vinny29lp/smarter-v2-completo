@@ -88,8 +88,9 @@ export async function POST(req: Request) {
     telefone:    body.telefone    || null,
     proximaAcao: body.proximaAcao ? String(body.proximaAcao).slice(0, 500) : null,
     retornoAt:   body.retornoAt   ? new Date(body.retornoAt) : null,
-    situacao:    "ativo",
-    franchiseId: franchiseIdParaLead,
+    situacao:       "ativo",
+    etapaChangedAt: new Date(),
+    franchiseId:    franchiseIdParaLead,
   };
 
   try {
