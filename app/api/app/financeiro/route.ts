@@ -50,6 +50,7 @@ export async function GET(req: Request) {
         status: true, recorrente: true, diaVencimento: true, vencimentoAt: true,
         cancelado: true, paidAt: true, createdAt: true,
         franchiseId: true, companyId: true, contractId: true,
+        coraInvoiceId: true, linkPagamento: true,
         company:   { select: { id: true, name: true, email: true, emailFinanceiro: true } },
         franchise: { select: { id: true, name: true, email: true } },
         contract:  { select: { id: true, numero: true, student: { select: { id: true, name: true } } } },
