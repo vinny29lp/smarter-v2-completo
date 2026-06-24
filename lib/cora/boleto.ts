@@ -61,29 +61,46 @@ export async function gerarBoleto(input: GerarBoletoInput): Promise<CoraInvoice>
     throw new Error("Valor mínimo para boleto Cora é R$5,00.");
   }
 
+  // Valida CNPJ (14 dígitos) ou CPF (11 dígitos) antes de enviar
+  if (input.tipoDocumento === "CNPJ" && docClean.length !== 14) {
+    throw new Error(
+      `CNPJ inválido cadastrado na unidade (${docClean.length} dígitos encontrados, esperado 14). ` +
+      `Corrija o CNPJ no cadastro da unidade antes de gerar o boleto.`
+    );
+  }
+  if (input.tipoDocumento === "CPF" && docClean.length !== 11) {
+    throw new Error(
+      `CPF inválido cadastrado na unidade (${docClean.length} dígitos encontrados, esperado 11). ` +
+      `Corrija o CPF no cadastro da unidade antes de gerar o boleto.`
+    );
+  }
+
   const customer: Record<string, unknown> = {
     name: input.nomeCliente.substring(0, 60),          // máx 60 chars
     document: { identity: docClean, type: input.tipoDocumento },
     email: input.email.substring(0, 60),               // máx 60 chars
   };
 
-  // Endereço opcional (recomendado para boleto registrado)
+  // Endereço opcional — só envia se CEP for válido (8 dígitos brasileiros)
   if (input.cep && input.cidade && input.uf) {
     const cepClean = input.cep.replace(/\D/g, "");
-    const streetRaw = input.endereco || "";
-    const match = streetRaw.match(/^(.*?),?\s*n?°?\s*(\d+.{0,20})$/i);
-    const street = (match?.[1] || streetRaw).trim().substring(0, 60) || "Não informado";
-    const number = (input.numero || match?.[2] || "S/N").trim().substring(0, 10);
+    if (cepClean.length === 8) {
+      const streetRaw = input.endereco || "";
+      const match = streetRaw.match(/^(.*?),?\s*n?°?\s*(\d+.{0,20})$/i);
+      const street = (match?.[1] || streetRaw).trim().substring(0, 60) || "Não informado";
+      const number = (input.numero || match?.[2] || "S/N").trim().substring(0, 10);
 
-    customer.address = {
-      street,
-      number,
-      district: (input.bairro || input.cidade).substring(0, 60),
-      city: input.cidade.substring(0, 60),
-      state: input.uf.substring(0, 2).toUpperCase(),
-      zip_code: cepClean.substring(0, 8),
-      complement: "",
-    };
+      customer.address = {
+        street,
+        number,
+        district: (input.bairro || input.cidade).substring(0, 60),
+        city: input.cidade.substring(0, 60),
+        state: input.uf.substring(0, 2).toUpperCase(),
+        zip_code: cepClean,
+        complement: "",
+      };
+    }
+    // Se CEP inválido, ignora o endereço (campo é opcional na Cora)
   }
 
   const payload: Record<string, unknown> = {
