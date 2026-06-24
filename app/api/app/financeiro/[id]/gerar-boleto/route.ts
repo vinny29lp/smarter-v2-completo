@@ -140,6 +140,16 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   try {
     const { consultarBoleto } = await import("@/lib/cora/boleto");
     const invoice = await consultarBoleto(lancamento.coraInvoiceId);
+
+    // Se a Cora retornar PAID e o lançamento ainda estiver PENDENTE, dá baixa automática
+    if (invoice.status === "PAID" && lancamento.status !== "PAGO") {
+      await (prisma.financial as any).update({
+        where: { id: lancamento.id },
+        data: { status: "PAGO", paidAt: new Date() },
+      });
+      console.log("[gerar-boleto] Baixa automática por consulta Cora:", lancamento.id);
+    }
+
     return NextResponse.json({ hasInvoice: true, invoice });
   } catch (e: any) {
     return NextResponse.json({ hasInvoice: true, coraInvoiceId: lancamento.coraInvoiceId, error: e.message });
