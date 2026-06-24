@@ -411,6 +411,22 @@ export default function FinanceiroPage() {
     setBoletoLoading(null);
   };
 
+  // Verificar pagamento de boleto Cora
+  const verificarPagamentoCora = async (lancamentoId: string) => {
+    setBoletoLoading(lancamentoId);
+    try {
+      const res = await fetch(`/api/app/financeiro/${lancamentoId}/gerar-boleto`);
+      const data = await res.json();
+      if (data.invoice?.status === "PAID") {
+        load();
+        alert("✅ Pagamento confirmado! Lançamento atualizado para PAGO.");
+      } else {
+        alert(`Status atual na Cora: ${data.invoice?.status || "Não encontrado"}. Pagamento ainda não confirmado.`);
+      }
+    } catch { alert("Erro ao consultar status do boleto."); }
+    setBoletoLoading(null);
+  };
+
   // Criar cobrança nova + boleto Cora em um passo
   const gerarNovaCobrancaCora = async () => {
     const { franchiseId, valor, descricao, vencimento } = novaCobrancaForm;
@@ -455,7 +471,9 @@ export default function FinanceiroPage() {
             </Button>
           )}
           {l.coraInvoiceId && (
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">✓ Boleto emitido</span>
+            <Button size="sm" variant="secondary" onClick={() => verificarPagamentoCora(l.id)} disabled={boletoLoading === l.id}>
+              {boletoLoading === l.id ? "⏳" : "🔍 Verificar Pag."}
+            </Button>
           )}
         </>
       )}
@@ -688,7 +706,9 @@ export default function FinanceiroPage() {
                                     </Button>
                                   )}
                                   {l.coraInvoiceId && (
-                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-200">✓ Boleto emitido</span>
+                                    <Button size="sm" variant="secondary" onClick={() => verificarPagamentoCora(l.id)} disabled={boletoLoading === l.id}>
+                                      {boletoLoading === l.id ? "⏳" : "🔍 Verificar Pag."}
+                                    </Button>
                                   )}
                                 </>
                               )}
