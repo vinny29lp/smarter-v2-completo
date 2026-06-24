@@ -140,7 +140,7 @@ export async function POST(req: Request) {
 
     await Promise.all(batch.map(async (row) => {
       try {
-        const senhaPlain = Math.random().toString(36).slice(-8);
+        const senhaPlain = require("crypto").randomBytes(6).toString("hex");
         const hash = await bcrypt.hash(senhaPlain, 10);
 
         let dataNasc: Date | null = null;

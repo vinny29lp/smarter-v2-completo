@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import { Card }  from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
+import AlertasPanel from "@/components/dashboard/AlertasPanel";
 
 // ─── helpers ────────────────────────────────────────────────────
 async function getKpis(franchiseId?: string) {
@@ -276,6 +277,11 @@ export default async function DashboardPage() {
             ? "Visão consolidada de toda a rede Smarter"
             : `Sua unidade — ${session?.user?.name}`}
         </p>
+      </div>
+
+      {/* ── Alertas e Lembretes ── */}
+      <div className="mb-6">
+        <AlertasPanel isMaster={isMaster} />
       </div>
 
       {/* ── Solicitações de Estagiário ── */}

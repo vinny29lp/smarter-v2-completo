@@ -81,7 +81,7 @@ export async function POST(req: Request) {
   });
 
   // Gerar senha aleatória
-  const senha = body.senha || Math.random().toString(36).slice(-8) + "S1@";
+  const senha = body.senha || require("crypto").randomBytes(6).toString("hex") + "S1@";
   const hash = await bcrypt.hash(senha, 10);
 
   // Criar usuário do franqueado

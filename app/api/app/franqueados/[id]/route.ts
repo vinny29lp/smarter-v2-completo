@@ -90,7 +90,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!franqUser) return NextResponse.json({ error: "Usuário do franqueado não encontrado." }, { status: 404 });
 
     // Gera nova senha temporária e atualiza no banco
-    const novaSenha = Math.random().toString(36).slice(-8) + "S1@";
+    const novaSenha = require("crypto").randomBytes(6).toString("hex") + "S1@";
     const hash = await bcrypt.hash(novaSenha, 10);
     await prisma.user.update({ where: { id: franqUser.id }, data: { password: hash } });
 

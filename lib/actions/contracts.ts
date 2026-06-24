@@ -85,10 +85,13 @@ export async function criarOuAtualizarLancamentoContrato({
 
 async function gerarNumeroContrato(franchiseId: string): Promise<string> {
   const ano = new Date().getFullYear();
+  // Advisory lock por franchiseId evita race condition em criações simultâneas
+  // hashtext() é determinístico: mesma string → mesmo lock int4
+  await prisma.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${franchiseId}::text))`;
   const count = await prisma.contract.count({
     where: { franchiseId, createdAt: { gte: new Date(`${ano}-01-01`) } },
   });
-  return `${String(count + 1).padStart(3,"0")}/${ano}`;
+  return `${String(count + 1).padStart(3, "0")}/${ano}`;
 }
 
 export async function getContracts(

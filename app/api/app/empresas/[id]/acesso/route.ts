@@ -36,7 +36,7 @@ export async function POST(
     }
 
     // Generate password
-    const senha = Math.random().toString(36).slice(-8) + "S1!";
+    const senha = require("crypto").randomBytes(6).toString("hex") + "S1!";
     const hashed = await bcrypt.hash(senha, 12);
 
     // Create user with EMPRESA role

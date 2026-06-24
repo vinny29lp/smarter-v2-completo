@@ -15,6 +15,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.user.role !== "FRANQUEADORA") return NextResponse.json({ error: "Acesso restrito à Franqueadora" }, { status: 403 });
 
     const lead = await prisma.franquiaLead.findUnique({
       where: { id: params.id },
@@ -35,6 +36,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.user.role !== "FRANQUEADORA") return NextResponse.json({ error: "Acesso restrito à Franqueadora" }, { status: 403 });
 
     const body = await req.json().catch(() => ({}));
 

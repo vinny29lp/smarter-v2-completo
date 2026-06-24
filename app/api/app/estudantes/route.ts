@@ -68,7 +68,7 @@ export async function POST(req: Request) {
   }
   const body = parsed.data;
 
-  const senhaPlain = (body.senha || "").trim() || Math.random().toString(36).slice(-8);
+  const senhaPlain = (body.senha || "").trim() || require("crypto").randomBytes(6).toString("hex");
   let student: any = null;
 
   try {

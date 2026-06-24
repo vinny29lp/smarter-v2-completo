@@ -68,7 +68,7 @@ export async function POST(req: Request) {
 
   const franchiseId = body.franchiseId || session?.user?.franchiseId || undefined;
   let company: any = null;
-  const senhaPlain = Math.random().toString(36).slice(-8) + "S1!";
+  const senhaPlain = require("crypto").randomBytes(6).toString("hex") + "S1!";
 
   try {
     company = await prisma.company.create({
