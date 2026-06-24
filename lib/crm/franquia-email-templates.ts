@@ -23,7 +23,7 @@ export interface FranquiaEmailTemplate {
 }
 
 const APP_URL = "https://sistema.smarterestagios.com.br";
-const WHATSAPP  = "https://wa.me/5511999999999";
+const WHATSAPP  = "https://wa.me/5521977188527";
 
 function base(titulo: string, corpo: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -69,7 +69,7 @@ function base(titulo: string, corpo: string): string {
     ${corpo}
   </div>
   <div class="footer">
-    Smarter Estágios — contato@smarterestagios.com.br<br>
+    Smarter Estágios — franquias@smarterestagios.com.br<br>
     <span class="unsubscribe">Você recebe este e-mail pois demonstrou interesse em empreender com a Smarter.<br>Para não receber mais, responda "REMOVER" para este endereço.</span>
   </div>
 </div>
@@ -124,7 +124,7 @@ const TEMPLATES: Record<string, FranquiaEmailTemplate> = {
       <div style="text-align:center">
         <a href="${WHATSAPP}?text=Olá!+Tenho+interesse+em+conhecer+a+franquia+Smarter" class="btn-wa">💬 Conversar no WhatsApp</a>
         <br><br>
-        <a href="mailto:contato@smarterestagios.com.br?subject=Quero+saber+mais+sobre+a+franquia+Smarter" class="btn">📧 Responder por E-mail</a>
+        <a href="mailto:franquias@smarterestagios.com.br?subject=Quero+saber+mais+sobre+a+franquia+Smarter" class="btn">📧 Responder por E-mail</a>
       </div>
       `
     ),
@@ -147,7 +147,7 @@ const TEMPLATES: Record<string, FranquiaEmailTemplate> = {
         <div class="box-title">💰 Investimento no Projeto Expansão</div>
         <div class="check"><span class="icon">✅</span><span><strong>Taxa de franquia: R$ 6.000</strong> (Projeto Expansão — vagas limitadas)</span></div>
         <div class="check"><span class="icon">✅</span><span>Plataforma tecnológica completa inclusa — sem custo adicional</span></div>
-        <div class="check"><span class="icon">✅</span><span>Treinamento presencial e suporte contínuo da franqueadora</span></div>
+        <div class="check"><span class="icon">✅</span><span>Treinamento online e suporte contínuo da franqueadora</span></div>
         <div class="check"><span class="icon">✅</span><span>Cartela inicial de prospecção + materiais comerciais</span></div>
         <div class="check"><span class="icon">✅</span><span>Não exige ponto físico para começar — modelo home/office</span></div>
       </div>
@@ -219,7 +219,7 @@ const TEMPLATES: Record<string, FranquiaEmailTemplate> = {
       <div style="text-align:center">
         <a href="${WHATSAPP}?text=Quero+aprovar+a+proposta+Smarter+e+seguir+com+a+assinatura" class="btn-wa">✅ Aprovar proposta no WhatsApp</a>
         <br><br>
-        <a href="mailto:contato@smarterestagios.com.br?subject=Aprovação+da+proposta+de+franquia" class="btn">📧 Aprovar por e-mail</a>
+        <a href="mailto:franquias@smarterestagios.com.br?subject=Aprovação+da+proposta+de+franquia" class="btn">📧 Aprovar por e-mail</a>
       </div>
       `
     ),
@@ -327,7 +327,7 @@ const TEMPLATES: Record<string, FranquiaEmailTemplate> = {
       <div style="text-align:center">
         <a href="${WHATSAPP}?text=Olá!+Vi+seu+e-mail+e+quero+retomar+a+conversa+sobre+a+franquia+Smarter" class="btn-wa">💬 Quero conversar</a>
         <br><br>
-        <a href="mailto:contato@smarterestagios.com.br?subject=Retomando+conversa+sobre+franquia+Smarter" class="btn">📧 Responder por e-mail</a>
+        <a href="mailto:franquias@smarterestagios.com.br?subject=Retomando+conversa+sobre+franquia+Smarter" class="btn">📧 Responder por e-mail</a>
       </div>
       `
     ),

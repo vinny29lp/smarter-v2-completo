@@ -14,7 +14,7 @@ export interface FranquiaWhatsTemplate {
   texto: (nome: string, cidade?: string | null) => string;
 }
 
-const WHATSAPP_NUMBER = "5511999999999"; // Número da Smarter (centralizado)
+const WHATSAPP_NUMBER = "5521977188527"; // Número da Smarter Franquias (centralizado)
 
 export const FRANQUIA_WHATS_TEMPLATES: FranquiaWhatsTemplate[] = [
   // ─── LEADS ATIVOS ───────────────────────────────────────────────────────────
