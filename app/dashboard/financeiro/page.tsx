@@ -94,6 +94,10 @@ export default function FinanceiroPage() {
   const [cobrModal, setCobrModal]             = useState<any>(null);
   const [boletoLoading, setBoletoLoading]     = useState<string|null>(null);
   const [boletoResultModal, setBoletoResultModal] = useState<any>(null);
+  // Nova cobrança + boleto
+  const [novaCobrancaModal, setNovaCobrancaModal] = useState(false);
+  const [novaCobrancaForm, setNovaCobrancaForm]   = useState({ franchiseId:"", valor:"", descricao:"", vencimento:"" });
+  const [novaCobrancaLoading, setNovaCobrancaLoading] = useState(false);
   const [relatorioModal, setRelatorioModal]   = useState(false);
   const [taxaGestao, setTaxaGestao]           = useState(100);
   const [editandoTaxa, setEditandoTaxa]       = useState(false);
@@ -407,6 +411,31 @@ export default function FinanceiroPage() {
     setBoletoLoading(null);
   };
 
+  // Criar cobrança nova + boleto Cora em um passo
+  const gerarNovaCobrancaCora = async () => {
+    const { franchiseId, valor, descricao, vencimento } = novaCobrancaForm;
+    if (!franchiseId || !valor || !descricao || !vencimento) {
+      alert("Preencha todos os campos."); return;
+    }
+    setNovaCobrancaLoading(true);
+    try {
+      const res = await fetch("/api/app/financeiro/gerar-cobranca-cora", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ franchiseId, valor: parseFloat(valor), descricao, vencimento }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert("Erro: " + (data.error || "Verifique os dados.")); }
+      else {
+        setNovaCobrancaModal(false);
+        setNovaCobrancaForm({ franchiseId:"", valor:"", descricao:"", vencimento:"" });
+        setBoletoResultModal(data);
+        load();
+      }
+    } catch { alert("Erro ao gerar cobrança."); }
+    setNovaCobrancaLoading(false);
+  };
+
   // Ações inline reutilizáveis
   const RowActions = ({ l }: { l: any }) => (
     <div className="flex gap-1 flex-wrap">
@@ -589,6 +618,9 @@ export default function FinanceiroPage() {
                 </p>
               </div>
               <div className="flex flex-col gap-1">
+                <Button size="sm" variant="yellow" onClick={() => setNovaCobrancaModal(true)}>
+                  🏦 Gerar Cobrança + Boleto
+                </Button>
                 <Button
                   onClick={() => fecharMes(false)}
                   disabled={fechandoMes || !podeFecha}
@@ -1157,6 +1189,61 @@ export default function FinanceiroPage() {
             <Button onClick={() => setFechamentoModal(false)} variant="secondary" className="w-full">Fechar</Button>
           </div>
         )}
+      </Modal>
+
+      {/* ── Modal Nova Cobrança + Boleto Cora ── */}
+      <Modal open={novaCobrancaModal} onClose={() => setNovaCobrancaModal(false)} title="🏦 Gerar Cobrança + Boleto Cora">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">Cria um novo lançamento para a unidade e gera boleto + PIX instantaneamente.</p>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Unidade Franqueada *</label>
+            <select
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              value={novaCobrancaForm.franchiseId}
+              onChange={e => setNovaCobrancaForm(p => ({ ...p, franchiseId: e.target.value }))}>
+              <option value="">Selecione a unidade...</option>
+              {franquiasPreview.map((f: any) => (
+                <option key={f.franchiseId} value={f.franchiseId}>{f.nome}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Descrição *</label>
+            <input
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+              placeholder="Ex: Mensalidade Julho/2026"
+              value={novaCobrancaForm.descricao}
+              onChange={e => setNovaCobrancaForm(p => ({ ...p, descricao: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Valor (R$) *</label>
+              <input
+                type="number" min="1" step="0.01"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                placeholder="239.00"
+                value={novaCobrancaForm.valor}
+                onChange={e => setNovaCobrancaForm(p => ({ ...p, valor: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Vencimento *</label>
+              <input
+                type="date"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                value={novaCobrancaForm.vencimento}
+                onChange={e => setNovaCobrancaForm(p => ({ ...p, vencimento: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" size="sm" onClick={() => setNovaCobrancaModal(false)}>Cancelar</Button>
+            <Button variant="yellow" size="sm" onClick={gerarNovaCobrancaCora} disabled={novaCobrancaLoading}>
+              {novaCobrancaLoading ? "⏳ Gerando..." : "🏦 Gerar Cobrança + Boleto"}
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* ── Modal Resultado Boleto Cora ── */}
