@@ -33,6 +33,14 @@ async function logWhatsClick(leadId: string, label: string) {
 function gerarContrato(leadId: string) {
   window.open(`/api/app/crm/${leadId}/contrato-parceria`, "_blank");
 }
+
+const EMAIL_TEMPLATES = [
+  { label: "Apresentação da Smarter", template: "primeiro_contato", desc: "Apresenta a Smarter e propõe reunião" },
+  { label: "Confirmação de Reunião", template: "apresentacao",     desc: "Lembra e confirma reunião agendada" },
+  { label: "Envio de Proposta",       template: "proposta",        desc: "Formaliza a proposta de parceria" },
+  { label: "Follow-up Comercial",     template: "negociacao",      desc: "Cases de sucesso + reforço comercial" },
+  { label: "Boas-vindas Parceiro",    template: "fechado",         desc: "E-mail de boas-vindas ao fechar" },
+];
 const TIPO_NOTA: Record<string,{icon:string;color:string}> = {
   anotacao:    {icon:"📝",color:"bg-slate-100 text-slate-600"},
   ligacao:     {icon:"📞",color:"bg-blue-100 text-blue-700"},
@@ -69,6 +77,7 @@ export default function LeadDetailPage() {
   const [agenda, setAgenda] = useState({ retornoAt:"", retornoHora:"", proximaAcao:"" });
   const [motivo, setMotivo] = useState("");
   const [editForm, setEditForm] = useState<any>({});
+  const [sendingEmail, setSendingEmail] = useState<string|null>(null);
 
   const load = () => {
     fetch(`/api/app/crm/${params.id}`)
@@ -246,40 +255,78 @@ export default function LeadDetailPage() {
               )}
             </div>
 
-            {/* Ações rápidas — Módulos 6 e 8 */}
-            <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+            {/* Ações rápidas — Módulos 5, 6 e 8 */}
+            <div className="mt-4 pt-3 border-t border-slate-100 space-y-4">
+
+              {/* E-mail Comercial (Módulo 5) */}
+              {lead.email ? (
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">✉️ E-mail Comercial</p>
+                  <div className="space-y-1">
+                    {EMAIL_TEMPLATES.map(({ label, template, desc }) => (
+                      <button
+                        key={template}
+                        disabled={sendingEmail === template}
+                        onClick={async () => {
+                          setSendingEmail(template);
+                          const res = await fetch(`/api/app/crm/${params.id}/send-email`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ template }),
+                          });
+                          const data = await res.json();
+                          setSendingEmail(null);
+                          if (data.ok) {
+                            toast(`✉️ E-mail "${label}" enviado!`);
+                            load();
+                          } else {
+                            toast(`Erro: ${data.error || "falha ao enviar"}`);
+                          }
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-100 transition-colors disabled:opacity-50"
+                      >
+                        <p className="text-[11px] font-bold text-purple-800">
+                          {sendingEmail === template ? "Enviando..." : label}
+                        </p>
+                        <p className="text-[10px] text-purple-500">{desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[10px] text-slate-400 italic">Cadastre um e-mail para enviar mensagens comerciais.</p>
+              )}
+
+              {/* WhatsApp Comercial (Módulo 6) */}
               {lead.telefone && (
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">WhatsApp Comercial</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">📱 WhatsApp Comercial</p>
                   {[
                     {label:"Apresentação Smarter", etapa:"primeiro_contato"},
                     {label:"Confirmação de Reunião", etapa:"apresentacao"},
                     {label:"Follow-up da Proposta", etapa:"proposta"},
-                    {label:"Reforço Comercial", etapa:"negociacao"},
-                    {label:"Boas-vindas", etapa:"fechado"},
-                    {label:"Reengajamento", etapa:"reengajamento"},
+                    {label:"Reforço Comercial",     etapa:"negociacao"},
+                    {label:"Boas-vindas",           etapa:"fechado"},
+                    {label:"Reengajamento",         etapa:"reengajamento"},
                   ].map(({label, etapa}) => (
                     <a key={etapa}
                       href={buildWhatsLink(lead, etapa)}
                       target="_blank" rel="noopener noreferrer"
                       onClick={() => logWhatsClick(params.id as string, label)}
-                      className="block text-[10px] text-green-700 hover:underline py-0.5">
+                      className="block text-[10px] text-green-700 hover:underline py-0.5 font-medium">
                       📱 {label}
                     </a>
                   ))}
                 </div>
               )}
-              {lead.email && (
-                <a href={`mailto:${lead.email}`}
-                  className="flex items-center gap-2 text-xs text-blue-600 font-semibold hover:underline mt-2">
-                  ✉️ Enviar E-mail
-                </a>
-              )}
+
+              {/* Contrato de Parceria (Módulo 8) */}
               {(lead.situacao === "vendido" || lead.etapa === "fechado") && (
                 <button
                   onClick={() => gerarContrato(params.id as string)}
-                  className="flex items-center gap-2 text-xs text-[#0f2a5e] font-semibold hover:underline mt-1">
-                  📄 Gerar Contrato de Parceria
+                  className="w-full text-left px-3 py-2 rounded-xl bg-[#0f2a5e]/5 hover:bg-[#0f2a5e]/10 border border-[#0f2a5e]/10 transition-colors">
+                  <p className="text-[11px] font-bold text-[#0f2a5e]">📄 Gerar Contrato de Parceria</p>
+                  <p className="text-[10px] text-slate-500">Abre HTML pronto para impressão</p>
                 </button>
               )}
             </div>
