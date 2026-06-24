@@ -4,6 +4,7 @@
  */
 
 import { coraRequest } from "./client";
+import { randomUUID } from "crypto";
 
 export interface CoraInvoice {
   id: string;
@@ -97,7 +98,10 @@ export async function gerarBoleto(input: GerarBoletoInput): Promise<CoraInvoice>
     };
   }
 
-  return coraRequest<CoraInvoice>("POST", "/v2/invoices", payload, input.financialId);
+  // Usa UUID fresco para evitar que Cora retorne erro cacheado de tentativas anteriores
+  const idempotencyKey = randomUUID();
+  console.log("[gerarBoleto] payload:", JSON.stringify(payload));
+  return coraRequest<CoraInvoice>("POST", "/v2/invoices", payload, idempotencyKey);
 }
 
 export async function consultarBoleto(invoiceId: string): Promise<CoraInvoice> {

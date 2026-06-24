@@ -123,7 +123,16 @@ export async function coraRequest<T>(
   }
 
   if (status >= 400) {
-    const errMsg = (data as any)?.message || (data as any)?.errors?.[0]?.message || raw.substring(0, 300);
+    // Log completo para diagnóstico
+    console.error(`[cora] ${method} ${path} → ${status}`);
+    console.error(`[cora] payload enviado: ${bodyStr?.substring(0, 500)}`);
+    console.error(`[cora] resposta raw: ${raw?.substring(0, 800)}`);
+    const errMsg = (data as any)?.message
+      || (data as any)?.error_description
+      || (data as any)?.errors?.[0]?.message
+      || (data as any)?.violations?.[0]?.message
+      || raw.substring(0, 500)
+      || "(sem detalhes)";
     const err = Object.assign(new Error(`Cora API ${status}: ${errMsg}`), { status, body: data });
     throw err;
   }
