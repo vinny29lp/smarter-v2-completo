@@ -11,14 +11,18 @@ const globalForPrisma = globalThis as unknown as {
 function buildDatasourceUrl(): string | undefined {
   const url = process.env.DATABASE_URL;
   if (!url) return url;
-  const poolSize = process.env.PRISMA_POOL_SIZE || "1";
+  // connection_limit=3 permite que Promise.all com múltiplas queries rode sem timeout
+  // Supabase free tier suporta até 20 conexões diretas; 3 por serverless function é seguro
+  const poolSize = process.env.PRISMA_POOL_SIZE || "3";
+  // Aumenta o pool_timeout para 30s (padrão 15s era muito curto para queries paralelas)
+  const poolTimeout = process.env.PRISMA_POOL_TIMEOUT || "30";
   // Adiciona connection_limit e pool_timeout se não presentes
   const hasLimit = url.includes("connection_limit");
   const hasTimeout = url.includes("pool_timeout");
   const separator = url.includes("?") ? "&" : "?";
   let extra = "";
   if (!hasLimit) extra += `${separator}connection_limit=${poolSize}`;
-  if (!hasTimeout) extra += `${extra ? "&" : separator}pool_timeout=15`;
+  if (!hasTimeout) extra += `${extra ? "&" : separator}pool_timeout=${poolTimeout}`;
   return url + extra;
 }
 
