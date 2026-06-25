@@ -28,6 +28,7 @@ export default function CRMPage() {
   const { data: session } = useSession();
   const isFranqueadora = session?.user?.role === "FRANQUEADORA";
   const [leads, setLeads] = useState<any[]>([]);
+  const [statsLeads, setStatsLeads] = useState<any[]>([]);
   const [filtro, setFiltro] = useState<"ativo"|"todos"|"vendido"|"perdido"|"pausado">("ativo");
   const [novoModal, setNovoModal] = useState(false);
   const [linkModal, setLinkModal] = useState(false);
@@ -60,6 +61,11 @@ export default function CRMPage() {
       .then(r=>r.json())
       .then(d=>{ if (d.breached) setSlaBreached(d.breached); })
       .catch(()=>{});
+    // Carrega todos os leads para os cards de canais (independente do filtro ativo)
+    fetch("/api/app/crm?situacao=todos&limit=200")
+      .then(r=>r.json())
+      .then(d=>setStatsLeads(d.leads||[]))
+      .catch(()=>{});
   }, [load]);
 
   const criarLead = async () => {
@@ -91,6 +97,24 @@ export default function CRMPage() {
   const vencidos = leads.filter(l=>l.retornoAt && new Date(l.retornoAt)<new Date() && l.situacao==="ativo").length;
   const slaVencidosLocal = leads.filter(l=>l.situacao==="ativo" && slaStatus(l.etapa, l.etapaChangedAt)==="vencido").length;
   const totalSlaAlerta = Math.max(slaBreached, slaVencidosLocal);
+
+  // Cards de Canais de Captação
+  const CANAIS = [
+    { key: "link_publico",     label: "Site / Link Público",  icon: "🔗", bg: "bg-blue-50",    border: "border-blue-200",    text: "text-blue-700",    bar: "bg-blue-500"   },
+    { key: "instagram",        label: "Instagram",            icon: "📱", bg: "bg-pink-50",    border: "border-pink-200",    text: "text-pink-700",    bar: "bg-pink-500"   },
+    { key: "trafego_pago",     label: "Tráfego Pago",         icon: "💰", bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",   bar: "bg-amber-500"  },
+    { key: "equipe_comercial", label: "Equipe Comercial",     icon: "🤝", bg: "bg-green-50",   border: "border-green-200",   text: "text-green-700",   bar: "bg-green-500"  },
+    { key: "whatsapp",         label: "WhatsApp",             icon: "💬", bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", bar: "bg-emerald-500"},
+    { key: "manual",           label: "Inserção Manual",      icon: "✍️", bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-700",   bar: "bg-slate-500"  },
+  ];
+  const origemStats = CANAIS.map(canal => {
+    const grupo = statsLeads.filter(l => (l.origem || "link_publico") === canal.key);
+    const total    = grupo.length;
+    const ativos   = grupo.filter(l => l.situacao === "ativo").length;
+    const vendidos = grupo.filter(l => l.situacao === "vendido").length;
+    const txConv   = total > 0 ? Math.round((vendidos / total) * 100) : 0;
+    return { ...canal, total, ativos, vendidos, txConv };
+  }).filter(c => c.total > 0);
 
   // Módulo 9 — Forecast MRR ponderado por etapa
   const PROB_ETAPA: Record<string,number> = {
@@ -155,6 +179,33 @@ export default function CRMPage() {
             <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Leads Ativos</p>
             <p className="text-xl font-black text-slate-800">{leads.filter(l=>l.situacao==="ativo").length}</p>
             {totalSlaAlerta > 0 && <p className="text-[10px] text-red-600 mt-0.5 font-bold">🚨 {totalSlaAlerta} SLA vencido(s)</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Cards de Canais de Captação */}
+      {origemStats.length > 0 && (
+        <div className="mb-5">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">📊 Canais de Captação</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            {origemStats.map(c => (
+              <div key={c.key} className={`rounded-xl border p-3 ${c.bg} ${c.border}`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-base">{c.icon}</span>
+                  <span className={`text-[10px] font-black ${c.text}`}>{c.txConv}%</span>
+                </div>
+                <p className={`text-[10px] font-bold ${c.text} leading-tight mb-1`}>{c.label}</p>
+                <p className={`text-2xl font-black ${c.text}`}>{c.total}</p>
+                <p className="text-[10px] text-slate-500 mb-1.5">
+                  {c.ativos} ativ{c.ativos === 1 ? "o" : "os"} · {c.vendidos} conv.
+                </p>
+                {/* Barra de conversão */}
+                <div className="w-full h-1 bg-white/60 rounded-full overflow-hidden">
+                  <div className={`h-full ${c.bar} rounded-full transition-all`} style={{ width: `${c.txConv}%` }} />
+                </div>
+                <p className="text-[9px] text-slate-400 mt-0.5">taxa de conversão</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
