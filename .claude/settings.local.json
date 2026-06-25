@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo/.git/HEAD.lock\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(ls \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo/docs\" 2>/dev/null && ls \"/Users/viniciusmiranda/Desktop/Sistema smarter\" 2>/dev/null)",
+      "Bash(ls \"/Users/viniciusmiranda/Desktop\")",
+      "Bash(find \"/Users/viniciusmiranda/Desktop\" -type f -name \"*.tsx\" -o -name \"*.html\" 2>/dev/null | xargs grep -l \"Painel Administrativo\\\\|Entrar\\\\|Franqueado\" 2>/dev/null | grep -v node_modules | grep -v \".next\" | grep -v \"smarter-v2-completo\\\\|smarter-v2-backup\" | head -20)",
+      "Bash(git -C \"/Users/viniciusmiranda/Desktop/Site Smarter Estagios/\" status)",
+      "Bash(python3)",
+      "Bash(git -C \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo\" remote -v)",
+      "Bash(git -C \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo\" log --oneline -5)",
+      "Bash(git -C \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo\" log --all --full-history --name-status -- \"*.html\")",
+      "Bash(git -C \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo\" fetch origin --dry-run)",
+      "Bash(git -C \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo\" ls-tree origin/main --name-only)",
+      "Bash(git -C \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo\" ls-tree origin/main public/)",
+      "Bash(git -C \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo\" status)",
+      "Bash(npm run *)"
+    ]
+  }
+}

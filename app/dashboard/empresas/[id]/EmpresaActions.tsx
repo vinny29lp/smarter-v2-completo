@@ -26,6 +26,7 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
   const [emailMensagem, setEmailMensagem] = useState("");
   const [enviandoEmail, setEnviandoEmail] = useState(false);
   const [emailMsg, setEmailMsg] = useState<string|null>(null);
+  const [copiedVaga, setCopiedVaga] = useState(false);
 
   // CPS — Contrato de Prestação de Serviços
   const [valorGestao, setValorGestao] = useState<string>(empresa.valorGestao ? String(empresa.valorGestao) : "");
@@ -169,6 +170,20 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
             {acessoMsg}
           </div>
         )}
+        {/* Link de Solicitação de Vaga — empresa preenche o perfil da vaga */}
+        <Button
+          variant="secondary"
+          className="w-full justify-center"
+          onClick={() => {
+            const base = typeof window !== "undefined" ? window.location.origin : "https://sistema.smarterestagios.com.br";
+            const link = `${base}/solicitar-vaga?empresa=${empresa.id}`;
+            navigator.clipboard.writeText(link);
+            setCopiedVaga(true);
+            setTimeout(() => setCopiedVaga(false), 2500);
+          }}
+        >
+          {copiedVaga ? "✅ Link Copiado!" : "📋 Copiar Link de Solicitação de Vaga"}
+        </Button>
         <Button variant="secondary" className="w-full justify-center" onClick={() => setEditModal(true)}>
           ✏️ Editar Dados
         </Button>

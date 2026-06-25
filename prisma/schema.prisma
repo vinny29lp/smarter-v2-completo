@@ -68,6 +68,7 @@ model Franchise {
   users                User[]
   vacancies            Vacancy[]
   aiUsageLogs          AIUsageLog[]
+  vagaSolicitacoes     VagaSolicitacao[]
 
   @@map("franchises")
 }
@@ -98,12 +99,13 @@ model Company {
   cpsStatus        String?        @default("NAO_GERADO")
   cpsAuthDocId     String?
   cpsSignedUrl     String?
-  franchise        Franchise?     @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  contracts        Contract[]
-  crmLeads         CrmLead[]
-  financials       Financial[]
-  users            User[]
-  vacancies        Vacancy[]
+  franchise           Franchise?        @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contracts           Contract[]
+  crmLeads            CrmLead[]
+  financials          Financial[]
+  users               User[]
+  vacancies           Vacancy[]
+  vagaSolicitacoes    VagaSolicitacao[]
 
   @@index([franchiseId])
   @@index([status])
@@ -754,4 +756,52 @@ model ImportLog {
   createdAt   DateTime? @default(now()) @db.Timestamptz(6)
 
   @@map("import_logs")
+}
+
+// ─── SOLICITAÇÃO DE VAGA PELA EMPRESA ─────────────────────────────────────────
+// Formulário público que a unidade envia para a empresa preencher.
+// Fica vinculado à empresa e pode ser convertido em Vacancy com 1 clique.
+
+model VagaSolicitacao {
+  id                  String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  companyId           String
+  franchiseId         String?
+
+  // Dados da vaga
+  funcao              String
+  atividades          String    @db.Text
+  bolsa               Float
+  auxTransporte       Float?
+  horario             String
+  diasTrabalho        String
+  cargaHoraria        Int?      @default(30)
+  beneficios          String?
+  modalidade          String?   @default("Presencial")
+
+  // Preferências do candidato
+  cursoDesejado       String?
+  preferenciaGenero   String?   // masculino | feminino | indiferente
+  nivel               String?   // fundamental | medio | superior | pos
+  observacoes         String?   @db.Text
+
+  // Supervisor na empresa
+  supervisorNome      String
+  supervisorCargo     String?
+  supervisorEmail     String?
+  supervisorTel       String?
+
+  // Status
+  status              String    @default("PENDENTE") // PENDENTE | CONVERTIDA | REJEITADA
+  vagaId              String?   // ID da Vacancy criada a partir desta solicitação
+
+  createdAt           DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  company             Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  franchise           Franchise? @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([companyId])
+  @@index([franchiseId])
+  @@index([status])
+  @@map("vaga_solicitacoes")
 }

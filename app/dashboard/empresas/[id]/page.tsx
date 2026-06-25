@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmpresaActions, EmpresaCPS } from "./EmpresaActions";
+import { SolicitacoesVaga } from "./SolicitacoesVaga";
 
 const statusBadge: Record<string,"green"|"gray"|"yellow"|"red"> = { ATIVA:"green",INATIVA:"gray",ATENCAO:"yellow",PENDENTE:"yellow" };
 const docStatusBadge: Record<string,"green"|"gray"|"yellow"|"blue"|"purple"|"red"> = { NAO_GERADO:"gray",GERADO:"purple",AGUARDANDO_ASSINATURA:"blue",ASSINADO:"green",CANCELADO:"red" };
@@ -103,6 +104,9 @@ export default async function EmpresaDetailPage({ params }: { params: { id: stri
         {/* Ações */}
         <EmpresaActions empresa={empresa} />
       </div>
+
+      {/* Solicitações de Vaga */}
+      <SolicitacoesVaga empresaId={empresa.id} solicitacoes={(empresa as any).vagaSolicitacoes || []} />
 
       {/* Estagiários Ativos */}
       {contrAtivos.length > 0 && (
