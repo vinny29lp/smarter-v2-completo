@@ -37,7 +37,7 @@ export async function getCompany(id: string) {
       financials: { orderBy: { createdAt: "desc" }, take: 20 },
       users: { select: { id: true, name: true, email: true, active: true, lastLoginAt: true } },
       vagaSolicitacoes: { orderBy: { createdAt: "desc" } },
-    } as any,
+    },
   });
 }
 
