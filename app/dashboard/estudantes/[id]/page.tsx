@@ -39,6 +39,24 @@ export default function EstudanteDetailPage() {
   const [enviando, setEnviando] = useState(false);
   const [msg, setMsg] = useState("");
 
+  // Envio de acesso ao painel (para estudantes importados sem email de credenciais)
+  const [enviandoAcessoEmail, setEnviandoAcessoEmail] = useState(false);
+
+  const enviarAcessoPainel = async () => {
+    if (!confirm(`Enviar e-mail com login e nova senha temporária para ${student?.email}?`)) return;
+    setEnviandoAcessoEmail(true);
+    try {
+      const res = await fetch(`/api/app/estudantes/${student.id}/enviar-acesso`, { method: "POST" });
+      const data = await res.json();
+      if (data.error) { setMsg("❌ " + data.error); }
+      else { setMsg(`✅ E-mail de acesso enviado para ${data.email}!`); loadStudent(); }
+    } catch {
+      setMsg("❌ Erro ao enviar e-mail de acesso.");
+    } finally {
+      setEnviandoAcessoEmail(false);
+    }
+  };
+
   // Modais de acesso
   const [senhaModal, setSenhaModal] = useState(false);
   const [emailModal, setEmailModal] = useState(false);
@@ -232,6 +250,9 @@ export default function EstudanteDetailPage() {
               <Button variant="secondary" size="sm" onClick={()=>setSenhaModal(true)}>🔑 Alterar Senha</Button>
             </>
           )}
+          <Button variant="secondary" size="sm" onClick={enviarAcessoPainel} disabled={enviandoAcessoEmail}>
+            {enviandoAcessoEmail ? "Enviando..." : "📩 Enviar Acesso ao Painel"}
+          </Button>
           <Button variant="secondary" onClick={()=>window.open(`/api/app/estudantes/${student.id}/curriculo`, "_blank")}>📄 Baixar Currículo + DISC (PDF)</Button>
           <Button onClick={()=>setProcessoModal(true)}>+ Enviar para Vaga</Button>
           {isFranqueadora && student.status === "INATIVO" && (
