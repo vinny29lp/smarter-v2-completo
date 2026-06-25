@@ -62,21 +62,32 @@ export async function POST(req: Request) {
     });
 
     // 2. Gera boleto + PIX na Cora
-    const invoice = await gerarBoleto({
-      financialId: lancamento.id,
-      nomeCliente: (franchise as any).razaoSocial || franchise.name,
-      documento,
-      tipoDocumento: (franchise as any).cnpj ? "CNPJ" : "CPF",
-      email: franchise.email,
-      telefone: (franchise as any).telefone || undefined,
-      cep: (franchise as any).cep || undefined,
-      endereco: (franchise as any).endereco || undefined,
-      cidade: (franchise as any).cidade,
-      uf: (franchise as any).uf,
-      valor: valorNum,
-      descricao: String(descricao),
-      vencimento,
-    });
+    // Se a Cora rejeitar, apaga o lançamento recém-criado para não deixar registro órfão no DB.
+    let invoice;
+    try {
+      invoice = await gerarBoleto({
+        financialId: lancamento.id,
+        nomeCliente: (franchise as any).razaoSocial || franchise.name,
+        documento,
+        tipoDocumento: (franchise as any).cnpj ? "CNPJ" : "CPF",
+        email: franchise.email,
+        telefone: (franchise as any).telefone || undefined,
+        cep: (franchise as any).cep || undefined,
+        endereco: (franchise as any).endereco || undefined,
+        cidade: (franchise as any).cidade,
+        uf: (franchise as any).uf,
+        valor: valorNum,
+        descricao: String(descricao),
+        vencimento,
+      });
+    } catch (coraErr: any) {
+      // Rollback: apaga o lançamento órfão para evitar duplicatas na próxima tentativa
+      await (prisma.financial as any).delete({ where: { id: lancamento.id } }).catch((delErr: any) => {
+        console.error("[gerar-cobranca-cora] Erro ao apagar lançamento órfão:", delErr.message);
+      });
+      console.error("[gerar-cobranca-cora] Cora recusou — lançamento revertido:", lancamento.id);
+      throw coraErr;
+    }
 
     const boletoUrl = invoice.payment_options?.bank_slip?.url || null;
     const digitableLine = invoice.payment_options?.bank_slip?.digitable || null;

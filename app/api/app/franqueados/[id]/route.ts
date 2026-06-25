@@ -119,7 +119,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const franchise = await prisma.franchise.update({
     where: { id: params.id },
     data: {
-      name: body.name, razaoSocial: body.razaoSocial, cnpj: body.cnpj,
+      name: body.name, razaoSocial: body.razaoSocial,
+      cnpj: body.cnpj !== undefined ? (body.cnpj ? body.cnpj.replace(/\D/g, "") : null) : undefined,
       cpf: body.cpf !== undefined ? (body.cpf ? body.cpf.replace(/\D/g, "") : null) : undefined,
       dataNasc: body.dataNasc !== undefined ? (body.dataNasc ? new Date(body.dataNasc) : null) : undefined,
       responsavel: body.responsavel, email: body.email, telefone: body.telefone,
