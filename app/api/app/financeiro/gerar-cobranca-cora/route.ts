@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     const documento = (franchise as any).cnpj || (franchise as any).cpf;
     if (!documento) {
       return NextResponse.json({
-        error: "CNPJ/CPF da unidade não cadastrado. Cadastre o CNPJ antes de gerar boleto.",
+        error: "CNPJ/CPF da unidade não cadastrado. Cadastre o CNPJ (pessoa jurídica) ou CPF do responsável (pessoa física) antes de gerar o boleto.",
       }, { status: 400 });
     }
 

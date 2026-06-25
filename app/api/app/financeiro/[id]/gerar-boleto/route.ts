@@ -42,7 +42,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const documento = franchise.cnpj || franchise.cpf;
     if (!documento) {
       return NextResponse.json({
-        error: "CNPJ/CPF da unidade não cadastrado. Acesse o cadastro da unidade e preencha o CNPJ antes de gerar o boleto.",
+        error: "CNPJ/CPF da unidade não cadastrado. Acesse o cadastro da unidade e preencha o CNPJ (pessoa jurídica) ou CPF do responsável (pessoa física) antes de gerar o boleto.",
       }, { status: 400 });
     }
 
