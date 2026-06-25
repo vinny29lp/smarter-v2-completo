@@ -40,9 +40,13 @@ export default function CRMPage() {
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
 
-  const linkPublico = typeof window !== "undefined"
-    ? `${window.location.origin}/lead`
-    : "/lead";
+  const franchiseId = (session?.user as any)?.franchiseId as string | null | undefined;
+  const linkBase = typeof window !== "undefined" ? `${window.location.origin}/lead` : "/lead";
+  // FRANQUEADO: inclui ?ref= para direcionar leads à sua unidade
+  // FRANQUEADORA: sem ?ref= (leads vão para o CRM da FRANQUEADORA)
+  const linkPublico = franchiseId && !isFranqueadora
+    ? `${linkBase}?ref=${franchiseId}`
+    : linkBase;
 
   const load = useCallback(() => {
     fetch(`/api/app/crm?situacao=${filtro}`)
@@ -314,38 +318,40 @@ export default function CRMPage() {
       </Modal>
 
       {/* Modal: Link de Captação */}
-      <Modal open={linkModal} onClose={()=>setLinkModal(false)} title="🔗 Link de Captação de Leads">
+      <Modal open={linkModal} onClose={()=>setLinkModal(false)} title="🔗 Seus Links de Captação">
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
-            Compartilhe este link com sua equipe comercial ou use em campanhas de tráfego pago.
-            Quem preencher o formulário entra automaticamente no seu CRM.
+            Estes links são <strong>exclusivos da sua unidade</strong>. Quem preencher o formulário entra direto no seu CRM.
+            Use cada link na campanha certa.
           </p>
 
-          <div>
-            <p className="text-xs font-bold text-slate-500 mb-2">Link geral</p>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-mono break-all mb-2 select-all">
-              {linkPublico}
+          {/* Link principal */}
+          {[
+            { label: "🔗 Link principal", desc: "Use no Instagram, WhatsApp e bio.", url: linkPublico },
+            { label: "📱 Instagram / Bio", desc: "Tráfego orgânico e story.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}utm=instagram` },
+            { label: "💰 Tráfego pago (Meta/Google)", desc: "Para anúncios pagos — rastreia a origem.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}utm=trafego_pago` },
+            { label: "🤝 Equipe comercial", desc: "Para sua equipe indicar clientes.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}origem=equipe_comercial` },
+            { label: "💬 WhatsApp / Mensagem", desc: "Envio direto por WhatsApp.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}utm=whatsapp` },
+          ].map(({ label, desc, url }) => (
+            <div key={label} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-slate-700">{label}</span>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(()=>setCopied(false),2000); }}
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 px-2 py-0.5 bg-blue-50 rounded-lg"
+                >
+                  {copied ? "✓ Copiado" : "Copiar"}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mb-1">{desc}</p>
+              <p className="text-[10px] font-mono text-slate-600 break-all select-all">{url}</p>
             </div>
-          </div>
-
-          <div>
-            <p className="text-xs font-bold text-slate-500 mb-2">Link para tráfego pago (UTM)</p>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-mono break-all mb-2 select-all text-xs">
-              {linkPublico}?utm=trafego_pago
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs font-bold text-slate-500 mb-2">Link para equipe comercial</p>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-mono break-all mb-2 select-all text-xs">
-              {linkPublico}?origem=equipe_comercial
-            </div>
-          </div>
+          ))}
 
           <div className="flex gap-2">
             <Button onClick={copy} className="flex-1 justify-center">{copied?"✓ Copiado!":"📋 Copiar Link Principal"}</Button>
-            <Button variant="secondary" onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent("Preencha seus dados: "+linkPublico)}`)}>
-              📱 WhatsApp
+            <Button variant="secondary" onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent("Preencha seus dados e nossa equipe entra em contato: "+linkPublico)}`)}>
+              📱 Enviar no WhatsApp
             </Button>
           </div>
         </div>
