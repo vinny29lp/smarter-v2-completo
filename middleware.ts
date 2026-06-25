@@ -22,7 +22,11 @@ const FUNCIONARIO_ROUTE_PERMS: Record<string, string> = {
 // 'unsafe-inline' em style-src: aceitável (CSS não executa código; Tailwind precisa disso).
 // blob: e data: em img-src: necessário para PDFs (URL.createObjectURL + base64).
 // frame-src 'self' blob:: necessário para iframe com srcDoc (documentos de contrato).
-function buildCsp(nonce: string): string {
+// allowEmbedding: permite que /vagas seja embutido em iframe no site institucional.
+function buildCsp(nonce: string, allowEmbedding = false): string {
+  const frameAncestors = allowEmbedding
+    ? `frame-ancestors 'self' https://smarterestagios.com.br`
+    : `frame-ancestors 'none'`;
   return [
     `default-src 'self'`,
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
@@ -34,7 +38,7 @@ function buildCsp(nonce: string): string {
     `object-src 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
-    `frame-ancestors 'none'`,
+    frameAncestors,
     `upgrade-insecure-requests`,
   ].join("; ");
 }
@@ -44,8 +48,10 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ── ESC-006: Gerar nonce por request e propagar headers ──────────────
+  // /vagas é a página pública de vagas — permitida em iframe no site institucional
+  const allowEmbedding = pathname === "/vagas";
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const csp   = buildCsp(nonce);
+  const csp   = buildCsp(nonce, allowEmbedding);
 
   // Propaga nonce para Server Components lerem via next/headers
   const requestHeaders = new Headers(req.headers);
