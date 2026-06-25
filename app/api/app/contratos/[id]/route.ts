@@ -33,8 +33,12 @@ export async function GET(
     const contract = await getContract(params.id);
     if (!contract) return NextResponse.json({ error: "Contrato não encontrado." }, { status: 404 });
 
-    // Security: only franqueado can see their own contracts
-    if (session.user.franchiseId && contract.franchiseId !== session.user.franchiseId) {
+    // Security: only franqueado can see their own contracts (FRANQUEADORA vê todos)
+    if (
+      session.user.role !== "FRANQUEADORA" &&
+      session.user.franchiseId &&
+      contract.franchiseId !== session.user.franchiseId
+    ) {
       return NextResponse.json({ error: "Acesso não autorizado a este contrato." }, { status: 403 });
     }
 
