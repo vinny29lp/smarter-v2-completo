@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -29,11 +29,20 @@ const nivelLabel: Record<string, string> = {
   pos: "Pós-Graduação",
 };
 
-export function SolicitacoesVaga({ empresaId, solicitacoes: inicial }: { empresaId: string; solicitacoes: any[] }) {
+// Carrega os dados via API no cliente — evita problemas de serialização server→client
+export function SolicitacoesVaga({ empresaId }: { empresaId: string }) {
   const router = useRouter();
-  const [solicitacoes, setSolicitacoes] = useState(inicial);
+  const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/app/empresas/${empresaId}/solicitacoes`)
+      .then(r => r.ok ? r.json() : { solicitacoes: [] })
+      .then(d => setSolicitacoes(d.solicitacoes || []))
+      .catch(() => setLoadError(true));
+  }, [empresaId]);
 
   const abrirVaga = async (solId: string) => {
     if (!confirm("Confirmar abertura de vaga a partir desta solicitação?")) return;
@@ -63,7 +72,7 @@ export function SolicitacoesVaga({ empresaId, solicitacoes: inicial }: { empresa
     window.open(`/api/app/empresas/${empresaId}/solicitacoes/${solId}`, "_blank");
   };
 
-  if (solicitacoes.length === 0) return null;
+  if (loadError || solicitacoes.length === 0) return null;
 
   return (
     <Card className="p-5 mb-4">

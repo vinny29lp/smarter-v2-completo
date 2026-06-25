@@ -36,7 +36,6 @@ export async function getCompany(id: string) {
       crmLeads: { orderBy: { updatedAt: "desc" }, take: 10 },
       financials: { orderBy: { createdAt: "desc" }, take: 20 },
       users: { select: { id: true, name: true, email: true, active: true, lastLoginAt: true } },
-      vagaSolicitacoes: { orderBy: { createdAt: "desc" } },
     },
   });
 }

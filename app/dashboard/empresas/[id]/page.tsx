@@ -106,7 +106,7 @@ export default async function EmpresaDetailPage({ params }: { params: { id: stri
       </div>
 
       {/* Solicitações de Vaga */}
-      <SolicitacoesVaga empresaId={empresa.id} solicitacoes={(empresa as any).vagaSolicitacoes || []} />
+      <SolicitacoesVaga empresaId={empresa.id} />
 
       {/* Estagiários Ativos */}
       {contrAtivos.length > 0 && (
