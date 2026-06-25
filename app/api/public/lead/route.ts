@@ -17,43 +17,55 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Informe ao menos empresa ou nome." }, { status: 400 });
   }
 
-  // Encontrar franquia pelo ref
-  let franchiseId: string | undefined;
+  // Roteamento de leads:
+  //   ?ref=FRANCHISE_ID  → lead vai para aquela unidade (franchiseId = ID)
+  //   sem ref (link do site principal) → lead vai para FRANQUEADORA (franchiseId = null)
+  let franchiseId: string | null = null;
+
   if (body.franchiseRef) {
-    const f = await prisma.franchise.findUnique({ where: { id: body.franchiseRef } });
-    franchiseId = f?.id;
+    const f = await prisma.franchise.findUnique({
+      where: { id: body.franchiseRef },
+      select: { id: true, status: true },
+    });
+    // Só roteia para a unidade se ela existir e estiver ativa
+    if (f && f.status === "ATIVO") {
+      franchiseId = f.id;
+    }
+    // Se ref inválido/inativo → cai para FRANQUEADORA (franchiseId null)
   }
-  if (!franchiseId) {
-    const f = await prisma.franchise.findFirst({ where: { status: "ATIVO" } });
-    franchiseId = f?.id;
-  }
-  if (!franchiseId) return NextResponse.json({ error: "Franquia não encontrada." }, { status: 400 });
+
+  const origem = body.origem || "link_publico";
+  const origemLabel =
+    origem === "trafego_pago"      ? "tráfego pago"
+    : origem === "equipe_comercial" ? "equipe comercial"
+    : "link público";
 
   const lead = await prisma.crmLead.create({
     data: {
       empresa:        body.empresa || body.contato,
       contato:        body.contato || null,
-      email:          body.email || null,
+      email:          body.email   || null,
       telefone:       body.telefone || null,
       etapa:          "novo_lead",
       situacao:       "ativo",
       proximaAcao:    "Entrar em contato",
       anotacao:       body.observacao || null,
-      franchiseId,
+      franchiseId,            // null = FRANQUEADORA; ID = unidade específica
       optIn:          body.optIn === true,
       optInAt:        body.optIn === true ? new Date() : null,
-      origem:         body.origem || "link_publico",
+      origem,
       setor:          body.setor || null,
       etapaChangedAt: new Date(),
     } as any,
   });
 
-  // Nota inicial automática
+  // Nota inicial automática com destino do lead
+  const destino = franchiseId ? `unidade ${franchiseId}` : "FRANQUEADORA";
   await prisma.crmNota.create({
     data: {
       leadId: lead.id,
-      texto: `Lead captado via ${body.origem === "trafego_pago" ? "tráfego pago" : body.origem === "equipe_comercial" ? "equipe comercial" : "link público"}.${body.observacao ? " Observação: " + body.observacao : ""}`,
-      tipo: "anotacao",
+      texto:  `Lead captado via ${origemLabel}. Destino: ${destino}.${body.observacao ? " Observação: " + body.observacao : ""}`,
+      tipo:   "anotacao",
     },
   });
 
