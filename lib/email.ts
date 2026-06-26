@@ -403,3 +403,82 @@ export async function enviarConviteIES(params: {
     base(`Convite para ${params.nomeIES}`, corpo),
   );
 }
+
+
+// ── Convênio Firmado — email de confirmação para a IES ──────────────
+export async function enviarConvenioFirmadoIES(params: {
+  email: string;
+  nomeIES: string;
+  assinanteName: string;
+  protocolo: string;
+  portalUrl: string;
+  nomeSmarter?: string;
+}): Promise<boolean> {
+  const corpo = `
+    <p class="title">Convênio Firmado com Sucesso! 🎉</p>
+    <div class="divider"></div>
+    <p>Olá, <strong>${params.assinanteName}</strong>,</p>
+    <p>É com grande satisfação que confirmamos que <strong>${params.nomeIES}</strong> agora faz parte
+    da rede <strong>${params.nomeSmarter || "Smarter Estágios"}</strong>!</p>
+    <div class="box" style="background:#f0fdf4;border-color:#86efac">
+      <p style="margin:0 0 8px;font-weight:700;color:#166534;font-size:13px">✅ Protocolo de Assinatura</p>
+      <p style="margin:0;font-family:monospace;font-size:15px;font-weight:700;color:#166534;letter-spacing:0.05em">${params.protocolo}</p>
+      <p style="margin:6px 0 0;font-size:11px;color:#4ade80">Guarde este código como comprovante da assinatura eletrônica.</p>
+    </div>
+    <p>Você pode acompanhar os estágios dos seus alunos diretamente pelo nosso portal:</p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${params.portalUrl}" style="background:#0f2a5e;color:white;font-weight:900;font-size:14px;padding:14px 32px;border-radius:12px;text-decoration:none;display:inline-block">
+        Acessar Portal da IES →
+      </a>
+    </div>
+    <p style="color:#64748b;font-size:12px;text-align:center">
+      Link permanente do portal:<br/>
+      <a href="${params.portalUrl}" style="color:#0f2a5e">${params.portalUrl}</a>
+    </p>
+    <p>Nossa equipe entrará em contato em breve para os próximos passos. Qualquer dúvida,
+    responda este e-mail ou entre em contato pelo site.</p>
+    <p>Seja bem-vindo(a) à rede Smarter! 🚀</p>
+  `;
+  return sendMail(
+    params.email,
+    `✅ Convênio firmado — ${params.nomeIES} agora faz parte da Smarter Estágios`,
+    base(`Convênio firmado — ${params.nomeIES}`, corpo),
+  );
+}
+
+// ── Minuta Própria — notifica convenios@ para tratar manualmente ─────
+export async function enviarMiniutaPropriaParaSmarter(params: {
+  nomeIES: string;
+  emailIES: string;
+  assinanteName: string;
+  assinanteCpf: string;
+  telefoneIES?: string;
+  portalUrl: string;
+  observacao?: string;
+}): Promise<boolean> {
+  const corpo = `
+    <p class="title">IES optou por Minuta Própria</p>
+    <div class="divider"></div>
+    <p>Uma Instituição de Ensino optou por utilizar a <strong>minuta padrão da própria instituição</strong>
+    ao invés da minuta Smarter. É necessário ação manual da equipe de convênios.</p>
+    <div class="box">
+      <p style="margin:0 0 6px;font-weight:700;color:#0f2a5e;font-size:13px">📋 Dados da IES</p>
+      <p style="margin:3px 0;font-size:13px"><strong>Instituição:</strong> ${params.nomeIES}</p>
+      <p style="margin:3px 0;font-size:13px"><strong>E-mail:</strong> <a href="mailto:${params.emailIES}" style="color:#0f2a5e">${params.emailIES}</a></p>
+      <p style="margin:3px 0;font-size:13px"><strong>Representante:</strong> ${params.assinanteName}</p>
+      <p style="margin:3px 0;font-size:13px"><strong>CPF:</strong> ${params.assinanteCpf}</p>
+      ${params.telefoneIES ? `<p style="margin:3px 0;font-size:13px"><strong>Telefone:</strong> ${params.telefoneIES}</p>` : ""}
+      ${params.observacao ? `<p style="margin:8px 0 0;font-size:12px;color:#475569"><em>Observação: ${params.observacao}</em></p>` : ""}
+    </div>
+    <p><a href="${params.portalUrl}" style="color:#0f2a5e;font-weight:700">🔗 Acessar registro da IES no sistema</a></p>
+    <p style="color:#dc2626;font-size:13px;font-weight:600">
+      ⚠️ Ação necessária: Entre em contato com a IES para receber a minuta deles,
+      revisar, assinar e registrar o convênio no sistema.
+    </p>
+  `;
+  return sendMail(
+    "convenios@smarterestagios.com.br",
+    `⚠️ [AÇÃO NECESSÁRIA] ${params.nomeIES} optou por minuta própria`,
+    base("Minuta própria — IES aguarda contato", corpo),
+  );
+}

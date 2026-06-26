@@ -137,7 +137,7 @@ model Institution {
   // Qual franqueado enviou o convite de adesão
   franchiseId          String?
   // Status do convênio
-  convenioStatus       String?   @default("PENDENTE") // PENDENTE | FIRMADO | CANCELADO
+  convenioStatus       String?   @default("PENDENTE") // PENDENTE | FIRMADO | CANCELADO | AGUARDANDO_MINUTA
   // Dados de quem assinou pela IES
   convenioAssinadoEm   DateTime? @db.Timestamptz(6)
   assinanteName        String?

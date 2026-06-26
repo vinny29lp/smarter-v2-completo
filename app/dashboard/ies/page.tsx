@@ -8,11 +8,13 @@ const statusCor: Record<string, string> = {
   FIRMADO: "bg-emerald-100 text-emerald-700",
   PENDENTE: "bg-amber-100 text-amber-700",
   CANCELADO: "bg-red-100 text-red-700",
+  AGUARDANDO_MINUTA: "bg-purple-100 text-purple-700",
 };
 const statusLabel: Record<string, string> = {
   FIRMADO: "✅ Firmado",
   PENDENTE: "⏳ Aguardando",
   CANCELADO: "❌ Cancelado",
+  AGUARDANDO_MINUTA: "📋 Minuta Própria",
 };
 
 export default function IESListPage() {

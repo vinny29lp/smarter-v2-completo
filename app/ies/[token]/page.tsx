@@ -14,6 +14,8 @@ export default function IESPortalPage() {
   const [etapa, setEtapa] = useState<Etapa>("landing");
   const [minutaLida, setMinutaLida] = useState(false);
   const [form, setForm] = useState({ nome: "", cpf: "", email: "", confirmaLeitura: false, confirmaAutoridade: false });
+  const [minutaPropria, setMinutaPropria] = useState(false);
+  const [observacaoMinuta, setObservacaoMinuta] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const minutaRef = useRef<HTMLDivElement>(null);
@@ -26,7 +28,7 @@ export default function IESPortalPage() {
         if (d.error) { setErro(d.error); setLoading(false); return; }
         setData(d);
         setLoading(false);
-        if (d.institution?.convenioStatus === "FIRMADO") setEtapa("concluido");
+        if (d.institution?.convenioStatus === "FIRMADO" || d.institution?.convenioStatus === "AGUARDANDO_MINUTA") setEtapa("concluido");
       })
       .catch(() => { setErro("Não foi possível carregar o portal. Tente novamente."); setLoading(false); });
   }, [token]);
@@ -35,7 +37,7 @@ export default function IESPortalPage() {
 
   const assinar = async () => {
     if (!form.nome || !form.cpf || !form.email) return;
-    if (!form.confirmaLeitura || !form.confirmaAutoridade) return;
+    if (!minutaPropria && (!form.confirmaLeitura || !form.confirmaAutoridade)) return;
     setEnviando(true);
     const r = await fetch(`/api/ies/${token}/assinar`, {
       method: "POST",
@@ -46,6 +48,8 @@ export default function IESPortalPage() {
         assinanteEmail: form.email,
         confirmaLeitura: form.confirmaLeitura,
         confirmaAutoridade: form.confirmaAutoridade,
+        minutaPropria,
+        observacao: observacaoMinuta,
       }),
     });
     const d = await r.json();
@@ -85,32 +89,62 @@ export default function IESPortalPage() {
   // ──────────────────────────────────────────────────────────────────────────────
   // ETAPA: CONCLUÍDO
   // ──────────────────────────────────────────────────────────────────────────────
+  const isMinutaPropria = resultado?.minutaPropria || ies.convenioStatus === "AGUARDANDO_MINUTA";
+
   if (etapa === "concluido") return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center p-6">
+    <div className={`min-h-screen flex items-center justify-center p-6 ${isMinutaPropria ? "bg-gradient-to-br from-amber-50 to-yellow-100" : "bg-gradient-to-br from-emerald-50 to-green-100"}`}>
       <div className="bg-white rounded-3xl p-10 max-w-lg w-full shadow-2xl text-center">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${isMinutaPropria ? "bg-amber-100" : "bg-green-100"}`}>
+          {isMinutaPropria
+            ? <span className="text-4xl">📨</span>
+            : <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+          }
         </div>
-        <h1 className="text-2xl font-black text-gray-800 mb-2">Convênio Firmado! 🎉</h1>
-        <p className="text-gray-500 mb-6">
-          {ies.name} agora faz parte da rede Smarter Estágios. Nossos consultores entrarão em contato em breve para dar início às operações.
-        </p>
-        {resultado?.protocolo && (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 text-left">
-            <p className="text-xs text-gray-400 font-bold mb-1">PROTOCOLO DE ASSINATURA</p>
-            <p className="font-mono text-sm font-bold text-gray-700">{resultado.protocolo}</p>
-            <p className="text-xs text-gray-400 mt-1">Guarde este código como comprovante da assinatura eletrônica.</p>
-          </div>
+        {isMinutaPropria ? (
+          <>
+            <h1 className="text-2xl font-black text-gray-800 mb-2">Solicitação recebida! 📋</h1>
+            <p className="text-gray-500 mb-6">
+              Nossa equipe de convênios recebeu sua solicitação e entrará em contato em breve para tratar a minuta da <strong>{ies.name}</strong>.
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-left">
+              <p className="text-xs text-amber-600 font-bold mb-2">⏳ PRÓXIMOS PASSOS</p>
+              <div className="space-y-1.5 text-sm text-amber-800">
+                <p>📩 E-mail enviado para convenios@smarterestagios.com.br</p>
+                <p>📞 Consultor entrará em contato em até 2 dias úteis</p>
+                <p>📄 Você nos enviará a minuta da sua instituição</p>
+                <p>✅ Assinatura presencial ou por Autentique</p>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-black text-gray-800 mb-2">Convênio Firmado! 🎉</h1>
+            <p className="text-gray-500 mb-6">
+              <strong>{ies.name}</strong> agora faz parte da rede Smarter Estágios. Um e-mail de confirmação com o protocolo foi enviado para você.
+            </p>
+            {resultado?.protocolo && (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 text-left">
+                <p className="text-xs text-gray-400 font-bold mb-1">PROTOCOLO DE ASSINATURA</p>
+                <p className="font-mono text-sm font-bold text-gray-700">{resultado.protocolo}</p>
+                <p className="text-xs text-gray-400 mt-1">Guarde este código como comprovante da assinatura eletrônica.</p>
+              </div>
+            )}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-left">
+              <p className="text-xs text-blue-700 font-bold mb-2">🎓 Acompanhe seus alunos em estágio</p>
+              <p className="text-xs text-blue-600 mb-2">Use o link abaixo a qualquer momento para acompanhar os estágios dos alunos da sua instituição:</p>
+              <p className="text-xs font-mono text-blue-800 break-all">{typeof window !== "undefined" ? window.location.href : ""}</p>
+            </div>
+            <div className="bg-[#0f2a5e] rounded-2xl p-5 text-white text-left">
+              <p className="font-bold text-sm mb-3">Próximos passos:</p>
+              <div className="space-y-2 text-sm opacity-90">
+                <p>✅ Convênio registrado e protocolo gerado</p>
+                <p>📞 Consultor Smarter entra em contato</p>
+                <p>📝 Primeiro TCE pode ser emitido</p>
+                <p>🎓 Estudantes começam a ser encaminhados</p>
+              </div>
+            </div>
+          </>
         )}
-        <div className="bg-[#0f2a5e] rounded-2xl p-5 text-white text-left">
-          <p className="font-bold text-sm mb-3">Próximos passos:</p>
-          <div className="space-y-2 text-sm opacity-90">
-            <p>✅ Convênio registrado no sistema</p>
-            <p>📞 Consultor Smarter entra em contato</p>
-            <p>📝 Primeiro TCE pode ser emitido</p>
-            <p>🎓 Estudantes começam a ser encaminhados</p>
-          </div>
-        </div>
         <p className="text-xs text-gray-400 mt-6">
           Dúvidas? Entre em contato: <a href={`mailto:${smarter.email || "contato@smarterestagios.com.br"}`} className="text-[#0f2a5e] font-semibold">{smarter.email || "contato@smarterestagios.com.br"}</a>
         </p>
@@ -448,15 +482,36 @@ export default function IESPortalPage() {
         <div className="max-w-2xl mx-auto px-6 py-12">
           <div className="text-center mb-8">
             <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">✍️</div>
-            <h2 className="text-2xl font-black text-gray-800">Assinatura Eletrônica</h2>
+            <h2 className="text-2xl font-black text-gray-800">Assinatura do Convênio</h2>
             <p className="text-gray-500 mt-2 text-sm">Preencha os dados do representante legal autorizado a assinar pela {ies.name}.</p>
           </div>
 
           {erro && <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-700">❌ {erro}</div>}
 
+          {/* Seleção: Minuta Smarter ou Minuta Própria */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-4">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Qual minuta deseja utilizar?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${!minutaPropria ? "border-[#0f2a5e] bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
+                <input type="radio" checked={!minutaPropria} onChange={() => setMinutaPropria(false)} className="mt-0.5 accent-[#0f2a5e]"/>
+                <div>
+                  <p className="font-bold text-sm text-gray-800">Minuta Smarter</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Use a minuta padrão da Smarter Estágios — processo 100% digital, válida juridicamente.</p>
+                </div>
+              </label>
+              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${minutaPropria ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-gray-300"}`}>
+                <input type="radio" checked={minutaPropria} onChange={() => setMinutaPropria(true)} className="mt-0.5 accent-amber-500"/>
+                <div>
+                  <p className="font-bold text-sm text-gray-800">Minuta da Instituição</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Prefiro usar a minuta padrão da nossa instituição. Nossa equipe entrará em contato.</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
             <div>
-              <label className="text-xs font-bold text-gray-600 block mb-1.5">Nome Completo do Assinante *</label>
+              <label className="text-xs font-bold text-gray-600 block mb-1.5">Nome Completo do Representante *</label>
               <input type="text" value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))}
                 placeholder="Nome conforme documento oficial"
                 className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#0f2a5e] transition-colors"/>
@@ -476,26 +531,39 @@ export default function IESPortalPage() {
               </div>
             </div>
 
-            <div className="border-t border-gray-100 pt-4 space-y-3">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" checked={form.confirmaLeitura} onChange={e => setForm(p => ({ ...p, confirmaLeitura: e.target.checked }))}
-                  className="w-4 h-4 mt-0.5 accent-[#0f2a5e] flex-shrink-0"/>
-                <span className="text-sm text-gray-700">
-                  Declaro que li e compreendi integralmente o <strong>Convênio de Estágio</strong> e concordo com todos os seus termos e condições.
-                </span>
-              </label>
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" checked={form.confirmaAutoridade} onChange={e => setForm(p => ({ ...p, confirmaAutoridade: e.target.checked }))}
-                  className="w-4 h-4 mt-0.5 accent-[#0f2a5e] flex-shrink-0"/>
-                <span className="text-sm text-gray-700">
-                  Declaro que sou <strong>representante legal</strong> ou possuo poderes delegados para assinar este instrumento em nome de <strong>{ies.name}</strong>, responsabilizando-me civil e juridicamente por esta declaração.
-                </span>
-              </label>
-            </div>
-
-            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">
-              🔒 Sua assinatura eletrônica será registrada com data, hora e endereço IP, nos termos do art. 10, §2.º da MP n.º 2.200-2/2001 e do Marco Civil da Internet (Lei n.º 12.965/2014).
-            </div>
+            {/* Campos específicos por tipo */}
+            {!minutaPropria ? (
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.confirmaLeitura} onChange={e => setForm(p => ({ ...p, confirmaLeitura: e.target.checked }))}
+                    className="w-4 h-4 mt-0.5 accent-[#0f2a5e] flex-shrink-0"/>
+                  <span className="text-sm text-gray-700">
+                    Declaro que li e compreendi integralmente o <strong>Convênio de Estágio</strong> e concordo com todos os seus termos e condições.
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.confirmaAutoridade} onChange={e => setForm(p => ({ ...p, confirmaAutoridade: e.target.checked }))}
+                    className="w-4 h-4 mt-0.5 accent-[#0f2a5e] flex-shrink-0"/>
+                  <span className="text-sm text-gray-700">
+                    Declaro que sou <strong>representante legal</strong> ou possuo poderes delegados para assinar este instrumento em nome de <strong>{ies.name}</strong>, responsabilizando-me civil e juridicamente por esta declaração.
+                  </span>
+                </label>
+                <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">
+                  🔒 Assinatura registrada com data, hora e IP nos termos do art. 10, §2.º da MP n.º 2.200-2/2001 e da Lei n.º 14.063/2020.
+                </div>
+              </div>
+            ) : (
+              <div className="border-t border-amber-100 pt-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 text-xs text-amber-800">
+                  ℹ️ Ao confirmar, nossa equipe de convênios receberá sua solicitação e entrará em contato para tratar a minuta da sua instituição. O envio de e-mail para <strong>convenios@smarterestagios.com.br</strong> será automático.
+                </div>
+                <label className="text-xs font-bold text-gray-600 block mb-1.5">Observações (opcional)</label>
+                <textarea value={observacaoMinuta} onChange={e => setObservacaoMinuta(e.target.value)}
+                  placeholder="Informe algum contato específico, prazo desejado ou particularidade da minuta..."
+                  rows={3}
+                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-400 transition-colors resize-none"/>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 mt-6">
@@ -503,15 +571,15 @@ export default function IESPortalPage() {
               ← Voltar
             </button>
             <button
-              disabled={!form.nome || !form.cpf || !form.email || !form.confirmaLeitura || !form.confirmaAutoridade || enviando}
+              disabled={!form.nome || !form.cpf || !form.email || (!minutaPropria && (!form.confirmaLeitura || !form.confirmaAutoridade)) || enviando}
               onClick={assinar}
-              className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-8 rounded-2xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg">
+              className={`flex-grow font-black py-3 px-8 rounded-2xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg text-white ${minutaPropria ? "bg-amber-500 hover:bg-amber-600" : "bg-emerald-600 hover:bg-emerald-700"}`}>
               {enviando ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                  Assinando...
+                  Enviando...
                 </span>
-              ) : "✅ Assinar convênio"}
+              ) : minutaPropria ? "📨 Enviar solicitação" : "✅ Assinar convênio"}
             </button>
           </div>
         </div>
