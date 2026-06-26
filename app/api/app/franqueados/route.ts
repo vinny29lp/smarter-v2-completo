@@ -67,36 +67,62 @@ export async function POST(req: Request) {
   }
   const body = await req.json();
 
-  // Criar franquia
-  const franchise = await prisma.franchise.create({
-    data: {
-      name: body.name, razaoSocial: body.razaoSocial, cnpj: body.cnpj,
-      cpf: body.cpf ? body.cpf.replace(/\D/g, "") : null,
-      dataNasc: body.dataNasc ? new Date(body.dataNasc) : null,
-      responsavel: body.responsavel, email: body.email, telefone: body.telefone,
-      cidade: body.cidade, uf: body.uf, endereco: body.endereco, cep: body.cep,
-      mensalidade: parseFloat(body.mensalidade) || 200,
-      plano: body.plano || "completo",
-    },
-  });
+  const emailLogin = (body.emailLogin || body.email || "").trim().toLowerCase();
 
-  // Gerar senha aleatória
+  // Verificar se o e-mail de login já está em uso antes de criar qualquer registro
+  const emailExistente = await prisma.user.findUnique({ where: { email: emailLogin }, select: { id: true } });
+  if (emailExistente) {
+    return NextResponse.json(
+      { error: `O e-mail de login "${emailLogin}" já está cadastrado no sistema. Use outro e-mail ou altere o e-mail do usuário existente.` },
+      { status: 409 }
+    );
+  }
+
+  // Gerar senha
   const senha = body.senha || require("crypto").randomBytes(6).toString("hex") + "S1@";
   const hash = await bcrypt.hash(senha, 10);
 
-  // Criar usuário do franqueado
-  const user = await prisma.user.create({
-    data: {
-      name: body.responsavel,
-      email: body.emailLogin || body.email,
-      password: hash,
-      role: "FRANQUEADO",
-      franchiseId: franchise.id,
-    },
-  });
+  // Criar franquia + usuário em transação — se um falhar, ambos desfazem
+  let franchise: any;
+  let user: any;
+  try {
+    ({ franchise, user } = await prisma.$transaction(async (tx) => {
+      const f = await tx.franchise.create({
+        data: {
+          name: body.name, razaoSocial: body.razaoSocial, cnpj: body.cnpj,
+          cpf: body.cpf ? body.cpf.replace(/\D/g, "") : null,
+          dataNasc: body.dataNasc ? new Date(body.dataNasc) : null,
+          responsavel: body.responsavel, email: body.email, telefone: body.telefone,
+          cidade: body.cidade, uf: body.uf, endereco: body.endereco, cep: body.cep,
+          mensalidade: parseFloat(body.mensalidade) || 200,
+          plano: body.plano || "completo",
+        },
+      });
+      const u = await tx.user.create({
+        data: {
+          name: body.responsavel,
+          email: emailLogin,
+          password: hash,
+          role: "FRANQUEADO",
+          franchiseId: f.id,
+        },
+      });
+      return { franchise: f, user: u };
+    }));
+  } catch (txErr: any) {
+    // Erro de unique constraint no e-mail (race condition) — mensagem amigável
+    if (txErr?.code === "P2002") {
+      return NextResponse.json(
+        { error: `O e-mail "${emailLogin}" já está em uso. Verifique e tente novamente.` },
+        { status: 409 }
+      );
+    }
+    throw txErr;
+  }
 
   // Enviar email de boas-vindas (não-bloqueante: falha no email não cancela o cadastro)
   let emailEnviado = false;
+  let emailErro = "";
   try {
     emailEnviado = await enviarBoasVindasFranqueado({
       email: user.email,
@@ -104,11 +130,13 @@ export async function POST(req: Request) {
       nomeUnidade: franchise.name,
       senha,
     });
-  } catch (emailErr) {
+    if (!emailEnviado) emailErro = "Resend retornou erro — verifique a chave RESEND_API_KEY e se o e-mail destino é válido.";
+  } catch (emailErr: any) {
+    emailErro = emailErr?.message || "Exceção ao chamar Resend";
     console.error("[Franqueados] Erro ao enviar email de boas-vindas:", emailErr);
   }
 
-  return NextResponse.json({ franchise, user, senhaGerada: senha, emailEnviado });
+  return NextResponse.json({ franchise, user, senhaGerada: senha, emailEnviado, emailErro: emailEnviado ? undefined : emailErro });
   } catch (e) {
     return handleApiError(e, "FRANQUEADOS_POST_001");
   }

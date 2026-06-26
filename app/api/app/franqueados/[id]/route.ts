@@ -87,7 +87,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     });
     if (!franchise) return NextResponse.json({ error: "Franqueado não encontrado." }, { status: 404 });
     const franqUser = franchise.users[0];
-    if (!franqUser) return NextResponse.json({ error: "Usuário do franqueado não encontrado." }, { status: 404 });
+    if (!franqUser) return NextResponse.json(
+      { error: "Nenhum usuário FRANQUEADO vinculado. Use 'Criar Acesso' para criar o usuário primeiro." },
+      { status: 404 }
+    );
 
     // Gera nova senha temporária e atualiza no banco
     const novaSenha = require("crypto").randomBytes(6).toString("hex") + "S1@";
@@ -95,14 +98,70 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     await prisma.user.update({ where: { id: franqUser.id }, data: { password: hash } });
 
     // Envia email com as novas credenciais
-    const emailEnviado = await enviarBoasVindasFranqueado({
-      email: franqUser.email,
-      nome: franqUser.name || franchise.responsavel || "",
-      nomeUnidade: franchise.name,
-      senha: novaSenha,
+    let emailEnviado = false;
+    let emailErro = "";
+    try {
+      emailEnviado = await enviarBoasVindasFranqueado({
+        email: franqUser.email,
+        nome: franqUser.name || franchise.responsavel || "",
+        nomeUnidade: franchise.name,
+        senha: novaSenha,
+      });
+      if (!emailEnviado) emailErro = "Resend retornou erro. Verifique RESEND_API_KEY e se o e-mail é válido.";
+    } catch (err: any) {
+      emailErro = err?.message || "Exceção ao chamar Resend";
+      console.error("[Franqueados] reenviar_boasvindas email error:", err);
+    }
+
+    return NextResponse.json({ ok: true, emailEnviado, emailErro: emailEnviado ? undefined : emailErro, email: franqUser.email, senhaGerada: novaSenha });
+  }
+
+  // Criar usuário para franquia órfã (sem usuário FRANQUEADO vinculado)
+  if (body.action === "criar_usuario") {
+    const emailLogin = (body.email || "").trim().toLowerCase();
+    if (!emailLogin) return NextResponse.json({ error: "E-mail é obrigatório para criar o usuário." }, { status: 400 });
+
+    const franchise = await prisma.franchise.findUnique({
+      where: { id: params.id },
+      include: { users: { where: { role: "FRANQUEADO" }, take: 1 } },
+    });
+    if (!franchise) return NextResponse.json({ error: "Franqueado não encontrado." }, { status: 404 });
+    if (franchise.users[0]) return NextResponse.json({ error: "Esta unidade já possui um usuário de acesso vinculado." }, { status: 409 });
+
+    const emailExistente = await prisma.user.findUnique({ where: { email: emailLogin }, select: { id: true } });
+    if (emailExistente) return NextResponse.json(
+      { error: `O e-mail "${emailLogin}" já está em uso por outro usuário.` },
+      { status: 409 }
+    );
+
+    const senha = require("crypto").randomBytes(6).toString("hex") + "S1@";
+    const hash = await bcrypt.hash(senha, 10);
+    const novoUser = await prisma.user.create({
+      data: {
+        name: body.nome || franchise.responsavel || "",
+        email: emailLogin,
+        password: hash,
+        role: "FRANQUEADO",
+        franchiseId: franchise.id,
+      },
     });
 
-    return NextResponse.json({ ok: true, emailEnviado, email: franqUser.email });
+    let emailEnviado = false;
+    let emailErro = "";
+    try {
+      emailEnviado = await enviarBoasVindasFranqueado({
+        email: novoUser.email,
+        nome: novoUser.name || "",
+        nomeUnidade: franchise.name,
+        senha,
+      });
+      if (!emailEnviado) emailErro = "Resend retornou erro. Verifique RESEND_API_KEY e se o e-mail é válido.";
+    } catch (err: any) {
+      emailErro = err?.message || "Exceção ao chamar Resend";
+      console.error("[Franqueados] criar_usuario email error:", err);
+    }
+
+    return NextResponse.json({ ok: true, user: novoUser, senhaGerada: senha, emailEnviado, emailErro: emailEnviado ? undefined : emailErro });
   }
 
   // Toggle cobrarMensalidade

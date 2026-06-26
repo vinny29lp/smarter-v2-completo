@@ -11,7 +11,7 @@ export default function NovoFranqueadoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [sucesso, setSucesso] = useState<{email:string;senha:string;emailEnviado:boolean}|null>(null);
+  const [sucesso, setSucesso] = useState<{email:string;senha:string;emailEnviado:boolean;emailErro?:string}|null>(null);
   const [form, setForm] = useState({
     name:"", razaoSocial:"", cnpj:"", cpf:"", dataNasc:"",
     responsavel:"", email:"",
@@ -47,7 +47,7 @@ export default function NovoFranqueadoPage() {
     });
     const data = await res.json();
     if (data.error) { setError(data.error); setLoading(false); return; }
-    setSucesso({ email: data.user.email, senha: data.senhaGerada, emailEnviado: !!data.emailEnviado });
+    setSucesso({ email: data.user.email, senha: data.senhaGerada, emailEnviado: !!data.emailEnviado, emailErro: data.emailErro });
     setLoading(false);
   };
 
@@ -60,7 +60,11 @@ export default function NovoFranqueadoPage() {
           {sucesso.emailEnviado ? (
             <p className="text-slate-500 text-sm mb-6">✅ E-mail de boas-vindas enviado com as credenciais de acesso.</p>
           ) : (
-            <p className="text-amber-600 text-sm mb-6">⚠️ Franqueado cadastrado, mas o e-mail de boas-vindas não foi enviado. Anote a senha abaixo e use o botão "Reenviar Boas-Vindas" na página do franqueado.</p>
+            <div className="mb-6">
+              <p className="text-amber-600 text-sm">⚠️ Franqueado cadastrado, mas o e-mail de boas-vindas não foi enviado. Anote a senha abaixo.</p>
+              {sucesso.emailErro && <p className="text-xs text-amber-700 mt-1 bg-amber-50 border border-amber-200 rounded-lg p-2">Motivo: {sucesso.emailErro}</p>}
+              <p className="text-xs text-slate-500 mt-1">Use o botão "Reenviar Boas-Vindas" na página do franqueado após verificar o e-mail.</p>
+            </div>
           )}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left mb-6">
             <p className="text-xs font-bold text-slate-400 mb-2">CREDENCIAIS DE ACESSO:</p>

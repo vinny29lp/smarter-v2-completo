@@ -28,6 +28,9 @@ export default function FranqueadoDetailPage() {
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reenviandoEmail, setReenviandoEmail] = useState(false);
+  const [criarAcessoModal, setCriarAcessoModal] = useState(false);
+  const [emailCriarAcesso, setEmailCriarAcesso] = useState("");
+  const [criandoAcesso, setCriandoAcesso] = useState(false);
 
   const load = () => {
     fetch(`/api/app/franqueados/${params.id}`)
@@ -112,6 +115,11 @@ export default function FranqueadoDetailPage() {
         <Button variant="secondary" size="sm" onClick={()=>setEditModal(true)}>✏️ Editar Dados</Button>
         <Button variant="secondary" size="sm" onClick={()=>setEmailModal(true)}>📧 Alterar E-mail Login</Button>
         <Button variant="secondary" size="sm" onClick={()=>setSenhaModal(true)}>🔑 Alterar Senha</Button>
+        {!user && (
+          <Button variant="primary" size="sm" onClick={() => { setEmailCriarAcesso(data.email || ""); setCriarAcessoModal(true); }}>
+            🔑 Criar Acesso
+          </Button>
+        )}
         <Button
           variant="secondary" size="sm"
           disabled={reenviandoEmail}
@@ -125,7 +133,11 @@ export default function FranqueadoDetailPage() {
             const d = await r.json();
             setReenviandoEmail(false);
             if (d.error) { setMsg("❌ " + d.error); return; }
-            setMsg(d.emailEnviado ? `✉️ Boas-vindas enviadas para ${d.email}! Nova senha gerada.` : "⚠️ Senha atualizada, mas email falhou. Verifique as configurações.");
+            if (d.emailEnviado) {
+              setMsg(`✉️ Boas-vindas enviadas para ${d.email}! Nova senha: ${d.senhaGerada}`);
+            } else {
+              setMsg(`⚠️ Senha atualizada (${d.senhaGerada}), mas email falhou: ${d.emailErro || "erro desconhecido"}`);
+            }
           }}>
           {reenviandoEmail ? "Enviando..." : "✉️ Reenviar Boas-Vindas"}
         </Button>
@@ -375,6 +387,39 @@ export default function FranqueadoDetailPage() {
         <div className="flex gap-3 mt-4">
           <Button variant="secondary" onClick={()=>setEditModal(false)}>Cancelar</Button>
           <Button onClick={()=>action(editForm).then(()=>setEditModal(false))} disabled={saving}>Salvar</Button>
+        </div>
+      </Modal>
+
+      {/* Modal: Criar Usuário de Acesso (franquia órfã) */}
+      <Modal open={criarAcessoModal} onClose={()=>setCriarAcessoModal(false)} title="Criar Acesso ao Sistema">
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600">Esta unidade não possui usuário de acesso vinculado. Informe o e-mail de login para criar o acesso.</p>
+          <Input label="E-mail de Login" type="email" value={emailCriarAcesso} onChange={e=>setEmailCriarAcesso(e.target.value)} placeholder="franqueado@email.com"/>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={()=>setCriarAcessoModal(false)}>Cancelar</Button>
+            <Button
+              disabled={criandoAcesso || !emailCriarAcesso}
+              onClick={async () => {
+                setCriandoAcesso(true); setMsg("");
+                const r = await fetch(`/api/app/franqueados/${params.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "criar_usuario", email: emailCriarAcesso, nome: data.responsavel }),
+                });
+                const d = await r.json();
+                setCriandoAcesso(false);
+                if (d.error) { setMsg("❌ " + d.error); setCriarAcessoModal(false); return; }
+                setCriarAcessoModal(false);
+                load();
+                if (d.emailEnviado) {
+                  setMsg(`✅ Acesso criado! E-mail enviado para ${d.user?.email} com senha: ${d.senhaGerada}`);
+                } else {
+                  setMsg(`✅ Acesso criado! Senha: ${d.senhaGerada} — ⚠️ E-mail não enviado: ${d.emailErro || "erro desconhecido"}. Anote a senha!`);
+                }
+              }}>
+              {criandoAcesso ? "Criando..." : "Criar Acesso"}
+            </Button>
+          </div>
         </div>
       </Modal>
 
