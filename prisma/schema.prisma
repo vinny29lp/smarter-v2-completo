@@ -130,10 +130,52 @@ model Institution {
   cursos      String[]   @default([])
   site        String?
   updatedAt   DateTime?  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // ─── Portal de Adesão IES ────────────────────────────────────────────────────
+  // Token único gerado ao criar o convite — forma a URL pública do portal
+  token                String?   @unique
+  // Qual franqueado enviou o convite de adesão
+  franchiseId          String?
+  // Status do convênio
+  convenioStatus       String?   @default("PENDENTE") // PENDENTE | FIRMADO | CANCELADO
+  // Dados de quem assinou pela IES
+  convenioAssinadoEm   DateTime? @db.Timestamptz(6)
+  assinanteName        String?
+  assinanteEmail       String?
+  assinanteCpf         String?
+  assinanteIp          String?
+  assinanteUserAgent   String?
+  // Log completo da assinatura para auditoria
+  assinaturaLog        Json?
+  // Link para download da minuta assinada (gerado em PDF após assinatura)
+  minutaAssinadaUrl    String?
+  // Controle de envio do convite
+  conviteEnviadoEm     DateTime? @db.Timestamptz(6)
+  conviteEnviadoPor    String?   // userId do franqueado
+  // ─────────────────────────────────────────────────────────────────────────────
+
   contracts   Contract[]
   students    Student[]
 
+  @@index([franchiseId])
+  @@index([convenioStatus])
+  @@index([token])
   @@map("institutions")
+}
+
+// Documentos institucionais da Smarter disponibilizados para as IES baixarem
+model SmarterDocumento {
+  id        String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  nome      String    // "Cartão CNPJ", "Contrato Social", "Certidão Negativa FGTS", etc.
+  tipo      String    // CNPJ | CPF | CERTIDAO | CONTRATO_SOCIAL | OUTRO
+  url       String    // URL pública do arquivo
+  tamanho   Int?      // bytes
+  ativo     Boolean   @default(true)
+  ordem     Int?      @default(0)
+  createdAt DateTime? @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("smarter_documentos")
 }
 
 model Student {

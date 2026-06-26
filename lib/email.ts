@@ -355,3 +355,51 @@ export async function enviarBoasVindasFranqueado(params: {
     base("Bem-vindo(a) à Rede Smarter!", corpo),
   );
 }
+
+// ── Convite IES — Portal de Adesão ──────────────────────────────
+export async function enviarConviteIES(params: {
+  email: string;
+  nomeIES: string;
+  coordenador?: string;
+  portalUrl: string;
+  nomeUnidade?: string;
+}): Promise<boolean> {
+  const corpo = `
+    <p class="title">Convite de Convênio de Estágio</p>
+    <div class="divider"></div>
+    <p>Olá${params.coordenador ? `, <strong>${params.coordenador}</strong>` : ""},</p>
+    <p>A <strong>${params.nomeUnidade || "Smarter Estágios"}</strong> tem o prazer de convidar
+    <strong>${params.nomeIES}</strong> para firmar um Convênio de Estágio conosco.</p>
+    <p>Por meio deste convênio, seus alunos terão acesso a vagas de estágio qualificadas em empresas parceiras,
+    com toda a gestão feita de forma 100% digital — desde o TCE até os relatórios de acompanhamento.</p>
+    <div class="box">
+      <p style="font-size:13px;margin:0 0 12px;font-weight:700;color:#0f2a5e">Por que firmar convênio com a Smarter?</p>
+      <p style="margin:4px 0;font-size:13px">📊 Painel em tempo real com todos os estágios dos seus alunos</p>
+      <p style="margin:4px 0;font-size:13px">📝 Contratos digitais — sem papel, sem burocracia</p>
+      <p style="margin:4px 0;font-size:13px">🎯 Matching inteligente entre alunos e vagas por perfil e curso</p>
+      <p style="margin:4px 0;font-size:13px">🔐 100% em conformidade com a Lei n.º 11.788/2008</p>
+      <p style="margin:4px 0;font-size:13px">🆓 Totalmente gratuito para a instituição de ensino</p>
+    </div>
+    <p>O processo de adesão é simples, rápido e 100% digital. Clique no botão abaixo para conhecer a Smarter e assinar o convênio:</p>
+    <div style="text-align:center;margin:28px 0">
+      <a href="${params.portalUrl}" style="background:#0f2a5e;color:white;font-weight:900;font-size:15px;padding:14px 36px;border-radius:12px;text-decoration:none;display:inline-block">
+        Acessar Portal de Convênio →
+      </a>
+    </div>
+    <p style="color:#64748b;font-size:12px;text-align:center">
+      Ou copie e cole este link no navegador:<br/>
+      <a href="${params.portalUrl}" style="color:#0f2a5e">${params.portalUrl}</a>
+    </p>
+    <div class="box" style="background:#fef9ec;border-color:#f5c400">
+      <p style="margin:0;font-size:12px;color:#92400e">
+        ⏱ O processo de adesão leva menos de 5 minutos e não exige nenhum custo para a IES.
+        O link acima é exclusivo para ${params.nomeIES}.
+      </p>
+    </div>
+  `;
+  return sendMail(
+    params.email,
+    `Convite: Convênio de Estágio com a Smarter Estágios — ${params.nomeIES}`,
+    base(`Convite para ${params.nomeIES}`, corpo),
+  );
+}
