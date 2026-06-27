@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import MinutaConvenio from "@/components/ies/MinutaConvenio";
 
-type Etapa = "landing" | "documentos" | "minuta" | "assinatura" | "concluido";
+type Etapa = "landing" | "documentos" | "minuta" | "assinatura" | "concluido" | "login" | "portal";
 type TipoMinuta = "smarter" | "propria";
 
 export default function IESPortalPage() {
@@ -21,6 +21,10 @@ export default function IESPortalPage() {
   const [arquivoMinuta, setArquivoMinuta] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
+  const [loginForm, setLoginForm] = useState({ email: "", senha: "" });
+  const [loginErro, setLoginErro] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [nomeIESLogado, setNomeIESLogado] = useState("");
   const minutaRef = useRef<HTMLDivElement>(null);
   const topoRef = useRef<HTMLDivElement>(null);
 
@@ -31,12 +35,29 @@ export default function IESPortalPage() {
         if (d.error) { setErro(d.error); setLoading(false); return; }
         setData(d);
         setLoading(false);
-        if (d.institution?.convenioStatus === "FIRMADO" || d.institution?.convenioStatus === "AGUARDANDO_MINUTA") setEtapa("concluido");
+        // Não redireciona automático — deixa a IES escolher na landing
       })
       .catch(() => { setErro("Não foi possível carregar o portal. Tente novamente."); setLoading(false); });
   }, [token]);
 
   useEffect(() => { topoRef.current?.scrollIntoView({ behavior: "smooth" }); }, [etapa]);
+
+  const fazerLogin = async () => {
+    if (!loginForm.email || !loginForm.senha) return;
+    setLoginLoading(true);
+    setLoginErro("");
+    try {
+      const r = await fetch(`/api/ies/${token}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginForm.email, senha: loginForm.senha }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) { setLoginErro(d.error || "E-mail ou senha incorretos."); }
+      else { setNomeIESLogado(d.nomeIES || ies.name); setEtapa("portal"); }
+    } catch { setLoginErro("Erro de conexão. Tente novamente."); }
+    setLoginLoading(false);
+  };
 
   const assinar = async () => {
     if (!form.nome || !form.cpf || !form.email) return;
@@ -257,12 +278,24 @@ export default function IESPortalPage() {
                 A <strong className="text-white">Smarter Estágios</strong> convida a sua instituição a fazer parte de uma rede que já conecta
                 centenas de estudantes a oportunidades reais — com gestão completa e 100% digital.
               </p>
-              <button
-                onClick={() => setEtapa("documentos")}
-                className="bg-[#f5c400] hover:bg-yellow-300 text-[#0f2a5e] font-black px-10 py-4 rounded-2xl text-base transition-all hover:scale-105 shadow-xl">
-                Conhecer e firmar convênio →
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button
+                  onClick={() => setEtapa("documentos")}
+                  className="bg-[#f5c400] hover:bg-yellow-300 text-[#0f2a5e] font-black px-8 py-4 rounded-2xl text-base transition-all hover:scale-105 shadow-xl w-full sm:w-auto">
+                  Firmar convênio →
+                </button>
+                <button
+                  onClick={() => setEtapa("login")}
+                  className="bg-white/10 hover:bg-white/20 border-2 border-white/30 text-white font-bold px-8 py-4 rounded-2xl text-base transition-all w-full sm:w-auto">
+                  Já tenho convênio · Acessar portal
+                </button>
+              </div>
               <p className="text-white/40 text-xs mt-4">Processo 100% digital • Sem custos para a IES • Leva menos de 5 minutos</p>
+              <p className="mt-3">
+                <button onClick={() => setEtapa("login")} className="text-white/30 hover:text-white/60 text-xs underline underline-offset-2 transition-colors">
+                  Minha instituição ainda não está cadastrada?
+                </button>
+              </p>
             </div>
           </div>
 
@@ -385,11 +418,18 @@ export default function IESPortalPage() {
             <div className="max-w-2xl mx-auto px-6">
               <h2 className="text-2xl font-black mb-4">Pronto para conectar seus alunos às melhores oportunidades?</h2>
               <p className="text-white/70 mb-8">A adesão é gratuita para a IES e o processo leva menos de 5 minutos. Comece agora.</p>
-              <button
-                onClick={() => setEtapa("documentos")}
-                className="bg-[#f5c400] hover:bg-yellow-300 text-[#0f2a5e] font-black px-10 py-4 rounded-2xl text-base transition-all hover:scale-105 shadow-xl">
-                Iniciar adesão ao convênio →
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button
+                  onClick={() => setEtapa("documentos")}
+                  className="bg-[#f5c400] hover:bg-yellow-300 text-[#0f2a5e] font-black px-8 py-4 rounded-2xl text-base transition-all hover:scale-105 shadow-xl">
+                  Iniciar adesão ao convênio →
+                </button>
+                <button
+                  onClick={() => setEtapa("login")}
+                  className="bg-white/10 hover:bg-white/20 border-2 border-white/30 text-white font-bold px-8 py-4 rounded-2xl text-base transition-all">
+                  Já tenho convênio · Acessar portal
+                </button>
+              </div>
             </div>
           </div>
 
@@ -692,6 +732,98 @@ export default function IESPortalPage() {
                 </span>
               ) : tipoMinuta === "propria" ? "📨 Enviar para assinatura via Autentique" : "✅ Assinar convênio"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────── ETAPA: LOGIN ──────────── */}
+      {etapa === "login" && (
+        <div className="max-w-md mx-auto px-6 py-16">
+          <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100">
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 bg-[#0f2a5e] rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">🔐</div>
+              <h2 className="text-xl font-black text-gray-800">Acessar Portal da IES</h2>
+              <p className="text-gray-500 text-sm mt-1">Use as credenciais enviadas por e-mail após a assinatura do convênio.</p>
+            </div>
+
+            {loginErro && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 mb-4">{loginErro}</div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">E-mail do convênio</label>
+                <input type="email" value={loginForm.email}
+                  onChange={e => setLoginForm(p => ({ ...p, email: e.target.value }))}
+                  placeholder="coordenador@instituicao.edu.br"
+                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">Senha (recebida por e-mail)</label>
+                <input type="password" value={loginForm.senha}
+                  onChange={e => setLoginForm(p => ({ ...p, senha: e.target.value }))}
+                  onKeyDown={e => e.key === "Enter" && fazerLogin()}
+                  placeholder="SMTR-XXX-XXX"
+                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#0f2a5e] font-mono tracking-wider"/>
+              </div>
+              <button onClick={fazerLogin} disabled={loginLoading || !loginForm.email || !loginForm.senha}
+                className="w-full bg-[#0f2a5e] text-white font-black py-3 rounded-2xl hover:bg-[#1e4a8f] transition-colors disabled:opacity-50">
+                {loginLoading ? "Verificando..." : "Entrar no portal →"}
+              </button>
+            </div>
+
+            <div className="mt-6 pt-5 border-t border-gray-100 text-center space-y-3">
+              <p className="text-xs text-gray-400">Ainda não firmou convênio?</p>
+              <button onClick={() => setEtapa("landing")}
+                className="text-[#0f2a5e] text-sm font-bold hover:underline">
+                ← Voltar à apresentação
+              </button>
+            </div>
+
+            <div className="mt-4 bg-blue-50 rounded-xl p-3 text-xs text-blue-700">
+              <strong>Sua instituição não está cadastrada?</strong> Entre em contato com a Smarter para iniciar o processo de convênio:<br/>
+              <a href={`mailto:${smarter.email || "convenios@smarterestagios.com.br"}`} className="font-bold underline">
+                {smarter.email || "convenios@smarterestagios.com.br"}
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────── ETAPA: PORTAL AUTENTICADO ──────────── */}
+      {etapa === "portal" && (
+        <div className="max-w-3xl mx-auto px-6 py-12">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">🎓</div>
+            <h2 className="text-2xl font-black text-gray-800">Bem-vindo(a), {nomeIESLogado || ies.name}!</h2>
+            <p className="text-gray-500 text-sm mt-1">Portal de acompanhamento de estágios — {smarter.nomeFantasia || "Smarter Estágios"}</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4 mb-6">
+            {[
+              ["📄","Documentos da Smarter","Certidões e documentos institucionais para seus registros", () => setEtapa("documentos")],
+              ["📋","Minuta do Convênio","Visualize o convênio firmado entre sua IES e a Smarter", () => setEtapa("minuta")],
+            ].map(([icon, titulo, desc, acao]) => (
+              <button key={titulo as string} onClick={acao as () => void}
+                className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 text-left hover:border-[#0f2a5e] hover:shadow-md transition-all group">
+                <p className="text-3xl mb-3">{icon as string}</p>
+                <h3 className="font-bold text-gray-800 text-sm group-hover:text-[#0f2a5e]">{titulo as string}</h3>
+                <p className="text-gray-400 text-xs mt-1">{desc as string}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="bg-[#0f2a5e] rounded-2xl p-5 text-white text-sm">
+            <p className="font-bold mb-2">📞 Precisa de ajuda?</p>
+            <p className="opacity-80 text-xs">Entre em contato com nossa equipe de convênios para dúvidas sobre o processo, documentos ou encaminhamento de estudantes.</p>
+            <a href={`mailto:${smarter.email || "convenios@smarterestagios.com.br"}`}
+              className="inline-block mt-3 bg-white text-[#0f2a5e] font-bold text-xs px-4 py-2 rounded-xl hover:bg-blue-50">
+              ✉️ {smarter.email || "convenios@smarterestagios.com.br"}
+            </a>
+          </div>
+
+          <div className="text-center mt-6">
+            <button onClick={() => setEtapa("landing")} className="text-gray-400 text-xs hover:text-gray-600">← Voltar à página inicial</button>
           </div>
         </div>
       )}

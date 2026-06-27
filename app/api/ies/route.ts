@@ -29,10 +29,12 @@ export async function GET(req: Request) {
       where,
       orderBy: { createdAt: "desc" },
       select: {
-        id: true, name: true, cnpj: true, email: true, cidade: true, uf: true,
+        id: true, name: true, razaoSocial: true, cnpj: true, tipo: true,
+        email: true, telefone: true, coordenador: true, cargoCoord: true,
+        cidade: true, uf: true, endereco: true, site: true,
         token: true, convenioStatus: true, convenioAssinadoEm: true,
-        conviteEnviadoEm: true, assinanteName: true, franchiseId: true,
-        createdAt: true,
+        conviteEnviadoEm: true, assinanteName: true, assinanteEmail: true,
+        franchiseId: true, createdAt: true,
       },
     });
 
