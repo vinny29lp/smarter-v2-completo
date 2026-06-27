@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InstituicaoEdit } from "./InstituicaoEdit";
+import CopyLinkButton from "./CopyLinkButton";
 
 export default async function InstituicaoDetailPage({ params }: { params: { id: string } }) {
   const inst = await prisma.institution.findUnique({
@@ -136,6 +137,63 @@ export default async function InstituicaoDetailPage({ params }: { params: { id: 
           </table>
         </Card>
       )}
+
+      {/* Portal de Adesão IES */}
+      <Card className="p-5 mb-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-700">Portal de Adesão IES</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Link exclusivo para esta IES assinar o convênio eletronicamente</p>
+          </div>
+          {inst.convenioStatus && (
+            <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${
+              inst.convenioStatus === "FIRMADO" ? "bg-emerald-100 text-emerald-700" :
+              inst.convenioStatus === "AGUARDANDO_MINUTA" ? "bg-amber-100 text-amber-700" :
+              inst.convenioStatus === "CANCELADO" ? "bg-red-100 text-red-700" :
+              "bg-yellow-100 text-yellow-700"
+            }`}>
+              {inst.convenioStatus === "FIRMADO" ? "✅ Convênio Firmado" :
+               inst.convenioStatus === "AGUARDANDO_MINUTA" ? "📋 Minuta Própria — Aguardando" :
+               inst.convenioStatus === "CANCELADO" ? "❌ Cancelado" :
+               "⏳ Aguardando assinatura"}
+            </span>
+          )}
+        </div>
+
+        {inst.token ? (
+          <div>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 mb-1">LINK DO PORTAL IES</p>
+                <p className="text-sm font-mono text-slate-600 truncate">
+                  {`${process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br"}/ies/${inst.token}`}
+                </p>
+              </div>
+              <CopyLinkButton token={inst.token as string} />
+            </div>
+            {inst.convenioStatus === "FIRMADO" && inst.convenioAssinadoEm && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-700">
+                <p><strong>Assinado por:</strong> {inst.assinanteName} ({inst.assinanteCpf})</p>
+                <p className="mt-1"><strong>Data:</strong> {new Date((inst as any).convenioAssinadoEm).toLocaleString("pt-BR")}</p>
+                {inst.assinanteEmail && <p className="mt-1"><strong>E-mail:</strong> {inst.assinanteEmail}</p>}
+              </div>
+            )}
+            {inst.convenioStatus === "AGUARDANDO_MINUTA" && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                <p>A IES optou por usar a <strong>própria minuta</strong>. Verifique o e-mail enviado para convenios@smarterestagios.com.br.</p>
+                <p className="mt-1"><strong>Representante:</strong> {inst.assinanteName} — {inst.assinanteEmail}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
+            <p>Esta instituição ainda não tem um portal de adesão gerado.</p>
+            <Link href="/dashboard/ies/novo" className="inline-block mt-2 font-bold text-[#0f2a5e] hover:underline text-xs">
+              → Gerar convite pelo Portal IES
+            </Link>
+          </div>
+        )}
+      </Card>
 
       {/* Editar */}
       <Card className="p-5">

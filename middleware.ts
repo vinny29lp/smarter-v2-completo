@@ -24,12 +24,16 @@ const FUNCIONARIO_ROUTE_PERMS: Record<string, string> = {
 // frame-src 'self' blob:: necessário para iframe com srcDoc (documentos de contrato).
 // allowEmbedding: permite que /vagas seja embutido em iframe no site institucional.
 function buildCsp(nonce: string, allowEmbedding = false): string {
+  const isDev = process.env.NODE_ENV === "development";
   const frameAncestors = allowEmbedding
     ? `frame-ancestors 'self' https://smarterestagios.com.br`
     : `frame-ancestors 'none'`;
   return [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // Em dev, Next.js Fast Refresh precisa de 'unsafe-eval'
+    isDev
+      ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`
+      : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
