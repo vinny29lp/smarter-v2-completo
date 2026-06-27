@@ -59,13 +59,14 @@ export default function MinutaConvenio({ ies, smarter, dataAssinatura, assinante
         .minuta-convenio strong { font-weight: 700; color: #0f2a5e; }
         .minuta-convenio .partes-bloco { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; font-size: 10.5px; }
         .minuta-convenio .partes-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 0.25rem; }
-        .minuta-convenio .assinatura-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
+        .minuta-convenio .assinatura-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; align-items: end; }
         .minuta-convenio .assinatura-item { text-align: center; }
-        .minuta-convenio .assinatura-linha { border-top: 1px solid #333; min-height: 60px; margin-bottom: 6px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; }
-        .minuta-convenio .assinatura-carimbo { max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto 4px; }
+        .minuta-convenio .assinatura-linha { border-bottom: 1.5px solid #1a1a1a; height: 82px; margin-bottom: 8px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; }
+        .minuta-convenio .assinatura-carimbo { max-height: 72px; max-width: 190px; object-fit: contain; display: block; margin: 0 auto; }
         .minuta-convenio .assinatura-logo-box { background: #0f2a5e; border-radius: 6px; padding: 5px 10px; display: inline-block; margin-bottom: 4px; }
         .minuta-convenio .assinatura-logo-box img { height: 22px; object-fit: contain; display: block; }
-        .minuta-convenio .assinatura-nome { font-weight: 700; font-size: 9.5px; }
+        .minuta-convenio .assinatura-item p { text-align: center; margin-bottom: 0.2rem; line-height: 1.4; }
+        .minuta-convenio .assinatura-nome { font-weight: 700; font-size: 9.5px; color: #1a1a1a; margin-top: 2px; }
         .minuta-convenio .assinatura-cargo { font-size: 8.5px; color: #64748b; }
         .minuta-convenio .assinatura-cnpj { font-size: 8px; color: #94a3b8; }
         .minuta-convenio .local-data { text-align: right; color: #64748b; font-size: 10px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-style: italic; }
