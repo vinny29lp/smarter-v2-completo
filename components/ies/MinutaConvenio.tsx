@@ -19,9 +19,11 @@ interface MinutaProps {
     cidade?: string;
     uf?: string;
     responsavel?: string;
+    cargoResponsavel?: string;
     email?: string;
     telefone?: string;
     logoDocUrl?: string;
+    assinaturaUrl?: string;
   };
   dataAssinatura?: Date | null;
   assinanteName?: string;
@@ -40,38 +42,48 @@ export default function MinutaConvenio({ ies, smarter, dataAssinatura, assinante
   const cnpjIES = ies.cnpj || "a ser informado";
 
   return (
-    <div className="minuta-convenio font-serif text-sm text-gray-900 leading-relaxed">
+    <div className="minuta-convenio font-sans text-sm text-gray-900 leading-relaxed">
       <style>{`
-        .minuta-convenio { max-width: 720px; margin: 0 auto; }
-        .minuta-convenio .minuta-header { text-align: center; border-bottom: 3px solid #0f2a5e; padding-bottom: 1.25rem; margin-bottom: 1.5rem; }
-        .minuta-convenio .minuta-logo { height: 40px; object-fit: contain; margin-bottom: 0.75rem; }
-        .minuta-convenio h1 { font-size: 1rem; font-weight: 800; text-align: center; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; color: #0f2a5e; }
-        .minuta-convenio h2 { font-size: 0.8rem; font-weight: 600; text-align: center; text-transform: uppercase; margin-bottom: 0; color: #475569; }
-        .minuta-convenio h3 { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; margin-top: 1.5rem; margin-bottom: 0.5rem; color: #0f2a5e; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem; }
-        .minuta-convenio p { margin-bottom: 0.75rem; text-align: justify; }
-        .minuta-convenio .paragrafo { margin-left: 1.5rem; margin-top: 0.5rem; font-size: 0.8rem; }
-        .minuta-convenio .paragrafo p { margin-bottom: 0.35rem; }
-        .minuta-convenio strong { font-weight: 700; }
-        .minuta-convenio .partes-bloco { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; font-size: 0.82rem; }
-        .minuta-convenio .partes-bloco + .partes-bloco { margin-top: -0.25rem; }
-        .minuta-convenio .partes-label { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 0.25rem; }
-        .minuta-convenio .assinatura-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2.5rem; }
+        .minuta-convenio { max-width: 720px; margin: 0 auto; font-family: Arial, Helvetica, sans-serif; font-size: 11.5px; color: #1a1a1a; line-height: 1.6; }
+        .minuta-convenio .minuta-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #0f2a5e; padding-bottom: 12px; margin-bottom: 20px; }
+        .minuta-convenio .minuta-header-logo { background: #0f2a5e; border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; }
+        .minuta-convenio .minuta-header-logo img { height: 32px; object-fit: contain; display: block; }
+        .minuta-convenio .minuta-header-logo-placeholder { color: #f5c400; font-weight: 900; font-size: 18px; letter-spacing: -0.5px; }
+        .minuta-convenio .minuta-header-title { text-align: right; }
+        .minuta-convenio .minuta-doc-title { font-size: 13px; font-weight: 900; text-transform: uppercase; color: #0f2a5e; }
+        .minuta-convenio .minuta-doc-sub { font-size: 9px; color: #888; margin-top: 2px; }
+        .minuta-convenio h3 { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; margin-top: 1.4rem; margin-bottom: 0.4rem; color: white; background: #0f2a5e; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.04em; }
+        .minuta-convenio p { margin-bottom: 0.65rem; text-align: justify; font-size: 11px; line-height: 1.65; }
+        .minuta-convenio .paragrafo { margin-left: 1.25rem; margin-top: 0.4rem; }
+        .minuta-convenio .paragrafo p { margin-bottom: 0.3rem; font-size: 10.5px; }
+        .minuta-convenio strong { font-weight: 700; color: #0f2a5e; }
+        .minuta-convenio .partes-bloco { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; font-size: 10.5px; }
+        .minuta-convenio .partes-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 0.25rem; }
+        .minuta-convenio .assinatura-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
         .minuta-convenio .assinatura-item { text-align: center; }
-        .minuta-convenio .assinatura-linha { border-top: 2px solid #374151; padding-top: 0.5rem; margin-top: 2.5rem; }
-        .minuta-convenio .assinatura-logo { height: 32px; object-fit: contain; margin-bottom: 0.5rem; display: block; margin-left: auto; margin-right: auto; }
-        .minuta-convenio .assinatura-nome { font-weight: 700; font-size: 0.78rem; }
-        .minuta-convenio .assinatura-cargo { font-size: 0.72rem; color: #64748b; }
-        .minuta-convenio .assinatura-cnpj { font-size: 0.7rem; color: #94a3b8; }
-        .minuta-convenio .local-data { text-align: center; color: #64748b; font-size: 0.78rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .minuta-convenio .assinatura-linha { border-top: 1px solid #333; min-height: 60px; margin-bottom: 6px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; }
+        .minuta-convenio .assinatura-carimbo { max-height: 70px; max-width: 180px; object-fit: contain; display: block; margin: 0 auto 4px; }
+        .minuta-convenio .assinatura-logo-box { background: #0f2a5e; border-radius: 6px; padding: 5px 10px; display: inline-block; margin-bottom: 4px; }
+        .minuta-convenio .assinatura-logo-box img { height: 22px; object-fit: contain; display: block; }
+        .minuta-convenio .assinatura-nome { font-weight: 700; font-size: 9.5px; }
+        .minuta-convenio .assinatura-cargo { font-size: 8.5px; color: #64748b; }
+        .minuta-convenio .assinatura-cnpj { font-size: 8px; color: #94a3b8; }
+        .minuta-convenio .local-data { text-align: right; color: #64748b; font-size: 10px; margin-top: 1.5rem; margin-bottom: 0.5rem; font-style: italic; }
+        .minuta-convenio .watermark-text { text-align: center; color: #94a3b8; font-size: 8px; margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 6px; }
       `}</style>
 
-      {/* CABEÇALHO */}
+      {/* CABEÇALHO — estilo documento institucional */}
       <div className="minuta-header">
-        {smarter.logoDocUrl && (
-          <img src={smarter.logoDocUrl} alt="Smarter Estágios" className="minuta-logo" />
-        )}
-        <h1>Convênio de Estágio</h1>
-        <h2>Instrumento Particular de Convênio de Integração de Estágio — Lei n.º 11.788/2008</h2>
+        <div className="minuta-header-logo">
+          {smarter.logoDocUrl
+            ? <img src={smarter.logoDocUrl} alt="Smarter Estágios" />
+            : <span className="minuta-header-logo-placeholder">S</span>
+          }
+        </div>
+        <div className="minuta-header-title">
+          <div className="minuta-doc-title">Convênio de Estágio</div>
+          <div className="minuta-doc-sub">Instrumento Particular — Lei n.º 11.788/2008</div>
+        </div>
       </div>
 
       {/* QUALIFICAÇÃO DAS PARTES */}
@@ -278,48 +290,55 @@ export default function MinutaConvenio({ ies, smarter, dataAssinatura, assinante
 
       {/* BLOCO DE ASSINATURAS */}
       {modo === "assinado" && assinanteName ? (
-        <div className="mt-8 p-5 bg-green-50 border border-green-200 rounded-xl">
-          <p className="text-xs text-green-700 font-bold mb-2">✅ DOCUMENTO ASSINADO ELETRONICAMENTE</p>
-          <p className="text-xs text-green-800">
-            Assinado por: <strong>{assinanteName}</strong> em {dataFormatada}
-          </p>
-          {protocolo && <p className="text-xs text-green-700 mt-1">Protocolo: <code className="font-mono">{protocolo}</code></p>}
-          <p className="text-[10px] text-green-600 mt-2">
-            Assinatura eletrônica com validade jurídica nos termos do art. 10, § 2.º, da MP n.º 2.200-2/2001
-            e da Lei n.º 14.063/2020. IP, data/hora e identificação do assinante registrados para fins de
-            autenticidade e não-repúdio (Cláusula Décima Segunda).
-          </p>
-          {/* Assinatura Smarter (lado direito) */}
-          <div className="mt-4 pt-3 border-t border-green-200 text-right">
-            {smarter.logoDocUrl && (
-              <img src={smarter.logoDocUrl} alt="Smarter" style={{height:"24px",objectFit:"contain",marginLeft:"auto",marginBottom:"4px"}} />
-            )}
-            <p className="text-xs font-bold text-green-800">{smarter.razaoSocial || "SMARTER ESTÁGIOS AGENTE DE INTEGRAÇÃO LTDA."}</p>
-            <p className="text-[10px] text-green-700">{smarter.responsavel || "Representante Legal"} — AGENTE</p>
+        <>
+          <div className="assinatura-grid">
+            {/* Smarter — ASSINADO */}
+            <div className="assinatura-item">
+              <div className="assinatura-linha">
+                {smarter.assinaturaUrl && (
+                  <img src={smarter.assinaturaUrl} alt="Assinatura Smarter" className="assinatura-carimbo" />
+                )}
+              </div>
+              <p className="assinatura-nome">{smarter.razaoSocial || "SMARTER ESTÁGIOS AGENTE DE INTEGRAÇÃO LTDA."}</p>
+              <p className="assinatura-cargo">{smarter.responsavel || "Vinicius Miranda de Freitas Paiva"}</p>
+              <p className="assinatura-cargo">{smarter.cargoResponsavel || "Diretor(a)"} — AGENTE DE INTEGRAÇÃO</p>
+              <p className="assinatura-cnpj">CNPJ: {cnpjSmarter}</p>
+            </div>
+            {/* IES — ASSINADO */}
+            <div className="assinatura-item">
+              <div className="assinatura-linha"></div>
+              <p className="assinatura-nome">{ies.razaoSocial || ies.name}</p>
+              <p className="assinatura-cargo">{assinanteName}</p>
+              <p className="assinatura-cargo">CONCEDENTE</p>
+              <p className="assinatura-cnpj">CNPJ: {cnpjIES}</p>
+            </div>
           </div>
-        </div>
+          <div className="watermark-text">
+            ✅ Documento assinado eletronicamente em {dataFormatada} — validade jurídica conforme art. 10, §2.º, MP n.º 2.200-2/2001 e Lei n.º 14.063/2020
+            {protocolo && ` — Protocolo: ${protocolo}`}
+          </div>
+        </>
       ) : modo === "visualizacao" ? (
         <div className="assinatura-grid">
           {/* Smarter */}
           <div className="assinatura-item">
             <div className="assinatura-linha">
-              {smarter.logoDocUrl && (
-                <img src={smarter.logoDocUrl} alt="Smarter" className="assinatura-logo" />
+              {smarter.assinaturaUrl && (
+                <img src={smarter.assinaturaUrl} alt="Assinatura Smarter" className="assinatura-carimbo" />
               )}
-              <p className="assinatura-nome">{smarter.razaoSocial || "SMARTER ESTÁGIOS AGENTE DE INTEGRAÇÃO LTDA."}</p>
-              <p className="assinatura-cargo">{smarter.responsavel || "Representante Legal"}</p>
-              <p className="assinatura-cargo">AGENTE DE INTEGRAÇÃO</p>
-              <p className="assinatura-cnpj">CNPJ: {cnpjSmarter}</p>
             </div>
+            <p className="assinatura-nome">{smarter.razaoSocial || "SMARTER ESTÁGIOS AGENTE DE INTEGRAÇÃO LTDA."}</p>
+            <p className="assinatura-cargo">{smarter.responsavel || "Vinicius Miranda de Freitas Paiva"}</p>
+            <p className="assinatura-cargo">{smarter.cargoResponsavel || "Diretor(a)"} — AGENTE DE INTEGRAÇÃO</p>
+            <p className="assinatura-cnpj">CNPJ: {cnpjSmarter}</p>
           </div>
           {/* IES */}
           <div className="assinatura-item">
-            <div className="assinatura-linha">
-              <p className="assinatura-nome">{ies.razaoSocial || ies.name}</p>
-              <p className="assinatura-cargo">{ies.coordenador || "Representante Legal"}</p>
-              <p className="assinatura-cargo">{ies.cargoCoord || "CONCEDENTE"}</p>
-              <p className="assinatura-cnpj">CNPJ: {cnpjIES}</p>
-            </div>
+            <div className="assinatura-linha"></div>
+            <p className="assinatura-nome">{ies.razaoSocial || ies.name}</p>
+            <p className="assinatura-cargo">{ies.coordenador || "Representante Legal"}</p>
+            <p className="assinatura-cargo">{ies.cargoCoord || "CONCEDENTE"}</p>
+            <p className="assinatura-cnpj">CNPJ: {cnpjIES}</p>
           </div>
         </div>
       ) : null}

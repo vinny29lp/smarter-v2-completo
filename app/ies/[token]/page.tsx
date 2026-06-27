@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import MinutaConvenio from "@/components/ies/MinutaConvenio";
 
 type Etapa = "landing" | "documentos" | "minuta" | "assinatura" | "concluido";
+type TipoMinuta = "smarter" | "propria";
 
 export default function IESPortalPage() {
   const { token } = useParams<{ token: string }>();
@@ -14,8 +15,10 @@ export default function IESPortalPage() {
   const [etapa, setEtapa] = useState<Etapa>("landing");
   const [minutaLida, setMinutaLida] = useState(false);
   const [form, setForm] = useState({ nome: "", cpf: "", email: "", confirmaLeitura: false, confirmaAutoridade: false });
+  const [tipoMinuta, setTipoMinuta] = useState<TipoMinuta>("smarter");
   const [minutaPropria, setMinutaPropria] = useState(false);
   const [observacaoMinuta, setObservacaoMinuta] = useState("");
+  const [arquivoMinuta, setArquivoMinuta] = useState<File | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const minutaRef = useRef<HTMLDivElement>(null);
@@ -37,25 +40,43 @@ export default function IESPortalPage() {
 
   const assinar = async () => {
     if (!form.nome || !form.cpf || !form.email) return;
-    if (!minutaPropria && (!form.confirmaLeitura || !form.confirmaAutoridade)) return;
+    const isPropria = tipoMinuta === "propria";
+    if (!isPropria && (!form.confirmaLeitura || !form.confirmaAutoridade)) return;
+    if (isPropria && !arquivoMinuta) return;
     setEnviando(true);
-    const r = await fetch(`/api/ies/${token}/assinar`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        assinanteName: form.nome,
-        assinanteCpf: form.cpf,
-        assinanteEmail: form.email,
-        confirmaLeitura: form.confirmaLeitura,
-        confirmaAutoridade: form.confirmaAutoridade,
-        minutaPropria,
-        observacao: observacaoMinuta,
-      }),
-    });
+    setErro("");
+
+    let r: Response;
+    if (isPropria) {
+      // Fluxo minuta própria: multipart com PDF
+      const fd = new FormData();
+      fd.append("assinanteName", form.nome);
+      fd.append("assinanteCpf", form.cpf);
+      fd.append("assinanteEmail", form.email);
+      fd.append("observacao", observacaoMinuta);
+      fd.append("arquivo", arquivoMinuta!);
+      r = await fetch(`/api/ies/${token}/minuta-propria`, { method: "POST", body: fd });
+    } else {
+      r = await fetch(`/api/ies/${token}/assinar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assinanteName: form.nome,
+          assinanteCpf: form.cpf,
+          assinanteEmail: form.email,
+          confirmaLeitura: form.confirmaLeitura,
+          confirmaAutoridade: form.confirmaAutoridade,
+          minutaPropria: false,
+        }),
+      });
+    }
+
     const d = await r.json();
     setEnviando(false);
     if (d.error) { setErro(d.error); return; }
     setResultado(d);
+    // Sync state for concluido screen
+    setMinutaPropria(isPropria);
     setEtapa("concluido");
   };
 
@@ -102,17 +123,41 @@ export default function IESPortalPage() {
         </div>
         {isMinutaPropria ? (
           <>
-            <h1 className="text-2xl font-black text-gray-800 mb-2">Solicitação recebida! 📋</h1>
+            <h1 className="text-2xl font-black text-gray-800 mb-2">
+              {resultado?.autentiqueLinkIES ? "Documento enviado ao Autentique! 📨" : "Solicitação recebida! 📋"}
+            </h1>
             <p className="text-gray-500 mb-6">
-              Nossa equipe de convênios recebeu sua solicitação e entrará em contato em breve para tratar a minuta da <strong>{ies.name}</strong>.
+              {resultado?.autentiqueLinkIES
+                ? <>Verifique seu e-mail para acessar o link de assinatura do documento da <strong>{ies.name}</strong>.</>
+                : <>Nossa equipe de convênios recebeu sua solicitação e entrará em contato em breve para tratar a minuta da <strong>{ies.name}</strong>.</>
+              }
             </p>
+            {resultado?.autentiqueLinkIES && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 text-left">
+                <p className="text-xs text-amber-600 font-bold mb-2">🔗 LINK DE ASSINATURA (AUTENTIQUE)</p>
+                <a href={resultado.autentiqueLinkIES} target="_blank" rel="noopener noreferrer"
+                  className="text-sm font-bold text-[#0f2a5e] underline break-all">{resultado.autentiqueLinkIES}</a>
+                <p className="text-xs text-amber-700 mt-2">Vinicius Miranda (Smarter) receberá o link separado para contrassinatura.</p>
+              </div>
+            )}
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-left">
               <p className="text-xs text-amber-600 font-bold mb-2">⏳ PRÓXIMOS PASSOS</p>
               <div className="space-y-1.5 text-sm text-amber-800">
-                <p>📩 E-mail enviado para convenios@smarterestagios.com.br</p>
-                <p>📞 Consultor entrará em contato em até 2 dias úteis</p>
-                <p>📄 Você nos enviará a minuta da sua instituição</p>
-                <p>✅ Assinatura presencial ou por Autentique</p>
+                {resultado?.autentiqueLinkIES ? (
+                  <>
+                    <p>✅ PDF enviado ao Autentique com dados preenchidos</p>
+                    <p>📧 Link de assinatura enviado para seu e-mail</p>
+                    <p>🖊️ Vinicius Miranda (Smarter) contrassina via convenios@</p>
+                    <p>📄 Documento final disponível para ambas as partes</p>
+                  </>
+                ) : (
+                  <>
+                    <p>📩 E-mail enviado para convenios@smarterestagios.com.br</p>
+                    <p>📞 Consultor entrará em contato em até 2 dias úteis</p>
+                    <p>📄 Envio ao Autentique será processado manualmente</p>
+                    <p>✅ Assinatura eletrônica por ambas as partes</p>
+                  </>
+                )}
               </div>
             </div>
           </>
@@ -372,19 +417,26 @@ export default function IESPortalPage() {
           ) : (
             <div className="space-y-3 mb-8">
               {documentos.map((doc: any) => {
-                const icons: Record<string, string> = { CNPJ: "🏢", CPF: "👤", CERTIDAO: "📜", CONTRATO_SOCIAL: "📋", OUTRO: "📎" };
+                const icons: Record<string, string> = { CERTIDAO: "📋", CNPJ: "🏢", ALVARA: "📜", CONTRATO: "📄", OUTRO: "📎" };
+                const vigDias = doc.vigencia ? Math.ceil((new Date(doc.vigencia).getTime() - Date.now()) / 86400000) : null;
                 return (
                   <div key={doc.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{icons[doc.tipo] || "📎"}</span>
                       <div>
                         <p className="font-semibold text-gray-800 text-sm">{doc.nome}</p>
-                        {doc.tamanho && <p className="text-xs text-gray-400">{(doc.tamanho / 1024).toFixed(0)} KB</p>}
+                        {doc.descricao && <p className="text-xs text-gray-400">{doc.descricao}</p>}
+                        {doc.vigencia && (
+                          <p className={`text-xs mt-0.5 ${vigDias !== null && vigDias < 0 ? "text-red-500" : "text-gray-400"}`}>
+                            Validade: {new Date(doc.vigencia).toLocaleDateString("pt-BR")}
+                            {vigDias !== null && vigDias < 0 && " ⚠️ vencido"}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                      className="bg-[#0f2a5e] text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-[#1e4a8f] transition-colors">
-                      Baixar
+                      className="bg-[#0f2a5e] text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-[#1e4a8f] transition-colors flex-shrink-0">
+                      📥 Baixar
                     </a>
                   </div>
                 );
@@ -407,71 +459,140 @@ export default function IESPortalPage() {
         </div>
       )}
 
-      {/* ──────────── ETAPA 3: MINUTA ──────────── */}
+      {/* ──────────── ETAPA 3: CONVÊNIO ──────────── */}
       {etapa === "minuta" && (
         <div className="max-w-3xl mx-auto px-6 py-12">
           <div className="text-center mb-6">
             <div className="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">📄</div>
-            <h2 className="text-2xl font-black text-gray-800">Minuta de Convênio de Estágio</h2>
-            <p className="text-gray-500 mt-2 text-sm">Leia atentamente o convênio abaixo. Ao concluir a leitura, você poderá prosseguir para a assinatura eletrônica.</p>
+            <h2 className="text-2xl font-black text-gray-800">Convênio de Estágio</h2>
+            <p className="text-gray-500 mt-2 text-sm">Escolha como deseja formalizar o convênio com a Smarter Estágios.</p>
           </div>
 
-          <div
-            ref={minutaRef}
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              const chegouFim = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
-              if (chegouFim) setMinutaLida(true);
-            }}
-            className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-h-[70vh] overflow-y-auto mb-4">
-            <MinutaConvenio
-              ies={{
-                name: ies.name,
-                razaoSocial: ies.razaoSocial,
-                cnpj: ies.cnpj,
-                endereco: ies.endereco,
-                cidade: ies.cidade,
-                uf: ies.uf,
-                coordenador: ies.coordenador,
-                cargoCoord: ies.cargoCoord,
-                email: ies.email,
-              }}
-              smarter={{
-                razaoSocial: smarter.razaoSocial,
-                cnpj: smarter.cnpj,
-                endereco: smarter.endereco,
-                cidade: smarter.cidade,
-                uf: smarter.uf,
-                responsavel: smarter.responsavel,
-                email: smarter.email,
-                telefone: smarter.telefone,
-              }}
-              modo="visualizacao"
-            />
+          {/* SELEÇÃO DE TIPO DE MINUTA — no topo da aba */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Qual minuta deseja utilizar?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${tipoMinuta === "smarter" ? "border-[#0f2a5e] bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
+                <input type="radio" checked={tipoMinuta === "smarter"} onChange={() => { setTipoMinuta("smarter"); setMinutaLida(false); }} className="mt-0.5 accent-[#0f2a5e]"/>
+                <div>
+                  <p className="font-bold text-sm text-gray-800">Minuta Smarter</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Use a minuta padrão da Smarter Estágios — processo 100% digital, válida juridicamente.</p>
+                </div>
+              </label>
+              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${tipoMinuta === "propria" ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-gray-300"}`}>
+                <input type="radio" checked={tipoMinuta === "propria"} onChange={() => setTipoMinuta("propria")} className="mt-0.5 accent-amber-500"/>
+                <div>
+                  <p className="font-bold text-sm text-gray-800">Minuta da Instituição</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Prefiro usar a minuta padrão da nossa instituição. Envie o PDF e assinamos via Autentique.</p>
+                </div>
+              </label>
+            </div>
           </div>
 
-          {!minutaLida && (
-            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-              <div className="w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center text-xs text-white flex-shrink-0">↓</div>
-              <p className="text-amber-800 text-xs">Role até o final do documento para habilitar a assinatura.</p>
-            </div>
+          {/* MINUTA SMARTER: leitura do documento */}
+          {tipoMinuta === "smarter" && (
+            <>
+              <div
+                ref={minutaRef}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const chegouFim = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+                  if (chegouFim) setMinutaLida(true);
+                }}
+                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-h-[60vh] overflow-y-auto mb-4">
+                <MinutaConvenio
+                  ies={{
+                    name: ies.name,
+                    razaoSocial: ies.razaoSocial,
+                    cnpj: ies.cnpj,
+                    endereco: ies.endereco,
+                    cidade: ies.cidade,
+                    uf: ies.uf,
+                    coordenador: ies.coordenador,
+                    cargoCoord: ies.cargoCoord,
+                    email: ies.email,
+                  }}
+                  smarter={{
+                    razaoSocial: smarter.razaoSocial,
+                    cnpj: smarter.cnpj,
+                    endereco: smarter.endereco,
+                    cidade: smarter.cidade,
+                    uf: smarter.uf,
+                    responsavel: smarter.responsavel,
+                    cargoResponsavel: smarter.cargoResponsavel,
+                    email: smarter.email,
+                    telefone: smarter.telefone,
+                    logoDocUrl: smarter.logoDocUrl,
+                    assinaturaUrl: smarter.assinaturaUrl,
+                  }}
+                  modo="visualizacao"
+                />
+              </div>
+              {!minutaLida ? (
+                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+                  <div className="w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center text-xs text-white flex-shrink-0">↓</div>
+                  <p className="text-amber-800 text-xs">Role até o final do documento para habilitar a assinatura.</p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4">
+                  <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-xs text-white flex-shrink-0">✓</div>
+                  <p className="text-emerald-800 text-xs font-semibold">Leitura concluída! Você já pode prosseguir para a assinatura.</p>
+                </div>
+              )}
+            </>
           )}
-          {minutaLida && (
-            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4">
-              <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-xs text-white flex-shrink-0">✓</div>
-              <p className="text-emerald-800 text-xs font-semibold">Leitura concluída! Você já pode prosseguir para a assinatura.</p>
+
+          {/* MINUTA PRÓPRIA: upload PDF + dados Smarter preenchidos */}
+          {tipoMinuta === "propria" && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <p className="text-sm font-bold text-gray-700 mb-1">Envie a minuta da sua instituição em PDF</p>
+                <p className="text-xs text-gray-400 mb-4">Nosso sistema preencherá automaticamente os dados do AGENTE e enviará para assinatura eletrônica via Autentique.</p>
+                <label className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all ${arquivoMinuta ? "border-emerald-400 bg-emerald-50" : "border-gray-300 hover:border-amber-400 hover:bg-amber-50"}`}>
+                  <input type="file" accept=".pdf" className="hidden" onChange={e => setArquivoMinuta(e.target.files?.[0] || null)} />
+                  {arquivoMinuta ? (
+                    <>
+                      <div className="text-3xl mb-2">📄</div>
+                      <p className="text-sm font-bold text-emerald-700">{arquivoMinuta.name}</p>
+                      <p className="text-xs text-emerald-600 mt-1">{(arquivoMinuta.size / 1024).toFixed(0)} KB • Clique para trocar</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-3xl mb-2">⬆️</div>
+                      <p className="text-sm font-semibold text-gray-600">Clique para selecionar o PDF</p>
+                      <p className="text-xs text-gray-400 mt-1">Apenas arquivos .pdf</p>
+                    </>
+                  )}
+                </label>
+              </div>
+
+              {/* Dados da Smarter preenchidos automaticamente */}
+              <div className="bg-[#0f2a5e] rounded-2xl p-5 text-white">
+                <p className="text-xs font-bold text-white/60 uppercase tracking-wide mb-3">✅ Dados do AGENTE (preenchidos automaticamente)</p>
+                <div className="space-y-1 text-sm">
+                  <p><span className="opacity-60">Razão Social:</span> <strong>{smarter.razaoSocial || "Smarter Estágios Agente de Integração Ltda."}</strong></p>
+                  <p><span className="opacity-60">CNPJ:</span> <strong>{smarter.cnpj || "—"}</strong></p>
+                  <p><span className="opacity-60">Representante:</span> <strong>{smarter.responsavel || "Vinicius Miranda de Freitas Paiva"}</strong></p>
+                  <p><span className="opacity-60">Endereço:</span> <strong>{smarter.endereco || "—"}{smarter.cidade ? `, ${smarter.cidade}/${smarter.uf}` : ""}</strong></p>
+                  <p><span className="opacity-60">E-mail p/ assinatura:</span> <strong>convenios@smarterestagios.com.br</strong></p>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                ℹ️ Após o envio, você e a equipe da Smarter (<strong>convenios@smarterestagios.com.br</strong>) receberão o link de assinatura pelo Autentique.
+              </div>
             </div>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 mt-6">
             <button onClick={() => setEtapa("documentos")} className="flex-1 border-2 border-gray-200 text-gray-600 font-bold py-3 rounded-2xl hover:bg-gray-50 transition-colors">
               ← Voltar
             </button>
             <button
-              disabled={!minutaLida}
+              disabled={tipoMinuta === "smarter" ? !minutaLida : false}
               onClick={() => setEtapa("assinatura")}
               className="flex-grow bg-[#0f2a5e] text-white font-bold py-3 px-8 rounded-2xl hover:bg-[#1e4a8f] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              Assinar eletronicamente →
+              {tipoMinuta === "smarter" ? "Prosseguir para assinatura →" : "Prosseguir →"}
             </button>
           </div>
         </div>
@@ -482,32 +603,18 @@ export default function IESPortalPage() {
         <div className="max-w-2xl mx-auto px-6 py-12">
           <div className="text-center mb-8">
             <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">✍️</div>
-            <h2 className="text-2xl font-black text-gray-800">Assinatura do Convênio</h2>
+            <h2 className="text-2xl font-black text-gray-800">
+              {tipoMinuta === "propria" ? "Dados para assinatura via Autentique" : "Assinatura do Convênio"}
+            </h2>
             <p className="text-gray-500 mt-2 text-sm">Preencha os dados do representante legal autorizado a assinar pela {ies.name}.</p>
+            {tipoMinuta === "propria" && arquivoMinuta && (
+              <div className="mt-3 inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 text-xs text-emerald-700">
+                📄 <strong>{arquivoMinuta.name}</strong> pronto para envio
+              </div>
+            )}
           </div>
 
           {erro && <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-700">❌ {erro}</div>}
-
-          {/* Seleção: Minuta Smarter ou Minuta Própria */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-4">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Qual minuta deseja utilizar?</p>
-            <div className="grid grid-cols-2 gap-3">
-              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${!minutaPropria ? "border-[#0f2a5e] bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
-                <input type="radio" checked={!minutaPropria} onChange={() => setMinutaPropria(false)} className="mt-0.5 accent-[#0f2a5e]"/>
-                <div>
-                  <p className="font-bold text-sm text-gray-800">Minuta Smarter</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Use a minuta padrão da Smarter Estágios — processo 100% digital, válida juridicamente.</p>
-                </div>
-              </label>
-              <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${minutaPropria ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-gray-300"}`}>
-                <input type="radio" checked={minutaPropria} onChange={() => setMinutaPropria(true)} className="mt-0.5 accent-amber-500"/>
-                <div>
-                  <p className="font-bold text-sm text-gray-800">Minuta da Instituição</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Prefiro usar a minuta padrão da nossa instituição. Nossa equipe entrará em contato.</p>
-                </div>
-              </label>
-            </div>
-          </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
             <div>
@@ -531,8 +638,7 @@ export default function IESPortalPage() {
               </div>
             </div>
 
-            {/* Campos específicos por tipo */}
-            {!minutaPropria ? (
+            {tipoMinuta === "smarter" ? (
               <div className="border-t border-gray-100 pt-4 space-y-3">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input type="checkbox" checked={form.confirmaLeitura} onChange={e => setForm(p => ({ ...p, confirmaLeitura: e.target.checked }))}
@@ -555,7 +661,7 @@ export default function IESPortalPage() {
             ) : (
               <div className="border-t border-amber-100 pt-4">
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 text-xs text-amber-800">
-                  ℹ️ Ao confirmar, nossa equipe de convênios receberá sua solicitação e entrará em contato para tratar a minuta da sua instituição. O envio de e-mail para <strong>convenios@smarterestagios.com.br</strong> será automático.
+                  📩 Após confirmar, o documento PDF será enviado ao Autentique. Você e <strong>convenios@smarterestagios.com.br</strong> receberão o link de assinatura por e-mail.
                 </div>
                 <label className="text-xs font-bold text-gray-600 block mb-1.5">Observações (opcional)</label>
                 <textarea value={observacaoMinuta} onChange={e => setObservacaoMinuta(e.target.value)}
@@ -571,15 +677,20 @@ export default function IESPortalPage() {
               ← Voltar
             </button>
             <button
-              disabled={!form.nome || !form.cpf || !form.email || (!minutaPropria && (!form.confirmaLeitura || !form.confirmaAutoridade)) || enviando}
+              disabled={
+                !form.nome || !form.cpf || !form.email ||
+                (tipoMinuta === "smarter" && (!form.confirmaLeitura || !form.confirmaAutoridade)) ||
+                (tipoMinuta === "propria" && !arquivoMinuta) ||
+                enviando
+              }
               onClick={assinar}
-              className={`flex-grow font-black py-3 px-8 rounded-2xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg text-white ${minutaPropria ? "bg-amber-500 hover:bg-amber-600" : "bg-emerald-600 hover:bg-emerald-700"}`}>
+              className={`flex-grow font-black py-3 px-8 rounded-2xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg text-white ${tipoMinuta === "propria" ? "bg-amber-500 hover:bg-amber-600" : "bg-emerald-600 hover:bg-emerald-700"}`}>
               {enviando ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                  Enviando...
+                  {tipoMinuta === "propria" ? "Enviando ao Autentique..." : "Assinando..."}
                 </span>
-              ) : minutaPropria ? "📨 Enviar solicitação" : "✅ Assinar convênio"}
+              ) : tipoMinuta === "propria" ? "📨 Enviar para assinatura via Autentique" : "✅ Assinar convênio"}
             </button>
           </div>
         </div>

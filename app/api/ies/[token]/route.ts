@@ -31,17 +31,20 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   }
 
   // Busca documentos da Smarter disponíveis para a IES baixar
-  const documentos = await prisma.smarterDocumento.findMany({
-    where: { ativo: true },
-    orderBy: [{ ordem: "asc" }, { createdAt: "asc" }],
-    select: { id: true, nome: true, tipo: true, url: true, tamanho: true },
-  });
+  let documentos: any[] = [];
+  try {
+    documentos = await prisma.smarterDocumento.findMany({
+      where: { ativo: true },
+      orderBy: [{ ordem: "asc" }, { createdAt: "asc" }],
+      select: { id: true, nome: true, tipo: true, url: true, descricao: true, vigencia: true } as any,
+    });
+  } catch { /* tabela pode não existir ainda */ }
 
   // Busca dados do sistema (para exibir logo, nome da Smarter, etc.)
   const config = await prisma.systemConfig.findUnique({
     where: { id: "default" },
-    select: { nomeFantasia: true, razaoSocial: true, cnpj: true, email: true, telefone: true, logoDocUrl: true, responsavel: true, cidade: true, uf: true, endereco: true },
-  });
+    select: { nomeFantasia: true, razaoSocial: true, cnpj: true, email: true, telefone: true, logoDocUrl: true, responsavel: true, cargoResponsavel: true, assinaturaUrl: true, cidade: true, uf: true, endereco: true },
+  } as any);
 
   return NextResponse.json({ institution, documentos, config });
 }
