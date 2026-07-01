@@ -144,23 +144,28 @@ export default function EstudanteDetailPage() {
   const saveEdit = async () => {
     if (!editForm.name) { setMsg("❌ Nome é obrigatório"); return; }
     setEditSaving(true);
-    const res = await fetch(`/api/app/estudantes/${student.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...editForm,
-        menorDeIdade: editForm.menorDeIdade,
-        nomeResponsavel: editForm.menorDeIdade ? (editForm.nomeResponsavel || null) : null,
-      }),
-    });
-    const data = await res.json();
-    setEditSaving(false);
-    if (data.error) {
-      setMsg("❌ " + data.error);
-    } else {
-      setMsg("✅ Dados atualizados com sucesso!");
-      setEditModal(false);
-      loadStudent();
+    try {
+      const res = await fetch(`/api/app/estudantes/${student.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...editForm,
+          menorDeIdade: editForm.menorDeIdade,
+          nomeResponsavel: editForm.menorDeIdade ? (editForm.nomeResponsavel || null) : null,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setMsg("❌ " + data.error);
+      } else {
+        setMsg("✅ Dados atualizados com sucesso!");
+        setEditModal(false);
+        loadStudent();
+      }
+    } catch {
+      setMsg("❌ Erro ao salvar. Tente novamente.");
+    } finally {
+      setEditSaving(false);
     }
   };
 

@@ -87,13 +87,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   for (const key of allowed) {
     if (body[key] !== undefined) data[key] = body[key];
   }
+  // institutionId vazio ("") não é um FK válido — normaliza para null
+  if (data.institutionId === "") data.institutionId = null;
   // Franqueadora pode atualizar status diretamente (já validado acima)
   if (body.status !== undefined && role === "FRANQUEADORA") {
     data.status = body.status;
   }
 
-  const estudante = await prisma.student.update({ where: { id: params.id }, data });
-  return NextResponse.json({ estudante });
+  try {
+    const estudante = await prisma.student.update({ where: { id: params.id }, data });
+    return NextResponse.json({ estudante });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "Erro ao atualizar estudante." }, { status: 500 });
+  }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {

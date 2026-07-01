@@ -5,6 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { handleApiError } from "@/lib/api-response";
 import { enviarConvenioFirmadoIES, enviarMiniutaPropriaParaSmarter } from "@/lib/email";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+
+// Gera senha legível tipo "SMTR-A3F-9K2"
+function gerarSenhaPortal(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const seg = (n: number) => Array.from({ length: n }, () => chars[crypto.randomInt(chars.length)]).join("");
+  return `SMTR-${seg(3)}-${seg(3)}`;
+}
 
 export async function POST(req: Request, { params }: { params: { token: string } }) {
   try {
@@ -103,6 +112,10 @@ export async function POST(req: Request, { params }: { params: { token: string }
       tokenUsado: params.token,
     };
 
+    // Gerar credenciais de acesso ao portal
+    const senhaPlain = gerarSenhaPortal();
+    const senhaHash = await bcrypt.hash(senhaPlain, 10);
+
     const updated = await prisma.institution.update({
       where: { token: params.token },
       data: {
@@ -114,7 +127,8 @@ export async function POST(req: Request, { params }: { params: { token: string }
         assinanteIp: ip,
         assinanteUserAgent: userAgent,
         assinaturaLog,
-      },
+        portalSenha: senhaHash,
+      } as any,
     });
 
     const protocolo = Buffer.from(`${institution.id}|${agora.toISOString()}`).toString("base64").slice(0, 24).toUpperCase();
@@ -122,7 +136,7 @@ export async function POST(req: Request, { params }: { params: { token: string }
     // Buscar config Smarter para nome no email
     const config = await prisma.systemConfig.findUnique({ where: { id: "default" }, select: { nomeFantasia: true } });
 
-    // Email de confirmação para a IES (não-blocante)
+    // Email de confirmação com credenciais (não-blocante)
     enviarConvenioFirmadoIES({
       email: body.assinanteEmail.trim().toLowerCase(),
       nomeIES: institution.name,
@@ -130,6 +144,7 @@ export async function POST(req: Request, { params }: { params: { token: string }
       protocolo,
       portalUrl,
       nomeSmarter: config?.nomeFantasia || "Smarter Estágios",
+      senhaPortal: senhaPlain,
     }).catch(() => {});
 
     return NextResponse.json({

@@ -152,6 +152,8 @@ model Institution {
   // Controle de envio do convite
   conviteEnviadoEm     DateTime? @db.Timestamptz(6)
   conviteEnviadoPor    String?   // userId do franqueado
+  // Credenciais de acesso ao portal IES (geradas após assinar convênio)
+  portalSenha          String?   // bcrypt hash da senha enviada por email
   // ─────────────────────────────────────────────────────────────────────────────
 
   contracts   Contract[]

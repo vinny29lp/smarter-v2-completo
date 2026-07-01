@@ -413,7 +413,16 @@ export async function enviarConvenioFirmadoIES(params: {
   protocolo: string;
   portalUrl: string;
   nomeSmarter?: string;
+  senhaPortal?: string; // senha em texto puro (gerada após assinatura)
 }): Promise<boolean> {
+  const credenciaisHtml = params.senhaPortal ? `
+    <div class="box" style="background:#eff6ff;border-color:#93c5fd">
+      <p style="margin:0 0 8px;font-weight:700;color:#1e40af;font-size:13px">🔐 Suas credenciais de acesso ao portal</p>
+      <p style="margin:0 0 4px;font-size:13px;color:#1e40af"><strong>E-mail:</strong> ${params.email}</p>
+      <p style="margin:0;font-size:13px;color:#1e40af"><strong>Senha:</strong> <span style="font-family:monospace;font-size:14px;font-weight:700;letter-spacing:0.1em">${params.senhaPortal}</span></p>
+      <p style="margin:8px 0 0;font-size:11px;color:#60a5fa">Guarde esta senha. Você pode alterá-la a qualquer momento no seu painel.</p>
+    </div>
+  ` : "";
   const corpo = `
     <p class="title">Convênio Firmado com Sucesso! 🎉</p>
     <div class="divider"></div>
@@ -423,9 +432,10 @@ export async function enviarConvenioFirmadoIES(params: {
     <div class="box" style="background:#f0fdf4;border-color:#86efac">
       <p style="margin:0 0 8px;font-weight:700;color:#166534;font-size:13px">✅ Protocolo de Assinatura</p>
       <p style="margin:0;font-family:monospace;font-size:15px;font-weight:700;color:#166534;letter-spacing:0.05em">${params.protocolo}</p>
-      <p style="margin:6px 0 0;font-size:11px;color:#4ade80">Guarde este código como comprovante da assinatura eletrônica.</p>
+      <p style="margin:6px 0 0;font-size:11px;color:#166534">Guarde este código como comprovante da assinatura eletrônica.</p>
     </div>
-    <p>Você pode acompanhar os estágios dos seus alunos diretamente pelo nosso portal:</p>
+    ${credenciaisHtml}
+    <p>Acesse o portal da sua instituição usando o link abaixo:</p>
     <div style="text-align:center;margin:24px 0">
       <a href="${params.portalUrl}" style="background:#0f2a5e;color:white;font-weight:900;font-size:14px;padding:14px 32px;border-radius:12px;text-decoration:none;display:inline-block">
         Acessar Portal da IES →
