@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { BotaoCurriculo } from "@/app/portal-estudante/BotaoCurriculo";
 
 // Parsers defensivos — campo Json do Prisma pode chegar como qualquer tipo
 function toStr(raw: any): string {
@@ -149,9 +150,12 @@ export default function EstudanteCurriculo() {
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-black text-slate-800">Meu Currículo</h1>
-        <Button onClick={save} disabled={saving}>
-          {saving ? "Salvando..." : "💾 Salvar Currículo"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <BotaoCurriculo />
+          <Button onClick={save} disabled={saving}>
+            {saving ? "Salvando..." : "💾 Salvar Currículo"}
+          </Button>
+        </div>
       </div>
 
       {/* Abas */}
@@ -271,7 +275,8 @@ export default function EstudanteCurriculo() {
         )}
       </Card>
 
-      <div className="flex justify-end mt-4">
+      <div className="flex justify-end gap-2 mt-4">
+        <BotaoCurriculo />
         <Button onClick={save} disabled={saving}>
           {saving ? "Salvando..." : "💾 Salvar Currículo"}
         </Button>
