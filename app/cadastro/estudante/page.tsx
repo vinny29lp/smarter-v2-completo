@@ -37,21 +37,30 @@ function CadastroContent() {
   const handleSubmit = async () => {
     if (!form.nome||!form.email||!form.curso) { setError("Preencha: Nome, E-mail e Curso."); return; }
     setLoading(true); setError("");
-    const habilidadesList = form.habilidades.split(",").map(h=>h.trim()).filter(Boolean);
-    const res = await fetch("/api/public/estudante", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        ...form,
-        habilidades: habilidadesList,
-        franchiseRef: ref,
-        experiencias: form.experiencias ? [{ descricao: form.experiencias }] : [],
-        idiomas: form.idiomas ? form.idiomas.split(",").map(i=>({idioma:i.trim()})) : [],
-      }),
-    });
-    const data = await res.json();
-    if (data.error) { setError(data.error); setLoading(false); return; }
-    setDone({ email: data.email, senha: data.senha });
-    setLoading(false);
+    try {
+      const habilidadesList = form.habilidades.split(",").map(h=>h.trim()).filter(Boolean);
+      const res = await fetch("/api/public/estudante", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          ...form,
+          habilidades: habilidadesList,
+          franchiseRef: ref,
+          experiencias: form.experiencias ? [{ descricao: form.experiencias }] : [],
+          idiomas: form.idiomas ? form.idiomas.split(",").map(i=>({idioma:i.trim()})) : [],
+        }),
+      });
+      let data: any = {};
+      try { data = await res.json(); } catch { /* resposta não-JSON — tratar como erro */ }
+      if (!res.ok || data.error) {
+        setError(data.error || "Erro ao realizar cadastro. Tente novamente.");
+        return;
+      }
+      setDone({ email: data.email || form.email, senha: data.senha || "" });
+    } catch (e: any) {
+      setError("Falha na conexão. Verifique sua internet e tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (done) return (
@@ -63,8 +72,13 @@ function CadastroContent() {
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left mb-4">
           <p className="text-xs font-bold text-slate-400 mb-2">SEUS DADOS DE ACESSO:</p>
           <p className="text-sm"><strong>Login:</strong> {done.email}</p>
-          <p className="text-sm"><strong>Senha:</strong> {done.senha}</p>
-          <p className="text-xs text-red-500 mt-2">⚠️ Guarde sua senha agora — ela não será exibida novamente.</p>
+          {done.senha
+            ? <>
+                <p className="text-sm"><strong>Senha:</strong> {done.senha}</p>
+                <p className="text-xs text-red-500 mt-2">⚠️ Guarde sua senha agora — ela não será exibida novamente.</p>
+              </>
+            : <p className="text-sm text-slate-600 mt-1">📧 Sua senha foi enviada para <strong>{done.email}</strong>. Verifique sua caixa de entrada (e o spam).</p>
+          }
         </div>
         <a href="/login" className="block w-full text-center bg-[#0f2a5e] text-white py-3 rounded-xl font-bold hover:bg-[#1a3d8f] transition-colors">
           Acessar o Portal →

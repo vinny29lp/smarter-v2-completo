@@ -159,6 +159,14 @@ export function ContratoForm({ franchiseId }: Props) {
   const [menorDeIdade, setMenorDeIdade] = useState(false);
   const [nomeResponsavel, setNomeResponsavel] = useState("");
 
+  // Turnos personalizados — usado quando diasSemana = "Personalizado"
+  // Permite múltiplos blocos de horário para dias diferentes (ex: Seg-Sex 09:50-16:00 + Sáb 10:00-14:00)
+  const [turnos, setTurnos] = useState([{ dias: "", inicio: "08:00", fim: "14:00" }]);
+  const setTurno = (i: number, k: "dias"|"inicio"|"fim", v: string) =>
+    setTurnos(p => p.map((t, idx) => idx === i ? { ...t, [k]: v } : t));
+  const addTurno = () => setTurnos(p => [...p, { dias: "", inicio: "08:00", fim: "14:00" }]);
+  const removeTurno = (i: number) => setTurnos(p => p.filter((_, idx) => idx !== i));
+
   const [form, setForm] = useState({
     studentId: "", companyId: "", institutionId: "",
     tipoEstagio: "Nao Obrigatorio",
@@ -216,8 +224,18 @@ export function ContratoForm({ franchiseId }: Props) {
           }),
         });
       }
+      // Serializa turnos personalizados em diasSemana como JSON para a TCE gerar corretamente
+      const diasSemanaFinal = isDiasPersonalizado
+        ? JSON.stringify(turnos.filter(t => t.dias.trim()))
+        : form.diasSemana;
+      const horarioInicioFinal = isDiasPersonalizado ? (turnos[0]?.inicio || "08:00") : form.horarioInicio;
+      const horarioFimFinal    = isDiasPersonalizado ? (turnos[0]?.fim    || "14:00") : form.horarioFim;
+
       await createContract({
         ...form,
+        diasSemana: diasSemanaFinal,
+        horarioInicio: horarioInicioFinal,
+        horarioFim: horarioFimFinal,
         franchiseId,
         bolsa: parseFloat(form.bolsa),
         valorEmpresa: form.valorEmpresa ? parseFloat(form.valorEmpresa) : null,
@@ -387,16 +405,40 @@ export function ContratoForm({ franchiseId }: Props) {
                 ))}
               </select>
               {isDiasPersonalizado && (
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={form.diasSemana}
-                    onChange={e => set("diasSemana", e.target.value)}
-                    placeholder="Ex: Quarta a Sexta, Seg/Qua/Sex..."
-                    className="w-full border-2 border-blue-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
-                  />
+                <div className="space-y-3 border border-blue-200 bg-blue-50 rounded-xl p-3">
+                  <p className="text-xs font-bold text-blue-700">Turnos personalizados — adicione um bloco por faixa de horário</p>
+                  {turnos.map((t, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Dias</label>
+                        <input
+                          type="text"
+                          value={t.dias}
+                          onChange={e => setTurno(i, "dias", e.target.value)}
+                          placeholder="Ex: Segunda a Sexta"
+                          className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Início</label>
+                        <input type="time" value={t.inicio} onChange={e => setTurno(i, "inicio", e.target.value)}
+                          className="border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e]" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Fim</label>
+                        <input type="time" value={t.fim} onChange={e => setTurno(i, "fim", e.target.value)}
+                          className="border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e]" />
+                      </div>
+                      {turnos.length > 1 && (
+                        <button type="button" onClick={() => removeTurno(i)}
+                          className="text-red-400 hover:text-red-600 text-lg font-bold pb-1">×</button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" onClick={addTurno}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800">+ Adicionar turno</button>
                   <div>
-                    <label className="text-xs font-bold text-slate-600 block mb-1">CH Semanal (horas/semana)</label>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">CH Semanal total (horas/semana)</label>
                     <input
                       type="number"
                       value={form.chSemanal}
@@ -408,8 +450,8 @@ export function ContratoForm({ franchiseId }: Props) {
                 </div>
               )}
             </div>
-            <Input label="Horário Início" type="time" value={form.horarioInicio} onChange={e => set("horarioInicio", e.target.value)} />
-            <Input label="Horário Fim" type="time" value={form.horarioFim} onChange={e => set("horarioFim", e.target.value)} />
+            {!isDiasPersonalizado && <Input label="Horário Início" type="time" value={form.horarioInicio} onChange={e => set("horarioInicio", e.target.value)} />}
+            {!isDiasPersonalizado && <Input label="Horário Fim" type="time" value={form.horarioFim} onChange={e => set("horarioFim", e.target.value)} />}
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Intervalo (minutos)</label>
               <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.intervalo} onChange={e => set("intervalo", e.target.value)}>

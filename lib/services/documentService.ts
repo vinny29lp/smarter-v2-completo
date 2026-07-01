@@ -26,7 +26,6 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
   const DISP_DAYS = [
     "Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado","Domingo"
   ];
-  const diasStr = (contract.diasSemana || "Segunda a Sexta").trim().toLowerCase();
 
   // Lookup map for preset ranges (handles accented characters correctly)
   const PRESET_RANGES: Record<string, number[]> = {
@@ -53,7 +52,6 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
     "sexta a domingo":   [4,5,6],
     "sábado a domingo":  [5,6],
     "sabado a domingo":  [5,6],
-    // Ranges that wrap around the week
     "quinta a segunda":  [3,4,5,6,0],
     "sexta a segunda":   [4,5,6,0],
     "sexta a terça":     [4,5,6,0,1],
@@ -79,27 +77,55 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
     ["sábado", 5], ["sabado", 5], ["domingo", 6],
   ];
 
-  let activeDays = new Set<number>();
-
-  // Try preset lookup first (most accurate)
-  if (PRESET_RANGES[diasStr] !== undefined) {
-    PRESET_RANGES[diasStr].forEach(i => activeDays.add(i));
-  } else {
-    // Fallback: check for individual day keywords
-    DAY_KEYWORDS.forEach(([keyword, idx]) => {
-      if (diasStr.includes(keyword)) activeDays.add(idx);
-    });
+  // Helper: resolve which day indices a "dias" string covers
+  function resolveDias(raw: string): Set<number> {
+    const s = raw.trim().toLowerCase();
+    const active = new Set<number>();
+    if (PRESET_RANGES[s] !== undefined) {
+      PRESET_RANGES[s].forEach(i => active.add(i));
+    } else {
+      DAY_KEYWORDS.forEach(([kw, idx]) => { if (s.includes(kw)) active.add(idx); });
+    }
+    if (active.size === 0) { for (let i = 0; i < 5; i++) active.add(i); }
+    return active;
   }
 
-  // Final fallback: Mon-Fri if nothing detected
-  if (activeDays.size === 0) { for (let i = 0; i < 5; i++) activeDays.add(i); }
+  // horariosMap: dayIndex → {inicio, fim}
+  const horariosMap = new Map<number, {inicio: string; fim: string}>();
 
-  const horarios = ALL_DAYS.map((dia, i) => ({
-    dia: DISP_DAYS[i],
-    inicio: activeDays.has(i) ? (contract.horarioInicio ?? "—") : "—",
-    fim: activeDays.has(i) ? (contract.horarioFim ?? "—") : "—",
-    ativo: activeDays.has(i),
-  }));
+  // Detect multi-turno JSON (format stored by personalizado UI)
+  let parsedTurnos: Array<{dias: string; inicio: string; fim: string}> | null = null;
+  try {
+    const parsed = JSON.parse(contract.diasSemana || "");
+    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0]?.dias === "string") {
+      parsedTurnos = parsed;
+    }
+  } catch { /* not JSON — use legacy text parsing */ }
+
+  if (parsedTurnos) {
+    // Multi-turno mode: each turno can cover different days with its own schedule
+    for (const turno of parsedTurnos) {
+      const dias = resolveDias(turno.dias);
+      dias.forEach(i => horariosMap.set(i, { inicio: turno.inicio || "—", fim: turno.fim || "—" }));
+    }
+  } else {
+    // Legacy single-schedule mode
+    const activeDays = resolveDias(contract.diasSemana || "Segunda a Sexta");
+    activeDays.forEach(i => horariosMap.set(i, {
+      inicio: contract.horarioInicio ?? "—",
+      fim: contract.horarioFim ?? "—",
+    }));
+  }
+
+  const horarios = ALL_DAYS.map((dia, i) => {
+    const h = horariosMap.get(i);
+    return {
+      dia: DISP_DAYS[i],
+      inicio: h?.inicio ?? "—",
+      fim: h?.fim ?? "—",
+      ativo: horariosMap.has(i),
+    };
+  });
 
   // Use SystemConfig (admin settings) as primary source for Smarter company data
   const smarter = {

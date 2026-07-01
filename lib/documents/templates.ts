@@ -235,7 +235,30 @@ export function gerarTCE(c: ContratoData): string {
     return dias.length === 5 && dias[0].startsWith("Segunda") && dias[4].startsWith("Sexta")
       ? "de segunda a sexta-feira" : dias.join(", ");
   })();
-  const jornadaDesc = `${diasDesc}, das ${est.horarios.find((h:any) => h.inicio !== "—")?.inicio || "—"} às ${est.horarios.find((h:any) => h.fim !== "—")?.fim || "—"}`;
+  // Agrupa dias ativos por faixa de horário para descrever múltiplos turnos corretamente
+  const jornadaDesc = (() => {
+    const ativos = (est.horarios as any[]).filter(h => h.ativo && h.inicio && h.inicio !== "—");
+    if (!ativos.length) return `${diasDesc}, horário a definir`;
+    // Verificar se todos os dias têm o mesmo horário
+    const uniqueKeys = [...new Set(ativos.map((h:any) => `${h.inicio}|${h.fim}`))];
+    if (uniqueKeys.length === 1) {
+      return `${diasDesc}, das ${ativos[0].inicio} às ${ativos[0].fim}`;
+    }
+    // Múltiplos turnos: agrupar dias por horário
+    const groups = new Map<string, string[]>();
+    ativos.forEach((h:any) => {
+      const key = `${h.inicio}|${h.fim}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(h.dia.replace("-feira",""));
+    });
+    const parts: string[] = [];
+    groups.forEach((dias, key) => {
+      const [ini, fim] = key.split("|");
+      const label = dias.length > 1 ? `${dias[0]} a ${dias[dias.length-1]}` : dias[0];
+      parts.push(`${label} das ${ini} às ${fim}`);
+    });
+    return parts.join("; ");
+  })();
 
   // Parse activities into a list
   const actList = est.atividades.split(/[;()\d+\.]/).map(a => a.trim()).filter(a => a.length > 10);
