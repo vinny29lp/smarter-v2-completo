@@ -89,6 +89,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
   // institutionId vazio ("") não é um FK válido — normaliza para null
   if (data.institutionId === "") data.institutionId = null;
+  // dataNasc vem como "YYYY-MM-DD" do front — Prisma exige DateTime ISO-8601
+  if (data.dataNasc && typeof data.dataNasc === "string" && !data.dataNasc.includes("T")) {
+    data.dataNasc = new Date(data.dataNasc + "T12:00:00.000Z");
+  }
   // Franqueadora pode atualizar status diretamente (já validado acima)
   if (body.status !== undefined && role === "FRANQUEADORA") {
     data.status = body.status;
