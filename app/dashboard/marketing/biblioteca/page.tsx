@@ -3,8 +3,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
-  Search, SlidersHorizontal, Download, Heart, Copy, ExternalLink, Check,
-  Star, Library, X, ChevronDown, Instagram, MessageCircle, Mail, Linkedin
+  Search, Download, Heart, Copy, ExternalLink, Check,
+  Star, Library, X, MessageCircle, Mail, Link2, Briefcase
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -33,8 +33,8 @@ const TIPOS = [
 ];
 
 const CANAL_ICON: Record<string, any> = {
-  instagram: Instagram,
-  linkedin: Linkedin,
+  instagram: Link2,
+  linkedin: Briefcase,
   whatsapp: MessageCircle,
   email: Mail,
 };
