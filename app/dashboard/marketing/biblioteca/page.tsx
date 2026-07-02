@@ -282,8 +282,8 @@ export default function BibliotecaPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     {c.isFixo
-                      ? <Lock size={10} className="text-green-500" title="Conteúdo fixo" />
-                      : <RotateCcw size={10} className="text-blue-400" title="Conteúdo rotativo" />}
+                      ? <span title="Conteúdo fixo"><Lock size={10} className="text-green-500" /></span>
+                      : <span title="Conteúdo rotativo"><RotateCcw size={10} className="text-blue-400" /></span>}
                     {c.canalIdeal && (() => {
                       const Icon = CANAL_ICON[c.canalIdeal];
                       return Icon ? <Icon size={12} className="text-slate-400" /> : null;
