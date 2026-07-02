@@ -17,7 +17,6 @@ export async function GET(req: Request) {
     const mes  = searchParams.get("mes");
     const ano  = searchParams.get("ano");
 
-    const db = prisma as any;
     let where: any = {};
 
     if (mes && ano) {
@@ -31,7 +30,7 @@ export async function GET(req: Request) {
       where = { data: { gte: hoje, lte: fim } };
     }
 
-    const eventos = await db.marketingCalendario.findMany({
+    const eventos = await prisma.marketingCalendario.findMany({
       where,
       include: {
         campanha: { select: { id: true, nome: true, cor: true } },
@@ -61,8 +60,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Título e data são obrigatórios." }, { status: 400 });
     }
 
-    const db = prisma as any;
-    const evento = await db.marketingCalendario.create({
+    const evento = await prisma.marketingCalendario.create({
       data: {
         titulo, descricao,
         data: new Date(data),

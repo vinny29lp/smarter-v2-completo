@@ -13,8 +13,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const db = prisma as any;
-    const noticias = await db.marketingNoticia.findMany({
+    const noticias = await prisma.marketingNoticia.findMany({
       orderBy: [{ importante: "desc" }, { publicadoEm: "desc" }],
       take: 50,
     });
@@ -40,8 +39,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Título e corpo são obrigatórios." }, { status: 400 });
     }
 
-    const db = prisma as any;
-    const noticia = await db.marketingNoticia.create({
+    const noticia = await prisma.marketingNoticia.create({
       data: { titulo, corpo, resumo, thumbUrl, autor, importante: importante || false },
     });
 

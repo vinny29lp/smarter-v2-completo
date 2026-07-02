@@ -10,8 +10,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const db = prisma as any;
-    const conteudo = await db.marketingConteudo.findUnique({
+    const conteudo = await prisma.marketingConteudo.findUnique({
       where: { id: params.id },
       include: {
         campanha: { select: { id: true, nome: true, cor: true } },
@@ -21,12 +20,12 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (!conteudo) return NextResponse.json({ error: "Não encontrado." }, { status: 404 });
 
     // Incrementar visualizações
-    await db.marketingConteudo.update({
+    await prisma.marketingConteudo.update({
       where: { id: params.id },
       data: { visualizacoes: { increment: 1 } },
     });
 
-    const isFavorito = await db.marketingFavorito.findUnique({
+    const isFavorito = await prisma.marketingFavorito.findUnique({
       where: { conteudoId_userId: { conteudoId: params.id, userId: session.user.id } },
     });
 
@@ -48,8 +47,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   try {
     const body = await req.json();
-    const db = prisma as any;
-    const conteudo = await db.marketingConteudo.update({
+    const conteudo = await prisma.marketingConteudo.update({
       where: { id: params.id },
       data: {
         ...(body.titulo !== undefined && { titulo: body.titulo }),
@@ -86,8 +84,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   }
 
   try {
-    const db = prisma as any;
-    await db.marketingConteudo.delete({ where: { id: params.id } });
+    await prisma.marketingConteudo.delete({ where: { id: params.id } });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("[marketing/conteudos/id] DELETE:", e?.message);

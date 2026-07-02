@@ -42,8 +42,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const db = prisma as any;
-    let conteudos = await db.marketingConteudo.findMany({
+    let conteudos = await prisma.marketingConteudo.findMany({
       where,
       include: {
         campanha: { select: { id: true, nome: true, cor: true } },
@@ -54,7 +53,7 @@ export async function GET(req: Request) {
     });
 
     // Busca favoritos do usuário UMA ÚNICA VEZ e reutiliza para filtro + flag
-    const favsUser = await db.marketingFavorito.findMany({
+    const favsUser = await prisma.marketingFavorito.findMany({
       where: { userId: session.user.id },
       select: { conteudoId: true },
     });
@@ -92,8 +91,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "titulo, tipo e categoria são obrigatórios." }, { status: 400 });
     }
 
-    const db = prisma as any;
-    const conteudo = await db.marketingConteudo.create({
+    const conteudo = await prisma.marketingConteudo.create({
       data: {
         titulo, descricao, tipo,
         formato: formato || "IMAGEM",

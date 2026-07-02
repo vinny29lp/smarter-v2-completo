@@ -13,14 +13,13 @@ export async function GET(req: Request) {
   }
 
   try {
-    const db = prisma as any;
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") || "";
 
     const where: any = {};
     if (status) where.status = status;
 
-    const campanhas = await db.marketingCampanha.findMany({
+    const campanhas = await prisma.marketingCampanha.findMany({
       where,
       include: {
         _count: { select: { conteudos: true, calendario: true } },
@@ -48,8 +47,7 @@ export async function POST(req: Request) {
     const { nome, descricao, objetivo, status, inicioAt, fimAt, cor } = await req.json();
     if (!nome) return NextResponse.json({ error: "Nome obrigatório." }, { status: 400 });
 
-    const db = prisma as any;
-    const campanha = await db.marketingCampanha.create({
+    const campanha = await prisma.marketingCampanha.create({
       data: {
         nome, descricao, objetivo,
         status: status || "ATIVA",

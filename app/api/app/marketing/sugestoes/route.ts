@@ -23,8 +23,7 @@ export async function GET(req: Request) {
     const sugestoes: any[] = [];
 
     // ─── Sugestão 1: Datas comemorativas nos próximos 15 dias ───────────────
-    const db = prisma as any;
-    const datas = await db.marketingCalendario.findMany({
+    const datas = await prisma.marketingCalendario.findMany({
       where: {
         tipo: "DATA_COMEMORATIVA",
         data: {

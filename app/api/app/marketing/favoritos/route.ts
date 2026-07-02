@@ -14,18 +14,17 @@ export async function POST(req: Request) {
     const { conteudoId } = await req.json();
     if (!conteudoId) return NextResponse.json({ error: "conteudoId obrigatório." }, { status: 400 });
 
-    const db = prisma as any;
-    const existing = await db.marketingFavorito.findUnique({
+    const existing = await prisma.marketingFavorito.findUnique({
       where: { conteudoId_userId: { conteudoId, userId: session.user.id } },
     });
 
     if (existing) {
-      await db.marketingFavorito.delete({
+      await prisma.marketingFavorito.delete({
         where: { conteudoId_userId: { conteudoId, userId: session.user.id } },
       });
       return NextResponse.json({ favorito: false });
     } else {
-      await db.marketingFavorito.create({
+      await prisma.marketingFavorito.create({
         data: { conteudoId, userId: session.user.id },
       });
       return NextResponse.json({ favorito: true });

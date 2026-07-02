@@ -14,10 +14,9 @@ export async function POST(req: Request) {
     const { conteudoId } = await req.json();
     if (!conteudoId) return NextResponse.json({ error: "conteudoId obrigatório." }, { status: 400 });
 
-    const db = prisma as any;
 
     // Log do download
-    await db.marketingDownload.create({
+    await prisma.marketingDownload.create({
       data: {
         conteudoId,
         userId: session.user.id,
@@ -26,7 +25,7 @@ export async function POST(req: Request) {
     });
 
     // Incrementar contador
-    await db.marketingConteudo.update({
+    await prisma.marketingConteudo.update({
       where: { id: conteudoId },
       data: { totalDownloads: { increment: 1 } },
     });
@@ -49,13 +48,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    const db = prisma as any;
     const { searchParams } = new URL(req.url);
     const periodo = searchParams.get("periodo") || "30"; // dias
     const desde = new Date();
     desde.setDate(desde.getDate() - parseInt(periodo));
 
-    const downloads = await db.marketingDownload.groupBy({
+    const downloads = await prisma.marketingDownload.groupBy({
       by: ["conteudoId", "franchiseId"],
       where: { createdAt: { gte: desde } },
       _count: { id: true },
@@ -65,7 +63,7 @@ export async function GET(req: Request) {
 
     // Buscar nomes dos conteúdos
     const conteudoIds = [...new Set(downloads.map((d: any) => d.conteudoId))];
-    const conteudos = await db.marketingConteudo.findMany({
+    const conteudos = await prisma.marketingConteudo.findMany({
       where: { id: { in: conteudoIds } },
       select: { id: true, titulo: true, tipo: true, categoria: true },
     });
