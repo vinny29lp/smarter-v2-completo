@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { titulo, descricao, tipo, formato, categoria, tags, url, thumbUrl, texto,
-            hashtags, canalIdeal, publicoPara, destaque, campanhaId } = body;
+            hashtags, canalIdeal, publicoPara, destaque, campanhaId, isFixo, tamanhoKb } = body;
 
     if (!titulo || !tipo || !categoria) {
       return NextResponse.json({ error: "titulo, tipo e categoria são obrigatórios." }, { status: 400 });
@@ -100,6 +100,8 @@ export async function POST(req: Request) {
         url, thumbUrl, texto, hashtags, canalIdeal,
         publicoPara: publicoPara || "TODOS",
         destaque: destaque || false,
+        isFixo: isFixo || false,
+        tamanhoKb: tamanhoKb || null,
         campanhaId: campanhaId || null,
       },
     });

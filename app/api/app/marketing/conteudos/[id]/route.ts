@@ -64,6 +64,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         ...(body.publicoPara !== undefined && { publicoPara: body.publicoPara }),
         ...(body.ativo !== undefined && { ativo: body.ativo }),
         ...(body.destaque !== undefined && { destaque: body.destaque }),
+        ...(body.isFixo !== undefined && { isFixo: body.isFixo }),
+        ...(body.tamanhoKb !== undefined && { tamanhoKb: body.tamanhoKb }),
         ...(body.campanhaId !== undefined && { campanhaId: body.campanhaId || null }),
       },
     });

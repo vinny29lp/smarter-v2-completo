@@ -17,15 +17,15 @@ export default function MarketingHubPage() {
       fetch("/api/app/marketing/sugestoes").then(r => r.json()).catch(() => ({ sugestoes: [] })),
       fetch("/api/app/marketing/conteudos?destaque=true").then(r => r.json()).catch(() => ({ conteudos: [] })),
       fetch("/api/app/marketing/noticias").then(r => r.json()).catch(() => ({ noticias: [] })),
-      fetch("/api/app/marketing/conteudos").then(r => r.json()).catch(() => ({ conteudos: [], total: 0 })),
+      fetch("/api/app/marketing/stats").then(r => r.json()).catch(() => ({ totalConteudos: 0, totalDownloads: 0 })),
       fetch("/api/app/marketing/campanhas").then(r => r.json()).catch(() => ({ campanhas: [] })),
-    ]).then(([s, d, n, all, c]) => {
+    ]).then(([s, d, n, st, c]) => {
       setSugestoes((s.sugestoes || []).slice(0, 4));
       setConteudosDestaque((d.conteudos || []).slice(0, 6));
       setNoticias((n.noticias || []).slice(0, 3));
       setStats({
-        totalConteudos: all.total || 0,
-        totalDownloads: (all.conteudos || []).reduce((acc: number, c: any) => acc + (c.totalDownloads || 0), 0),
+        totalConteudos: st.totalConteudos || 0,
+        totalDownloads: st.totalDownloads || 0,
         totalCampanhas: (c.campanhas || []).length,
       });
       setLoading(false);

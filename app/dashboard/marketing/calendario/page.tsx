@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { CalendarDays, Plus, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, Plus, X, Check, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import clsx from "clsx";
 
 const TIPO_LABEL: Record<string, string> = {
@@ -29,7 +29,8 @@ export default function CalendarioPage() {
   const [eventos, setEventos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [saving, setSaving]   = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     titulo: "", descricao: "", data: "", tipo: "PUBLICACAO", cor: "#0D2B5C", recorrente: false,
   });
@@ -47,14 +48,24 @@ export default function CalendarioPage() {
   async function salvar() {
     if (!form.titulo || !form.data) return;
     setSaving(true);
+    // B7: garante que a data não sofra deslocamento de fuso — envia como ISO local
+    const dataISO = form.data.includes("T") ? form.data : `${form.data}T12:00:00`;
     await fetch("/api/app/marketing/calendario", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, data: dataISO }),
     });
     setSaving(false);
     setModalOpen(false);
     setForm({ titulo: "", descricao: "", data: "", tipo: "PUBLICACAO", cor: "#0D2B5C", recorrente: false });
+    load();
+  }
+
+  async function excluirEvento(id: string) {
+    if (!confirm("Excluir este evento do calendário?")) return;
+    setDeletingId(id);
+    await fetch(`/api/app/marketing/calendario/${id}`, { method: "DELETE" });
+    setDeletingId(null);
     load();
   }
 
@@ -178,8 +189,16 @@ export default function CalendarioPage() {
                     {ev.recorrente && <span>· 🔄 Recorrente</span>}
                   </div>
                 </div>
-                <div className="text-xs text-slate-400 shrink-0">
-                  {new Date(ev.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-slate-400">
+                    {new Date(ev.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                  </span>
+                  {isAdmin && (
+                    <button onClick={() => excluirEvento(ev.id)} disabled={deletingId === ev.id}
+                      className="p-1 rounded-lg hover:bg-red-50 text-red-400 transition-colors disabled:opacity-50">
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

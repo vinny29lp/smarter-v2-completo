@@ -1,12 +1,17 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   Search, Download, Heart, Copy, ExternalLink, Check,
-  Star, Library, X, MessageCircle, Mail, Link2, Briefcase
+  Star, Library, X, MessageCircle, Mail, Link2, Briefcase, Lock, RotateCcw
 } from "lucide-react";
 import clsx from "clsx";
+
+function formatBytes(kb: number) {
+  if (kb < 1024) return `${kb} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
 
 const CATEGORIAS = [
   { value: "",              label: "Todos" },
@@ -64,6 +69,7 @@ export default function BibliotecaPage() {
   const [conteudos, setConteudos]   = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
   const [busca, setBusca]           = useState("");
+  const [buscaDebounced, setBuscaDebounced] = useState("");
   const [categoria, setCategoria]   = useState(sp?.get("categoria") || "");
   const [tipo, setTipo]             = useState(sp?.get("tipo") || "");
   const [apenasDestaque, setApenasDestaque] = useState(sp?.get("destaque") === "true");
@@ -71,11 +77,20 @@ export default function BibliotecaPage() {
   const [modalConteudo, setModalConteudo] = useState<any>(null);
   const [copiadoId, setCopiadoId]   = useState<string | null>(null);
   const [favoriteLoading, setFavoriteLoading] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const debounceRef = useRef<NodeJS.Timeout>();
+
+  // B5: debounce de 350ms na busca — não dispara fetch a cada tecla
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setBuscaDebounced(busca), 350);
+    return () => clearTimeout(debounceRef.current);
+  }, [busca]);
 
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (busca)           params.set("busca", busca);
+    if (buscaDebounced) params.set("busca", buscaDebounced);
     if (categoria)       params.set("categoria", categoria);
     if (tipo)            params.set("tipo", tipo);
     if (apenasDestaque)  params.set("destaque", "true");
@@ -85,7 +100,7 @@ export default function BibliotecaPage() {
     const data = await res.json();
     setConteudos(data.conteudos || []);
     setLoading(false);
-  }, [busca, categoria, tipo, apenasDestaque, apenasFavoritos]);
+  }, [buscaDebounced, categoria, tipo, apenasDestaque, apenasFavoritos]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -116,6 +131,38 @@ export default function BibliotecaPage() {
     setConteudos(prev => prev.map(c =>
       c.id === conteudoId ? { ...c, totalDownloads: (c.totalDownloads || 0) + 1 } : c
     ));
+  }
+
+  // Download forçado: funciona mesmo com URLs cross-origin (Supabase, Drive, Canva)
+  async function baixarArquivo(conteudo: any, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!conteudo.url) return;
+    setDownloadingId(conteudo.id);
+    try {
+      // Registra o download no banco
+      await registrarDownload(conteudo.id);
+      // Tenta download via fetch (funciona para Supabase Storage público)
+      const res = await fetch(conteudo.url);
+      if (res.ok) {
+        const blob = await res.blob();
+        const objUrl = URL.createObjectURL(blob);
+        const ext    = conteudo.url.split("?")[0].split(".").pop() || "bin";
+        const nome   = `${conteudo.titulo.replace(/[^a-zA-Z0-9\s]/g, "").trim()}.${ext}`;
+        const a      = document.createElement("a");
+        a.href       = objUrl;
+        a.download   = nome;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objUrl);
+      } else {
+        // Fallback: abre em nova aba (ex: Canva, Drive — sem download direto)
+        window.open(conteudo.url, "_blank", "noopener,noreferrer");
+      }
+    } catch {
+      window.open(conteudo.url, "_blank", "noopener,noreferrer");
+    }
+    setDownloadingId(null);
   }
 
   function copiarTexto(texto: string, id: string) {
@@ -215,11 +262,10 @@ export default function BibliotecaPage() {
                     <Heart size={15} className={c.isFavorito ? "fill-white" : ""} />
                   </button>
                   {c.url && (
-                    <a href={c.url} download target="_blank" rel="noopener noreferrer"
-                      onClick={ev => { ev.stopPropagation(); registrarDownload(c.id); }}
-                      className="w-9 h-9 rounded-full bg-white/90 text-slate-700 hover:bg-blue-50 flex items-center justify-center">
-                      <Download size={15} />
-                    </a>
+                    <button onClick={e => baixarArquivo(c, e)} disabled={downloadingId === c.id}
+                      className="w-9 h-9 rounded-full bg-white/90 text-slate-700 hover:bg-blue-50 flex items-center justify-center disabled:opacity-60">
+                      <Download size={15} className={downloadingId === c.id ? "animate-bounce" : ""} />
+                    </button>
                   )}
                 </div>
               </div>
@@ -232,11 +278,17 @@ export default function BibliotecaPage() {
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <span className="flex items-center gap-0.5"><Download size={10} /> {c.totalDownloads || 0}</span>
                     <span className="flex items-center gap-0.5"><Heart size={10} /> {c._count?.favoritos || 0}</span>
+                    {c.tamanhoKb && <span>{formatBytes(c.tamanhoKb)}</span>}
                   </div>
-                  {c.canalIdeal && (() => {
-                    const Icon = CANAL_ICON[c.canalIdeal];
-                    return Icon ? <Icon size={13} className="text-slate-400" /> : null;
-                  })()}
+                  <div className="flex items-center gap-1">
+                    {c.isFixo
+                      ? <Lock size={10} className="text-green-500" title="Conteúdo fixo" />
+                      : <RotateCcw size={10} className="text-blue-400" title="Conteúdo rotativo" />}
+                    {c.canalIdeal && (() => {
+                      const Icon = CANAL_ICON[c.canalIdeal];
+                      return Icon ? <Icon size={12} className="text-slate-400" /> : null;
+                    })()}
+                  </div>
                 </div>
               </div>
             </div>
@@ -324,9 +376,15 @@ export default function BibliotecaPage() {
               )}
 
               {/* Stats */}
-              <div className="flex gap-4 text-xs text-slate-500 border-t border-slate-100 pt-3">
+              <div className="flex gap-4 text-xs text-slate-500 border-t border-slate-100 pt-3 flex-wrap">
                 <span className="flex items-center gap-1"><Download size={12} /> {modalConteudo.totalDownloads || 0} downloads</span>
                 <span className="flex items-center gap-1"><Heart size={12} /> {modalConteudo._count?.favoritos || 0} favoritos</span>
+                {modalConteudo.tamanhoKb && (
+                  <span className="flex items-center gap-1">📦 {formatBytes(modalConteudo.tamanhoKb)}</span>
+                )}
+                {modalConteudo.isFixo
+                  ? <span className="flex items-center gap-1 text-green-600"><Lock size={11} /> Fixo</span>
+                  : <span className="flex items-center gap-1 text-blue-500"><RotateCcw size={11} /> Rotativo</span>}
               </div>
 
               {/* Ações */}
@@ -339,11 +397,13 @@ export default function BibliotecaPage() {
                 </button>
 
                 {modalConteudo.url && (
-                  <a href={modalConteudo.url} download target="_blank" rel="noopener noreferrer"
-                    onClick={() => registrarDownload(modalConteudo.id)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-[#0D2B5C] text-white hover:bg-[#1a4080] transition-all">
-                    <Download size={14} /> Baixar arquivo
-                  </a>
+                  <button
+                    onClick={e => baixarArquivo(modalConteudo, e)}
+                    disabled={downloadingId === modalConteudo.id}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-[#0D2B5C] text-white hover:bg-[#1a4080] transition-all disabled:opacity-60">
+                    <Download size={14} className={downloadingId === modalConteudo.id ? "animate-bounce" : ""} />
+                    {downloadingId === modalConteudo.id ? "Baixando..." : "Baixar arquivo"}
+                  </button>
                 )}
 
                 {modalConteudo.url && (

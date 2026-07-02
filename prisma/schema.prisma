@@ -851,6 +851,8 @@ model MarketingConteudo {
   publicoPara String    @default("TODOS") // TODOS | FRANQUEADO | FRANQUEADORA
   ativo       Boolean   @default(true)
   destaque    Boolean   @default(false)
+  isFixo      Boolean   @default(false)  // true = conteúdo fixo (sem limite); false = rotativo (sujeito à cota)
+  tamanhoKb   Int?                       // tamanho do arquivo em KB (exibido antes do download)
   visualizacoes Int     @default(0)
   totalDownloads Int    @default(0)
   campanhaId  String?
