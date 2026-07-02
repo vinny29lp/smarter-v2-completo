@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Building2, GraduationCap, Briefcase, FileText, DollarSign, Phone, Users, Star, Settings, Shield, LogOut, KanbanSquare, PenTool, BookOpen, Activity, Menu, X, MoreHorizontal, HeartPulse, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Building2, GraduationCap, Briefcase, FileText, DollarSign, Phone, Users, Star, Settings, Shield, LogOut, KanbanSquare, PenTool, BookOpen, Activity, Menu, X, MoreHorizontal, HeartPulse, TrendingUp, Megaphone } from "lucide-react";
 import clsx from "clsx";
 import { useState } from "react";
 
@@ -61,6 +61,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/financeiro",label:"Financeiro",icon:DollarSign},
     {href:"/dashboard/crm",label:"CRM Parcerias",icon:Phone},
     {href:"/dashboard/franquia-crm",label:"CRM Franquias 🏢",icon:TrendingUp},
+    {href:"/dashboard/marketing",label:"Marketing Hub 📣",icon:Megaphone},
     {href:"/dashboard/seguros",label:"Seguros",icon:Shield},
     {href:"/dashboard/gamificacao",label:"Gamificação",icon:Star},
     {href:"/dashboard/equipe",label:"Equipe",icon:Users},
@@ -82,6 +83,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
   ],[
     {href:"/dashboard/financeiro",label:"Financeiro",icon:DollarSign},
     {href:"/dashboard/crm",label:"CRM",icon:Phone},
+    {href:"/dashboard/marketing",label:"Marketing Hub 📣",icon:Megaphone},
     {href:"/dashboard/gamificacao",label:"Gamificação",icon:Star},
     {href:"/dashboard/equipe",label:"Equipe",icon:Users},
   ]],

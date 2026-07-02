@@ -831,6 +831,129 @@ model FranquiaTarefa {
   @@map("franquia_tarefas")
 }
 
+// ─── MARKETING HUB ───────────────────────────────────────────────────────────
+// Centro de Marketing Inteligente para toda a Rede de Franquias Smarter.
+// FRANQUEADORA cria e gerencia conteúdos; FRANQUEADO acessa, baixa e favorita.
+
+model MarketingConteudo {
+  id          String    @id @default(cuid())
+  titulo      String
+  descricao   String?   @db.Text
+  tipo        String    // POST_FEED | STORY | REELS | CARROSSEL | VIDEO | COPY | ARTE_PDF | TEMPLATE | MATERIAL_MARCA
+  formato     String    @default("IMAGEM") // IMAGEM | VIDEO | PDF | TEXTO | LINK
+  categoria   String    // marca | comercial | recrutamento | retencao | datas | rede | outros
+  tags        String[]  @default([])
+  url         String?   // URL do arquivo (Supabase Storage ou URL pública)
+  thumbUrl    String?   // URL do thumbnail/preview
+  texto       String?   @db.Text // legenda / copy pronto para copiar
+  hashtags    String?   // hashtags sugeridas (texto único separado por espaço)
+  canalIdeal  String?   // instagram | linkedin | whatsapp | email | todos
+  publicoPara String    @default("TODOS") // TODOS | FRANQUEADO | FRANQUEADORA
+  ativo       Boolean   @default(true)
+  destaque    Boolean   @default(false)
+  visualizacoes Int     @default(0)
+  totalDownloads Int    @default(0)
+  campanhaId  String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  campanha     MarketingCampanha?  @relation(fields: [campanhaId], references: [id], onDelete: SetNull)
+  downloadLogs MarketingDownload[]
+  favoritos    MarketingFavorito[]
+
+  @@index([tipo])
+  @@index([categoria])
+  @@index([ativo])
+  @@index([destaque])
+  @@index([campanhaId])
+  @@index([createdAt])
+  @@map("marketing_conteudos")
+}
+
+model MarketingCampanha {
+  id          String    @id @default(cuid())
+  nome        String
+  descricao   String?   @db.Text
+  objetivo    String?   // awareness | conversao | retencao | recrutamento
+  status      String    @default("ATIVA") // ATIVA | ENCERRADA | RASCUNHO
+  inicioAt    DateTime? @db.Timestamptz(6)
+  fimAt       DateTime? @db.Timestamptz(6)
+  cor         String?   @default("#0D2B5C") // cor da campanha no calendário
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  conteudos  MarketingConteudo[]
+  calendario MarketingCalendario[]
+
+  @@index([status])
+  @@map("marketing_campanhas")
+}
+
+model MarketingNoticia {
+  id          String    @id @default(cuid())
+  titulo      String
+  corpo       String    @db.Text
+  resumo      String?
+  thumbUrl    String?
+  autor       String?
+  importante  Boolean   @default(false)
+  publicadoEm DateTime  @default(now()) @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([publicadoEm])
+  @@index([importante])
+  @@map("marketing_noticias")
+}
+
+model MarketingDownload {
+  id          String    @id @default(cuid())
+  conteudoId  String
+  userId      String?
+  franchiseId String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  conteudo MarketingConteudo @relation(fields: [conteudoId], references: [id], onDelete: Cascade)
+
+  @@index([conteudoId])
+  @@index([franchiseId])
+  @@index([createdAt])
+  @@map("marketing_downloads")
+}
+
+model MarketingFavorito {
+  id         String    @id @default(cuid())
+  conteudoId String
+  userId     String
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+
+  conteudo MarketingConteudo @relation(fields: [conteudoId], references: [id], onDelete: Cascade)
+
+  @@unique([conteudoId, userId])
+  @@index([userId])
+  @@map("marketing_favoritos")
+}
+
+model MarketingCalendario {
+  id          String    @id @default(cuid())
+  titulo      String
+  descricao   String?
+  data        DateTime  @db.Timestamptz(6)
+  tipo        String    @default("PUBLICACAO") // PUBLICACAO | DATA_COMEMORATIVA | CAMPANHA | REUNIAO
+  cor         String?
+  campanhaId  String?
+  conteudoId  String?
+  recorrente  Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  campanha MarketingCampanha? @relation(fields: [campanhaId], references: [id], onDelete: SetNull)
+
+  @@index([data])
+  @@index([tipo])
+  @@map("marketing_calendario")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ──────────────────────────────────────────────────────────────────────────────
 
 model ImportLog {
