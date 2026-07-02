@@ -38,12 +38,12 @@ export async function POST(req: Request) {
     const {
       titulo, funcao, area, descricao, requisitos, beneficios,
       modalidade, bolsa, auxTransporte, cargaHoraria, chDiaria,
-      horario, cidade, uf, discDesejado, nivel, cursoRequerido, companyId,
+      horario, diasSemana, cidade, uf, discDesejado, nivel, cursoRequerido, companyId,
     } = body;
     const vaga = await createVacancy({
       titulo, funcao, area, descricao, requisitos, beneficios,
       modalidade, bolsa, auxTransporte, cargaHoraria, chDiaria,
-      horario, cidade, uf, discDesejado, nivel, cursoRequerido, companyId,
+      horario, diasSemana, cidade, uf, discDesejado, nivel, cursoRequerido, companyId,
       franchiseId: session.user.franchiseId,
     });
 

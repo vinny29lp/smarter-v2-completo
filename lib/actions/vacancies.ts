@@ -15,6 +15,7 @@ export type VacancyInput = {
   cargaHoraria: number;
   chDiaria: number;
   horario?: string;
+  diasSemana?: string;
   cidade?: string;
   uf?: string;
   discDesejado?: string;

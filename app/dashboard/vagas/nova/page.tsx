@@ -9,6 +9,15 @@ import Link from "next/link";
 
 const AREAS = ["Administrativo","Comercial","Contabilidade","Design","Engenharia","Financeiro","Jurídico","Logística","Marketing","Recursos Humanos","Tecnologia","Saúde","Outro"];
 
+const DIAS_OPCOES = [
+  "Segunda a Sexta",
+  "Segunda a Sábado",
+  "Segunda, Quarta e Sexta",
+  "Terça e Quinta",
+  "Sábado",
+  "Personalizado (digitar abaixo)",
+];
+
 // Cursos sugeridos por área — Ensino Superior
 const CURSOS_SUPERIOR: Record<string, string[]> = {
   "Administrativo":     ["Administração","Gestão Comercial","Secretariado Executivo","Gestão de Recursos Humanos","Processos Gerenciais"],
@@ -49,12 +58,13 @@ export default function NovaVagaPage() {
   const [error, setError] = useState("");
   const [testesIA, setTestesIA] = useState("");
   const [cursoOutro, setCursoOutro] = useState(false);
+  const [diasPersonalizado, setDiasPersonalizado] = useState(false);
   const [companies, setCompanies] = useState<any[]>([]);
   const [form, setForm] = useState({
     titulo:"", funcao:"", area:"", descricao:"", requisitos:"",
     beneficios:"Auxílio Transporte", modalidade:"Presencial",
     bolsa:"", auxTransporte:"200", cargaHoraria:"30", chDiaria:"6",
-    horario:"08:00 - 14:00", cidade:"", uf:"",
+    horario:"08:00 - 14:00", diasSemana:"Segunda a Sexta", cidade:"", uf:"",
     discDesejado:"", nivel:"", cursoRequerido:"", companyId:"",
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
@@ -339,6 +349,34 @@ export default function NovaVagaPage() {
             </div>
             <Input label="C.H. Semanal" value={form.cargaHoraria+"h"} readOnly className="bg-slate-50"/>
             <Input label="Horário" value={form.horario} onChange={e=>set("horario",e.target.value)} placeholder="08:00 - 14:00"/>
+            <div className="col-span-2">
+              <label className="text-xs font-bold text-slate-600 block mb-1">Dias da Semana</label>
+              <select
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+                value={diasPersonalizado ? "Personalizado (digitar abaixo)" : form.diasSemana}
+                onChange={e => {
+                  if (e.target.value === "Personalizado (digitar abaixo)") {
+                    setDiasPersonalizado(true);
+                    set("diasSemana", "");
+                  } else {
+                    setDiasPersonalizado(false);
+                    set("diasSemana", e.target.value);
+                  }
+                }}
+              >
+                <option value="">Selecione...</option>
+                {DIAS_OPCOES.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+              {diasPersonalizado && (
+                <input
+                  type="text"
+                  className="mt-2 w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+                  placeholder="Ex: Segunda, Quarta e Sábado"
+                  value={form.diasSemana}
+                  onChange={e => set("diasSemana", e.target.value)}
+                />
+              )}
+            </div>
             <Input label="Cidade" value={form.cidade} onChange={e=>set("cidade",e.target.value)} placeholder="São Paulo"/>
             <Input label="UF" value={form.uf} onChange={e=>set("uf",e.target.value)} placeholder="SP"/>
           </div>

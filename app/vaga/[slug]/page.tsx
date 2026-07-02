@@ -83,6 +83,8 @@ export default function VagaPublicaPage() {
                   ["⏱ Jornada",vaga.cargaHoraria+"h/semana"],
                   ["🏢 Modalidade",vaga.modalidade],
                   ["📍 Local",vaga.cidade+"/"+vaga.uf],
+                  ...((vaga as any).diasSemana ? [["📅 Dias",(vaga as any).diasSemana]] : []),
+                  ...(vaga.horario ? [["🕐 Horário",vaga.horario]] : []),
                 ].map(([l,v])=>(
                   <div key={l} className="p-3 bg-slate-50 rounded-xl">
                     <p className="text-xs text-slate-400">{l}</p>

@@ -247,6 +247,7 @@ model Vacancy {
   cargaHoraria  Int?           @default(30)
   chDiaria      Int?           @default(6)
   horario       String?
+  diasSemana    String?
   cidade        String?
   uf            String?
   endereco      String?

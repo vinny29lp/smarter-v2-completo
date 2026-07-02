@@ -18,6 +18,7 @@ interface VagaData {
   cargaHoraria?: number | null;
   chDiaria?: number | null;
   horario?: string | null;
+  diasSemana?: string | null;
   cidade?: string | null;
   uf?: string | null;
   discDesejado?: string | null;
@@ -61,6 +62,7 @@ export function VagaActions({ vaga }: Props) {
     cargaHoraria: String(vaga.cargaHoraria ?? ""),
     chDiaria: String(vaga.chDiaria ?? ""),
     horario: vaga.horario || "",
+    diasSemana: vaga.diasSemana || "",
     cidade: vaga.cidade || "",
     uf: vaga.uf || "",
     nivel: vaga.nivel || "",
@@ -97,6 +99,7 @@ export function VagaActions({ vaga }: Props) {
         cargaHoraria: parseInt(form.cargaHoraria) || 0,
         chDiaria: parseInt(form.chDiaria) || 0,
         horario: form.horario.trim() || null,
+        diasSemana: form.diasSemana.trim() || null,
         cidade: form.cidade.trim() || null,
         uf: form.uf.trim().toUpperCase().slice(0, 2) || null,
         nivel: form.nivel || null,
@@ -238,15 +241,19 @@ export function VagaActions({ vaga }: Props) {
             </div>
           </div>
 
-          {/* Horário e C.H. diária */}
+          {/* Horário, Dias e C.H. diária */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Horário</label>
-              <input className={inputCls} value={form.horario} onChange={set("horario")} placeholder="Ex: 08h-12h" />
+              <input className={inputCls} value={form.horario} onChange={set("horario")} placeholder="Ex: 08:00 - 14:00" />
             </div>
             <div>
               <label className={labelCls}>C.H. Diária (h) *</label>
               <input className={inputCls} type="number" value={form.chDiaria} onChange={set("chDiaria")} placeholder="4" />
+            </div>
+            <div className="col-span-2">
+              <label className={labelCls}>Dias da Semana</label>
+              <input className={inputCls} value={form.diasSemana} onChange={set("diasSemana")} placeholder="Ex: Segunda a Sexta" />
             </div>
           </div>
 
