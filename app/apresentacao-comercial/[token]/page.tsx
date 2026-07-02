@@ -670,7 +670,7 @@ export default function ApresentacaoComercialPage() {
       {/* ── BOTÃO FLUTUANTE WHATSAPP (MOBILE) ── */}
       <div className="fixed bottom-6 right-4 z-40 md:hidden">
         <button
-          onClick={handleWpp}
+          onClick={() => handleWpp()}
           className="w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full shadow-2xl flex items-center justify-center transition-all active:scale-95"
         >
           <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white">
