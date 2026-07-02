@@ -15,20 +15,20 @@ export async function POST(req: Request) {
     if (!conteudoId) return NextResponse.json({ error: "conteudoId obrigatório." }, { status: 400 });
 
 
-    // Log do download
-    await prisma.marketingDownload.create({
-      data: {
-        conteudoId,
-        userId: session.user.id,
-        franchiseId: (session.user as any).franchiseId || null,
-      },
-    });
-
-    // Incrementar contador
-    await prisma.marketingConteudo.update({
-      where: { id: conteudoId },
-      data: { totalDownloads: { increment: 1 } },
-    });
+    // Log do download + incremento atômico (transaction)
+    await prisma.$transaction([
+      prisma.marketingDownload.create({
+        data: {
+          conteudoId,
+          userId: session.user.id,
+          franchiseId: (session.user as any).franchiseId || null,
+        },
+      }),
+      prisma.marketingConteudo.update({
+        where: { id: conteudoId },
+        data: { totalDownloads: { increment: 1 } },
+      }),
+    ]);
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

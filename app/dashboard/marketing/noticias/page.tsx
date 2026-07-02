@@ -5,7 +5,8 @@ import { Newspaper, Plus, X, Check, AlertCircle } from "lucide-react";
 
 export default function NoticiasPage() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "FRANQUEADORA";
+  const isAdmin = session?.user?.role === "FRANQUEADORA" ||
+    (session?.user?.role === "EQUIPE" && (session?.user?.permissoes as string[] | undefined)?.includes("marketing"));
 
   const [noticias, setNoticias] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);

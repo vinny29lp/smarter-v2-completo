@@ -19,7 +19,8 @@ const STATUS_LABEL: Record<string, { label: string; cor: string }> = {
 
 export default function CampanhasPage() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "FRANQUEADORA";
+  const isAdmin = session?.user?.role === "FRANQUEADORA" ||
+    (session?.user?.role === "EQUIPE" && (session?.user?.permissoes as string[] | undefined)?.includes("marketing"));
 
   const [campanhas, setCampanhas] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);

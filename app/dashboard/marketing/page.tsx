@@ -32,7 +32,8 @@ export default function MarketingHubPage() {
     });
   }, []);
 
-  const isAdmin = session?.user?.role === "FRANQUEADORA";
+  const isAdmin = session?.user?.role === "FRANQUEADORA" ||
+    (session?.user?.role === "EQUIPE" && (session?.user?.permissoes as string[] | undefined)?.includes("marketing"));
   const nome = session?.user?.name?.split(" ")[0] || "Usuário";
 
   const CARDS = [

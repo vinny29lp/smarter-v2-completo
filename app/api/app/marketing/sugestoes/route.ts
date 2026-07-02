@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session.user.role)) {
+  if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO", "EQUIPE"].includes(session.user.role)) {
     return NextResponse.json({ error: "Sem acesso." }, { status: 403 });
   }
 

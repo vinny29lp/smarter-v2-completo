@@ -20,7 +20,8 @@ const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export default function CalendarioPage() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "FRANQUEADORA";
+  const isAdmin = session?.user?.role === "FRANQUEADORA" ||
+    (session?.user?.role === "EQUIPE" && (session?.user?.permissoes as string[] | undefined)?.includes("marketing"));
 
   const hoje = new Date();
   const [mes, setMes]     = useState(hoje.getMonth() + 1);

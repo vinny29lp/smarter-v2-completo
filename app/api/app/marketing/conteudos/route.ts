@@ -105,6 +105,8 @@ export async function POST(req: Request) {
     });
 
     // Notificar franqueados em background (fire-and-forget) — não bloqueia o response
+    // Só notifica se o conteúdo for visível para FRANQUEADO (publicoPara TODOS ou FRANQUEADO)
+    if (publicoPara !== "FRANQUEADORA") {
     Promise.resolve().then(async () => {
       try {
         const franqueados = await prisma.user.findMany({
@@ -127,6 +129,7 @@ export async function POST(req: Request) {
         console.error("[marketing/conteudos] notificação background:", err?.message);
       }
     });
+    } // fim if publicoPara !== "FRANQUEADORA"
 
     return NextResponse.json({ conteudo });
   } catch (e: any) {
