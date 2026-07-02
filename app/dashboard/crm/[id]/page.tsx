@@ -536,14 +536,29 @@ export default function LeadDetailPage() {
 
             {/* ── FOLLOW-UP INTELIGENTE ─────────────────────────────── */}
             {(() => {
-              if (!lead.apresentacaoEnviadaEm) return null;
+              // Exibe se houver token OU envio registrado OU ao menos 1 acesso
+              const temApresentacao = !!(
+                lead.apresentacaoToken ||
+                lead.apresentacaoEnviadaEm ||
+                (lead.apresentacaoAcessos && lead.apresentacaoAcessos > 0)
+              );
+              if (!temApresentacao) return null;
               const ctx = leadCtx();
               const autoSit = detectarSituacao(ctx);
               const todasSit = todasSituacoes(ctx);
+
+              // Fallback por score quando não há situação automática detectável
+              const scoreFallbackId = (() => {
+                if (autoSit) return null;
+                const score = lead.leadScore || 0;
+                return score >= 70 ? "lead_quente" : score >= 31 ? "lead_morno" : "lead_frio";
+              })();
+              const scoreFallback = scoreFallbackId ? todasSit.find(s => s.id === scoreFallbackId) : undefined;
+
               const sitAtiva: FollowupSituacao | undefined =
-                fuSituacaoId ? todasSit.find(s => s.id === fuSituacaoId) ?? autoSit ?? undefined
-                             : autoSit ?? undefined;
-              if (!autoSit && !fuSituacaoId) return null;
+                fuSituacaoId
+                  ? todasSit.find(s => s.id === fuSituacaoId) ?? autoSit ?? scoreFallback
+                  : autoSit ?? scoreFallback;
 
               const link = lead.apresentacaoToken
                 ? `https://sistema.smarterestagios.com.br/comercial/${lead.apresentacaoToken}`
