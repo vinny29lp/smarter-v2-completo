@@ -81,7 +81,7 @@ function buildSituacoes(ctx: LeadFollowupContext): FollowupSituacao[] {
     // ─── 1 — Clicou em Agendar
     {
       id: "clicou_agendamento",
-      indicador: "🔥 URGENTE: lead clicou em "Agendar conversa"! Entre em contato agora.",
+      indicador: '🔥 URGENTE: lead clicou em "Agendar conversa"! Entre em contato agora.',
       urgente: true,
       canal: "ligacao_whatsapp",
       canalLabel: "WhatsApp + Ligação",
