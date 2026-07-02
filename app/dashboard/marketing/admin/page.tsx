@@ -60,8 +60,12 @@ export default function MarketingAdminPage() {
   const { data: session } = useSession();
   const router = useRouter();
 
+  const isMarketingAdmin = (s: typeof session) =>
+    s?.user?.role === "FRANQUEADORA" ||
+    (s?.user?.role === "EQUIPE" && (s?.user?.permissoes as string[] | undefined)?.includes("marketing"));
+
   useEffect(() => {
-    if (session && session.user.role !== "FRANQUEADORA") {
+    if (session && !isMarketingAdmin(session)) {
       router.replace("/dashboard/marketing");
     }
   }, [session]);
@@ -162,7 +166,7 @@ export default function MarketingAdminPage() {
   const totalDownloads = conteudos.reduce((acc, c) => acc + (c.totalDownloads || 0), 0);
   const totalFavoritos = conteudos.reduce((acc, c) => acc + (c._count?.favoritos || 0), 0);
 
-  if (session?.user?.role !== "FRANQUEADORA") return null;
+  if (session && !isMarketingAdmin(session)) return null;
 
   return (
     <div className="space-y-4">

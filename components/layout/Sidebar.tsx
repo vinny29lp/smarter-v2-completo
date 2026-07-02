@@ -24,6 +24,7 @@ const PERM_NAV_MAP: Record<string, {href:string;label:string;icon:any}> = {
   gamificacao:   {href:"/dashboard/gamificacao",  label:"Gamificação",         icon:Star},
   franqueados:   {href:"/dashboard/franqueados",  label:"Franqueados",         icon:Users},
   engajamento:   {href:"/dashboard/engajamento",  label:"Engajamento",         icon:Activity},
+  marketing:     {href:"/dashboard/marketing",    label:"Marketing Hub 📣",    icon:Megaphone},
 };
 
 // Bottom nav items for mobile — most important 4 + "Mais"

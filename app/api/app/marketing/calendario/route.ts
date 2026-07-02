@@ -49,7 +49,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "FRANQUEADORA") {
+  const isMarketingAdmin = session.user.role === "FRANQUEADORA" ||
+    (session.user.role === "EQUIPE" && Array.isArray((session.user as any).permissoes) && (session.user as any).permissoes.includes("marketing"));
+  if (!isMarketingAdmin) {
     return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
   }
 

@@ -82,8 +82,10 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (session.user.role !== "FRANQUEADORA") {
-    return NextResponse.json({ error: "Apenas a Franqueadora pode criar conteúdos." }, { status: 403 });
+  const isMarketingAdmin = session.user.role === "FRANQUEADORA" ||
+    (session.user.role === "EQUIPE" && Array.isArray((session.user as any).permissoes) && (session.user as any).permissoes.includes("marketing"));
+  if (!isMarketingAdmin) {
+    return NextResponse.json({ error: "Sem permissão para criar conteúdos." }, { status: 403 });
   }
 
   try {

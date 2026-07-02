@@ -19,7 +19,8 @@ const ADMIN_NAV = { href: "/dashboard/marketing/admin", label: "Admin", icon: Se
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "FRANQUEADORA";
+  const isAdmin = session?.user?.role === "FRANQUEADORA" ||
+    (session?.user?.role === "EQUIPE" && (session?.user?.permissoes as string[] | undefined)?.includes("marketing"));
 
   const navItems = isAdmin ? [...NAV, ADMIN_NAV] : NAV;
 
@@ -33,7 +34,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <p className="text-blue-200 text-xs mt-0.5">Centro de Marketing Inteligente da Rede Smarter</p>
           </div>
           <span className="bg-[#F4B400] text-[#0D2B5C] text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider">
-            {isAdmin ? "Admin" : "Franqueado"}
+            {isAdmin ? (session?.user?.role === "EQUIPE" ? "Equipe" : "Admin") : "Franqueado"}
           </span>
         </div>
 

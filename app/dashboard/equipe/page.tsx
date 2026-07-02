@@ -37,6 +37,7 @@ const MODULOS_EQUIPE = [
   { key: "gamificacao",   label: "🎮 Gamificação" },
   { key: "franqueados",   label: "🏪 Franqueados" },
   { key: "engajamento",   label: "📊 Engajamento" },
+  { key: "marketing",     label: "📣 Marketing Hub (Admin)" },
 ];
 
 const EMPTY_FORM = { name: "", email: "", cargo: "", senha: "", confirmarSenha: "", permissoes: [] as string[] };
