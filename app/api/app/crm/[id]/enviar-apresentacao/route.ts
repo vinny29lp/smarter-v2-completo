@@ -96,25 +96,31 @@ export async function POST(
       }) as any;
     }
 
-    // Gera novo token (cada envio renova o token para rastreamento limpo)
-    const token = randomUUID();
+    // Reutiliza token existente para não invalidar links já enviados por outros canais.
+    // Só gera um novo token se o lead ainda não tiver um (primeiro envio).
+    // Para forçar um reset de campanha, o franqueado deve usar o botão "Novo envio" (futuro).
+    const isFirstSend = !lead.apresentacaoToken;
+    const token = lead.apresentacaoToken || randomUUID();
 
-    // Atualiza o lead com o novo token e canal
+    // Atualiza o lead — reseta métricas apenas no primeiro envio
+    const updateBase: Record<string, any> = {
+      apresentacaoToken: token,
+      apresentacaoCanal: canal,
+      ultimoContato: new Date(),
+    };
+    if (isFirstSend) {
+      updateBase.apresentacaoEnviadaEm = new Date();
+      updateBase.apresentacaoAcessos   = 0;
+      updateBase.apresentacaoAbertaEm  = null;
+      updateBase.apresentacaoTempoSeg  = 0;
+      updateBase.apresentacaoScrollMax = 0;
+      updateBase.apresentacaoCliques   = null;
+      updateBase.leadScore             = 0;
+    }
+
     await prisma.crmLead.update({
       where: { id: params.id },
-      data: {
-        apresentacaoToken: token,
-        apresentacaoCanal: canal,
-        apresentacaoEnviadaEm: new Date(),
-        // Reseta métricas de acesso do envio anterior
-        apresentacaoAcessos: 0,
-        apresentacaoAbertaEm: null,
-        apresentacaoTempoSeg: 0,
-        apresentacaoScrollMax: 0,
-        apresentacaoCliques: null,
-        leadScore: 0,
-        ultimoContato: new Date(),
-      } as any,
+      data: updateBase as any,
     });
 
     const link = `https://sistema.smarterestagios.com.br/comercial/${token}`;

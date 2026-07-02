@@ -62,17 +62,53 @@ function scoreTemperatura(score: number) {
 }
 function getFollowupSugestao(lead: any): string | null {
   if (!lead?.apresentacaoEnviadaEm) return null;
-  const acessos = lead.apresentacaoAcessos || 0;
-  const score   = lead.leadScore || 0;
+
+  const acessos     = lead.apresentacaoAcessos   || 0;
+  const scroll      = lead.apresentacaoScrollMax  || 0;
+  const tempo       = lead.apresentacaoTempoSeg   || 0;
+  const diasEnviado = Math.floor((Date.now() - new Date(lead.apresentacaoEnviadaEm).getTime()) / 86400000);
+
   let cliques: string[] = [];
   try { cliques = JSON.parse(lead.apresentacaoCliques || "[]"); } catch {}
-  if (cliques.includes("clicou_agendamento")) return "🔥 URGENTE: lead clicou em 'Agendar conversa'! Entre em contato agora.";
-  if (cliques.includes("clicou_whatsapp"))    return "🔥 URGENTE: lead clicou no WhatsApp! Responda já.";
-  if (score >= 60)   return "🌡️ Lead engajado — envie um WhatsApp personalizado hoje.";
-  if (acessos >= 2)  return `👁️ Lead visitou ${acessos}x a apresentação — ótimo momento para ligar.`;
-  if (acessos === 1) return "✅ Lead abriu a apresentação! Envie um WhatsApp de confirmação.";
-  const diasEnviado = Math.floor((Date.now() - new Date(lead.apresentacaoEnviadaEm).getTime()) / 86400000);
-  if (diasEnviado >= 2 && acessos === 0) return `❄️ Lead não abriu em ${diasEnviado} dias. Reenvie por outro canal.`;
+
+  // ── Alta intenção: clicou em CTA ──
+  if (cliques.includes("clicou_agendamento"))
+    return "🔥 URGENTE: lead clicou em 'Agendar conversa'! Entre em contato agora.";
+  if (cliques.includes("clicou_whatsapp"))
+    return "🔥 URGENTE: lead clicou no WhatsApp! Responda já.";
+
+  // ── Abriu e leu tudo (scroll ≥ 100%) ──
+  if (acessos >= 1 && scroll >= 100)
+    return "📖 Lead leu a apresentação inteira! Ótimo momento para ligar agora.";
+
+  // ── Abriu e leu boa parte (scroll 75–99%) ──
+  if (acessos >= 1 && scroll >= 75)
+    return "📖 Lead leu a maior parte — mostre-se disponível com um WhatsApp hoje.";
+
+  // ── Abriu mais de uma vez (ainda lendo) ──
+  if (acessos > 1 && scroll < 75)
+    return `👁️ Lead voltou à apresentação ${acessos}x — está considerando. Hora de ligar.`;
+
+  // ── Abriu mas saiu rápido (bounce: < 30s e scroll < 25%) ──
+  if (acessos >= 1 && tempo < 30 && scroll < 25)
+    return "⚡ Lead abriu mas saiu rápido — mande um WhatsApp curto chamando atenção.";
+
+  // ── Abriu e leu parcialmente (scroll 25–74%) ──
+  if (acessos >= 1 && scroll >= 25 && scroll < 75)
+    return "✅ Lead está lendo a apresentação — aguarde 24h e faça follow-up pelo WhatsApp.";
+
+  // ── Abriu mas leu pouco (scroll < 25%, tempo OK) ──
+  if (acessos >= 1 && scroll < 25)
+    return "✅ Lead abriu a apresentação — envie um WhatsApp perguntando se ficou alguma dúvida.";
+
+  // ── Não abriu e já faz mais de 48h ──
+  if (acessos === 0 && diasEnviado >= 2)
+    return `❄️ Lead não abriu em ${diasEnviado} dia${diasEnviado > 1 ? "s" : ""} — tente reenviar por outro canal.`;
+
+  // ── Recém-enviado, ainda não abriu ──
+  if (acessos === 0 && diasEnviado < 2)
+    return "🕐 Apresentação enviada — aguarde o lead abrir antes de fazer follow-up.";
+
   return null;
 }
 
