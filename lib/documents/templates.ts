@@ -523,9 +523,9 @@ ${schSummary(est.chSemanal, est.chDiaria, est.intervalo, est.localEstagio)}
 <div class="sup-grid">
   <div class="sup-box">
     <div class="sup-role">Coordenador(a) — Escola</div>
-    <div class="sup-name">${ies.orientador}</div>
-    <div class="sup-detail">Tel: ${ies.telefone}</div>
-    <div class="sup-detail">E-mail: ${ies.emailOrientador}</div>
+    <div class="sup-name">${ies.supervisorIES}</div>
+    <div class="sup-detail">Cargo: ${ies.cargoSupervisorIES}</div>
+    <div class="sup-detail">E-mail: ${ies.emailSupervisorIES}</div>
     <div class="sup-line">Visto: ____________________________</div>
     <div class="sup-line">Data: _____________________________</div>
   </div>

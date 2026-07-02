@@ -194,9 +194,14 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       cep: institution?.cep || "—",
       telefone: institution?.telefone || "—",
       email: institution?.email || "—",
-      orientador: institution?.coordenador || contract.coordNome || "—",
-      cargoOrientador: institution?.cargoCoord || contract.coordCargo || "—",
-      emailOrientador: contract.coordEmail || "—",
+      // Cláusula 1 — dados do cadastro da IES
+      orientador: institution?.coordenador || "—",
+      cargoOrientador: institution?.cargoCoord || "—",
+      emailOrientador: institution?.email || "—",
+      // Plano de Estágio — dados inseridos na criação do contrato
+      supervisorIES: contract.coordNome || "—",
+      cargoSupervisorIES: contract.coordCargo || "—",
+      emailSupervisorIES: contract.coordEmail || "—",
     },
     smarter,
     estagio: {

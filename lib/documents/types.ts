@@ -23,6 +23,7 @@ export interface ContratoData {
     endereco: string; bairro: string; cidade: string; estado: string; cep: string;
     telefone: string; email: string;
     orientador: string; cargoOrientador: string; emailOrientador: string;
+    supervisorIES: string; cargoSupervisorIES: string; emailSupervisorIES: string;
   };
   smarter: {
     razaoSocial: string; cnpj: string;
