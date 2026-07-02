@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { AIButton } from "@/components/ai/AIButton";
 import Link from "next/link";
+import {
+  NIVEIS_ENSINO,
+  CURSOS_TECNICO_LISTA,
+  CURSOS_SUPERIOR_LISTA,
+} from "@/lib/vagas-constants";
 
 const AREAS = ["Administrativo","Comercial","Contabilidade","Design","Engenharia","Financeiro","Jurídico","Logística","Marketing","Recursos Humanos","Tecnologia","Saúde","Outro"];
 
@@ -18,80 +23,137 @@ const DIAS_OPCOES = [
   "Personalizado (digitar abaixo)",
 ];
 
-// Cursos sugeridos por área — Ensino Superior
-const CURSOS_SUPERIOR: Record<string, string[]> = {
-  "Administrativo":     ["Administração","Gestão Comercial","Secretariado Executivo","Gestão de Recursos Humanos","Processos Gerenciais"],
-  "Comercial":          ["Administração","Marketing","Gestão Comercial","Publicidade e Propaganda","Comércio Exterior"],
-  "Contabilidade":      ["Ciências Contábeis","Administração","Economia","Finanças"],
-  "Design":             ["Design Gráfico","Design de Produto","Design de Interiores","Arquitetura e Urbanismo","Publicidade e Propaganda","Artes Visuais"],
-  "Engenharia":         ["Engenharia Civil","Engenharia Elétrica","Engenharia Mecânica","Engenharia de Produção","Engenharia Química","Engenharia Ambiental","Engenharia de Alimentos","Engenharia da Computação"],
-  "Financeiro":         ["Ciências Contábeis","Economia","Administração","Matemática","Atuária"],
-  "Jurídico":           ["Direito"],
-  "Logística":          ["Logística","Administração","Engenharia de Produção","Comércio Exterior","Gestão da Cadeia de Suprimentos"],
-  "Marketing":          ["Marketing","Publicidade e Propaganda","Comunicação Social","Relações Públicas","Jornalismo","Administração"],
-  "Recursos Humanos":   ["Psicologia","Administração","Gestão de Recursos Humanos","Pedagogia"],
-  "Tecnologia":         ["Ciência da Computação","Sistemas de Informação","Engenharia de Software","Análise e Desenvolvimento de Sistemas","Redes de Computadores","Segurança da Informação","Engenharia da Computação","Tecnologia em Desenvolvimento de Sistemas"],
-  "Saúde":              ["Farmácia","Enfermagem","Nutrição","Fisioterapia","Medicina","Odontologia","Psicologia","Biomedicina","Medicina Veterinária","Educação Física","Fonoaudiologia","Terapia Ocupacional"],
-  "Outro":              [],
-};
+const chkCls = "w-4 h-4 rounded accent-[#0f2a5e] cursor-pointer flex-shrink-0";
 
-// Cursos sugeridos por área — Ensino Técnico
-const CURSOS_TECNICO: Record<string, string[]> = {
-  "Administrativo":     ["Técnico em Administração","Técnico em Secretariado","Técnico em Recursos Humanos"],
-  "Comercial":          ["Técnico em Vendas","Técnico em Comércio"],
-  "Contabilidade":      ["Técnico em Contabilidade"],
-  "Design":             ["Técnico em Design Gráfico","Técnico em Artes Gráficas"],
-  "Engenharia":         ["Técnico em Eletrotécnica","Técnico em Mecânica","Técnico em Edificações","Técnico em Eletrônica"],
-  "Financeiro":         ["Técnico em Finanças","Técnico em Contabilidade"],
-  "Jurídico":           ["Técnico em Serviços Jurídicos"],
-  "Logística":          ["Técnico em Logística"],
-  "Marketing":          ["Técnico em Marketing"],
-  "Recursos Humanos":   ["Técnico em Recursos Humanos"],
-  "Tecnologia":         ["Técnico em Informática","Técnico em Redes","Técnico em Desenvolvimento de Sistemas"],
-  "Saúde":              ["Técnico em Enfermagem","Técnico em Farmácia","Técnico em Radiologia","Técnico em Análises Clínicas","Técnico em Saúde Bucal","Técnico em Nutrição e Dietética"],
-  "Outro":              [],
-};
+function CursoList({
+  lista, selecionados, filtro, setFiltro, onToggle,
+  showOutro, onToggleOutro, outroVal, onOutroChange, badgeColor,
+}: {
+  lista: string[]; selecionados: string[]; filtro: string;
+  setFiltro: (v:string)=>void; onToggle:(c:string)=>void;
+  showOutro:boolean; onToggleOutro:()=>void; outroVal:string;
+  onOutroChange:(v:string)=>void; badgeColor:string;
+}) {
+  const filtrados = lista.filter(c => c.toLowerCase().includes(filtro.toLowerCase()));
+  const selecionadosDaLista = selecionados.filter(c => lista.includes(c));
+  return (
+    <>
+      <input
+        type="text"
+        className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] mb-2"
+        placeholder="Filtrar cursos..."
+        value={filtro}
+        onChange={e => setFiltro(e.target.value)}
+      />
+      <div className="max-h-44 overflow-y-auto border-2 border-slate-200 rounded-xl p-3 bg-slate-50/50 grid grid-cols-2 gap-x-3 gap-y-1.5">
+        {filtrados.map(c => (
+          <label key={c} className="flex items-start gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" className={chkCls} checked={selecionados.includes(c)} onChange={() => onToggle(c)} />
+            <span className="text-xs text-slate-700 leading-tight">
+              {c.startsWith("Técnico em ") ? c.replace("Técnico em ", "") : c}
+            </span>
+          </label>
+        ))}
+        {(!filtro || "outro".includes(filtro.toLowerCase())) && (
+          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" className={chkCls} checked={showOutro} onChange={onToggleOutro} />
+            <span className="text-xs text-slate-700 font-semibold">Outro</span>
+          </label>
+        )}
+      </div>
+      {showOutro && (
+        <input
+          type="text"
+          className="mt-2 w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+          placeholder="Informe o curso..."
+          value={outroVal}
+          onChange={e => onOutroChange(e.target.value)}
+        />
+      )}
+      {selecionadosDaLista.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {selecionadosDaLista.map(c => (
+            <span key={c} className={`inline-flex items-center gap-1 px-2 py-0.5 ${badgeColor} text-xs rounded-full`}>
+              {c.startsWith("Técnico em ") ? c.replace("Técnico em ", "") : c}
+              <button type="button" onClick={() => onToggle(c)} className="opacity-60 hover:opacity-100 leading-none">×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
 export default function NovaVagaPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [testesIA, setTestesIA] = useState("");
-  const [cursoOutro, setCursoOutro] = useState(false);
-  const [diasPersonalizado, setDiasPersonalizado] = useState(false);
   const [companies, setCompanies] = useState<any[]>([]);
+
+  // Nível de ensino — multi-select
+  const [niveis, setNiveis] = useState<string[]>([]);
+  // Cursos — multi-select (unificado para Técnico e Superior)
+  const [cursosSelecionados, setCursosSelecionados] = useState<string[]>([]);
+  const [showOutroTecnico, setShowOutroTecnico] = useState(false);
+  const [showOutroSuperior, setShowOutroSuperior] = useState(false);
+  const [cursoOutroTecnico, setCursoOutroTecnico] = useState("");
+  const [cursoOutroSuperior, setCursoOutroSuperior] = useState("");
+  const [filtroCursoTecnico, setFiltroCursoTecnico] = useState("");
+  const [filtroCursoSuperior, setFiltroCursoSuperior] = useState("");
+
+  // Dias da semana
+  const [diasPersonalizado, setDiasPersonalizado] = useState(false);
+
   const [form, setForm] = useState({
     titulo:"", funcao:"", area:"", descricao:"", requisitos:"",
     beneficios:"Auxílio Transporte", modalidade:"Presencial",
     bolsa:"", auxTransporte:"200", cargaHoraria:"30", chDiaria:"6",
-    horario:"08:00 - 14:00", diasSemana:"Segunda a Sexta", cidade:"", uf:"",
-    discDesejado:"", nivel:"", cursoRequerido:"", companyId:"",
+    horario:"08:00 - 14:00", diasSemana:"Segunda a Sexta",
+    cidade:"", uf:"", discDesejado:"", companyId:"",
   });
-  const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
+  const set = (k:string, v:string) => setForm(p => ({ ...p, [k]: v }));
 
-  // Quando área muda, resetar cursoRequerido para evitar inconsistências
-  const setArea = (v: string) => { setForm(p => ({ ...p, area: v, cursoRequerido: "" })); setCursoOutro(false); };
-  const setNivel = (v: string) => { setForm(p => ({ ...p, nivel: v, cursoRequerido: v === "Ensino Médio" ? "Ensino Médio Regular" : "" })); setCursoOutro(false); };
+  const toggleNivel = (nivel: string) => {
+    setNiveis(prev => {
+      if (prev.includes(nivel)) {
+        // Desmarca: remove também os cursos deste nível
+        const listaDoNivel = nivel === "Ensino Técnico" ? CURSOS_TECNICO_LISTA
+                           : nivel === "Ensino Superior" ? CURSOS_SUPERIOR_LISTA : [];
+        setCursosSelecionados(cs => cs.filter(c => !listaDoNivel.includes(c)));
+        if (nivel === "Ensino Técnico") { setShowOutroTecnico(false); setCursoOutroTecnico(""); setFiltroCursoTecnico(""); }
+        if (nivel === "Ensino Superior") { setShowOutroSuperior(false); setCursoOutroSuperior(""); setFiltroCursoSuperior(""); }
+        return prev.filter(n => n !== nivel);
+      }
+      return [...prev, nivel];
+    });
+  };
 
-  // Lista de cursos disponíveis conforme nível e área selecionados
-  const cursosDisponiveis = form.nivel === "Ensino Superior"
-    ? (CURSOS_SUPERIOR[form.area] || [])
-    : form.nivel === "Ensino Técnico"
-    ? (CURSOS_TECNICO[form.area] || [])
-    : [];
+  const toggleCurso = (curso: string) =>
+    setCursosSelecionados(prev => prev.includes(curso) ? prev.filter(c => c !== curso) : [...prev, curso]);
 
-  useEffect(()=>{
-    fetch("/api/app/empresas").then(r=>r.json()).then(d=>setCompanies(d.empresas||[]));
-  },[]);
+  useEffect(() => {
+    fetch("/api/app/empresas").then(r => r.json()).then(d => setCompanies(d.empresas || []));
+  }, []);
 
   const handleSubmit = async () => {
-    if (!form.titulo||!form.companyId||!form.bolsa) { setError("Preencha: Título, Empresa e Bolsa."); return; }
+    if (!form.titulo || !form.companyId || !form.bolsa) {
+      setError("Preencha: Título, Empresa e Bolsa."); return;
+    }
     setLoading(true); setError("");
     try {
+      const cursosFinais = [
+        ...cursosSelecionados,
+        ...(showOutroTecnico && cursoOutroTecnico.trim() ? [cursoOutroTecnico.trim()] : []),
+        ...(showOutroSuperior && cursoOutroSuperior.trim() ? [cursoOutroSuperior.trim()] : []),
+      ];
       const res = await fetch("/api/app/vagas", {
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          nivel: niveis.length ? JSON.stringify(niveis) : null,
+          cursoRequerido: cursosFinais.length ? JSON.stringify(cursosFinais) : null,
           bolsa: parseFloat(form.bolsa),
           auxTransporte: form.auxTransporte ? parseFloat(form.auxTransporte) : null,
           cargaHoraria: parseInt(form.cargaHoraria),
@@ -99,10 +161,10 @@ export default function NovaVagaPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok||data.error) { setError(data.error||"Erro ao criar vaga."); return; }
+      if (!res.ok || data.error) { setError(data.error || "Erro ao criar vaga."); return; }
       router.push(`/dashboard/vagas/${data.vaga.id}`);
       router.refresh();
-    } catch (e: any) {
+    } catch {
       setError("Erro de conexão ao publicar vaga. Tente novamente.");
     } finally {
       setLoading(false);
@@ -111,27 +173,18 @@ export default function NovaVagaPage() {
 
   // Payloads para IA
   const selectedCompany = companies.find(c => c.id === form.companyId);
+  const nivelDisplay = niveis.join(", ") || "";
+  const cursoDisplay = cursosSelecionados.join(", ") || "";
   const aiDescricaoPayload = {
     titulo: form.titulo, funcao: form.funcao, area: form.area,
-    nivel: form.nivel, cursoRequerido: form.cursoRequerido,
+    nivel: nivelDisplay, cursoRequerido: cursoDisplay,
     bolsa: form.bolsa, horario: form.horario, modalidade: form.modalidade,
     requisitos: form.requisitos, empresa: selectedCompany?.name || "",
     cidade: form.cidade, uf: form.uf,
   };
-  const aiTestesPayload = {
-    titulo: form.titulo, area: form.area,
-    nivel: form.nivel, cursoRequerido: form.cursoRequerido,
-    requisitos: form.requisitos, descricao: form.descricao,
-  };
-  const aiRequisitosPayload = {
-    titulo: form.titulo, area: form.area,
-    nivel: form.nivel, cursoRequerido: form.cursoRequerido,
-    descricao: form.descricao,
-  };
-  const aiDiscPayload = {
-    titulo: form.titulo, area: form.area,
-    descricao: form.descricao, requisitos: form.requisitos, modalidade: form.modalidade,
-  };
+  const aiRequisitosPayload = { titulo: form.titulo, area: form.area, nivel: nivelDisplay, cursoRequerido: cursoDisplay, descricao: form.descricao };
+  const aiTestesPayload = { titulo: form.titulo, area: form.area, nivel: nivelDisplay, cursoRequerido: cursoDisplay, requisitos: form.requisitos, descricao: form.descricao };
+  const aiDiscPayload = { titulo: form.titulo, area: form.area, descricao: form.descricao, requisitos: form.requisitos, modalidade: form.modalidade };
 
   const downloadTestesPDF = () => {
     if (!testesIA) return;
@@ -142,14 +195,8 @@ export default function NovaVagaPage() {
       .replace(/\n/g, "<br/>");
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>Testes Seletivos — ${form.titulo}</title>
-<style>
-  body{font-family:Arial,sans-serif;padding:40px;max-width:800px;margin:0 auto;color:#1e293b}
-  h1{color:#0f2a5e;border-bottom:2px solid #0f2a5e;padding-bottom:10px}
-  h3{color:#1a3d8f;margin-top:24px}
-  .meta{color:#64748b;font-size:14px;margin-bottom:24px}
-  strong{font-weight:bold}
-  @media print{body{padding:20px}}
-</style></head><body>
+<style>body{font-family:Arial,sans-serif;padding:40px;max-width:800px;margin:0 auto;color:#1e293b}h1{color:#0f2a5e;border-bottom:2px solid #0f2a5e;padding-bottom:10px}h3{color:#1a3d8f;margin-top:24px}.meta{color:#64748b;font-size:14px;margin-bottom:24px}strong{font-weight:bold}@media print{body{padding:20px}}</style>
+</head><body>
 <h1>Testes Seletivos Sugeridos</h1>
 <div class="meta"><strong>Vaga:</strong> ${form.titulo}&nbsp;|&nbsp;<strong>Área:</strong> ${form.area||"—"}</div>
 <div>${content}</div>
@@ -172,87 +219,114 @@ export default function NovaVagaPage() {
         <Card className="p-6">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-4">Dados da Vaga</p>
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2"><Input label="Título da Vaga *" value={form.titulo} onChange={e=>set("titulo",e.target.value)} placeholder="Assistente Administrativo Jr"/></div>
-            <Input label="Função" value={form.funcao} onChange={e=>set("funcao",e.target.value)} placeholder="Assistente"/>
+
+            <div className="col-span-2">
+              <Input label="Título da Vaga *" value={form.titulo} onChange={e => set("titulo", e.target.value)} placeholder="Assistente Administrativo Jr"/>
+            </div>
+
+            <Input label="Função" value={form.funcao} onChange={e => set("funcao", e.target.value)} placeholder="Assistente"/>
+
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Área</label>
-              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.area} onChange={e=>setArea(e.target.value)}>
+              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.area} onChange={e => set("area", e.target.value)}>
                 <option value="">Selecione...</option>
-                {AREAS.map(a=><option key={a}>{a}</option>)}
+                {AREAS.map(a => <option key={a}>{a}</option>)}
               </select>
             </div>
 
-            {/* Nível de Ensino — Lei 11.788/08 */}
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Nível de Ensino <span className="text-slate-400 font-normal">(Lei 11.788/08)</span></label>
-              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.nivel} onChange={e=>setNivel(e.target.value)}>
-                <option value="">Selecione...</option>
-                <option value="Ensino Médio">Ensino Médio</option>
-                <option value="Ensino Técnico">Ensino Técnico</option>
-                <option value="Ensino Superior">Ensino Superior</option>
-              </select>
+            {/* ── Nível de Ensino — multi-select (Lei 11.788/08) ── */}
+            <div className="col-span-2">
+              <label className="text-xs font-bold text-slate-600 block mb-2">
+                Nível de Ensino <span className="text-slate-400 font-normal">(Lei 11.788/08) — selecione um ou mais</span>
+              </label>
+              <div className="flex flex-wrap gap-6">
+                {NIVEIS_ENSINO.map(n => (
+                  <label key={n} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" className={chkCls} checked={niveis.includes(n)} onChange={() => toggleNivel(n)} />
+                    <span className="text-sm text-slate-700 font-medium">{n}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
-            {/* Curso Requerido — aparece quando nível é Técnico ou Superior */}
-            {(form.nivel === "Ensino Técnico" || form.nivel === "Ensino Superior") && (
+            {/* ── Cursos Técnicos ── */}
+            {niveis.includes("Ensino Técnico") && (
               <div className="col-span-2">
-                <label className="text-xs font-bold text-slate-600 block mb-1">
-                  Curso Requerido
-                  <span className="text-slate-400 font-normal ml-1">
-                    {cursosDisponiveis.length > 0 ? `— ${cursosDisponiveis.length} sugestões para ${form.area || "a área"}` : ""}
-                  </span>
+                <label className="text-xs font-bold text-slate-600 block mb-1.5">
+                  Cursos Técnicos
+                  {cursosSelecionados.filter(c => CURSOS_TECNICO_LISTA.includes(c)).length > 0 && (
+                    <span className="ml-2 px-1.5 py-0.5 bg-[#0f2a5e] text-white text-[10px] rounded-full">
+                      {cursosSelecionados.filter(c => CURSOS_TECNICO_LISTA.includes(c)).length} selecionados
+                    </span>
+                  )}
                 </label>
-                {cursosDisponiveis.length > 0 ? (
-                  <select
-                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
-                    value={cursoOutro ? "Outro" : form.cursoRequerido}
-                    onChange={e => {
-                      if (e.target.value === "Outro") {
-                        setCursoOutro(true);
-                        set("cursoRequerido", "");
-                      } else {
-                        setCursoOutro(false);
-                        set("cursoRequerido", e.target.value);
-                      }
-                    }}
-                  >
-                    <option value="">Selecione o curso...</option>
-                    {cursosDisponiveis.map(c => <option key={c}>{c}</option>)}
-                    <option value="Outro">Outro (digitar abaixo)</option>
-                  </select>
-                ) : null}
-                {(cursoOutro || cursosDisponiveis.length === 0) && (
-                  <Input
-                    placeholder="Digite o curso requerido..."
-                    value={form.cursoRequerido}
-                    onChange={e => set("cursoRequerido", e.target.value)}
-                    className={cursosDisponiveis.length > 0 ? "mt-2" : ""}
-                  />
-                )}
+                <CursoList
+                  lista={CURSOS_TECNICO_LISTA}
+                  selecionados={cursosSelecionados}
+                  filtro={filtroCursoTecnico}
+                  setFiltro={setFiltroCursoTecnico}
+                  onToggle={toggleCurso}
+                  showOutro={showOutroTecnico}
+                  onToggleOutro={() => setShowOutroTecnico(p => !p)}
+                  outroVal={cursoOutroTecnico}
+                  onOutroChange={setCursoOutroTecnico}
+                  badgeColor="bg-blue-50 border border-blue-200 text-blue-700"
+                />
               </div>
             )}
 
+            {/* ── Cursos Superiores ── */}
+            {niveis.includes("Ensino Superior") && (
+              <div className="col-span-2">
+                <label className="text-xs font-bold text-slate-600 block mb-1.5">
+                  Cursos Superiores
+                  {cursosSelecionados.filter(c => CURSOS_SUPERIOR_LISTA.includes(c)).length > 0 && (
+                    <span className="ml-2 px-1.5 py-0.5 bg-[#0f2a5e] text-white text-[10px] rounded-full">
+                      {cursosSelecionados.filter(c => CURSOS_SUPERIOR_LISTA.includes(c)).length} selecionados
+                    </span>
+                  )}
+                </label>
+                <CursoList
+                  lista={CURSOS_SUPERIOR_LISTA}
+                  selecionados={cursosSelecionados}
+                  filtro={filtroCursoSuperior}
+                  setFiltro={setFiltroCursoSuperior}
+                  onToggle={toggleCurso}
+                  showOutro={showOutroSuperior}
+                  onToggleOutro={() => setShowOutroSuperior(p => !p)}
+                  outroVal={cursoOutroSuperior}
+                  onOutroChange={setCursoOutroSuperior}
+                  badgeColor="bg-purple-50 border border-purple-200 text-purple-700"
+                />
+              </div>
+            )}
+
+            {/* Empresa e Modalidade */}
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Empresa *</label>
-              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.companyId} onChange={e=>set("companyId",e.target.value)}>
+              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.companyId} onChange={e => set("companyId", e.target.value)}>
                 <option value="">Selecione...</option>
-                {companies.filter((c:any)=>c.status==="ATIVA").map((c:any)=><option key={c.id} value={c.id}>{c.name} — {c.cidade}/{c.uf}</option>)}
+                {companies.filter((c:any) => c.status === "ATIVA").map((c:any) => (
+                  <option key={c.id} value={c.id}>{c.name} — {c.cidade}/{c.uf}</option>
+                ))}
               </select>
             </div>
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Modalidade</label>
-              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.modalidade} onChange={e=>set("modalidade",e.target.value)}>
-                {["Presencial","Híbrido","Remoto"].map(m=><option key={m}>{m}</option>)}
+              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.modalidade} onChange={e => set("modalidade", e.target.value)}>
+                {["Presencial","Híbrido","Remoto"].map(m => <option key={m}>{m}</option>)}
               </select>
             </div>
 
-            {/* Módulo 5 — Perfil DISC Ideal */}
+            {/* Perfil DISC */}
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Perfil DISC desejado</label>
               <div className="flex gap-2 items-center">
-                <select className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.discDesejado} onChange={e=>set("discDesejado",e.target.value)}>
+                <select className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.discDesejado} onChange={e => set("discDesejado", e.target.value)}>
                   <option value="">Qualquer perfil</option>
-                  {[["D","Dominância"],["I","Influência"],["S","Estabilidade"],["C","Conformidade"]].map(([v,l])=><option key={v} value={v}>{v} — {l}</option>)}
+                  {[["D","Dominância"],["I","Influência"],["S","Estabilidade"],["C","Conformidade"]].map(([v,l]) => (
+                    <option key={v} value={v}>{v} — {l}</option>
+                  ))}
                 </select>
                 <AIButton
                   label="DISC Ideal"
@@ -268,7 +342,7 @@ export default function NovaVagaPage() {
               </div>
             </div>
 
-            {/* Módulo 1 — Gerar Descrição com IA */}
+            {/* Descrição */}
             <div className="col-span-2">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-slate-600">Descrição da Vaga</label>
@@ -281,10 +355,10 @@ export default function NovaVagaPage() {
                   onResult={(text) => set("descricao", text)}
                 />
               </div>
-              <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-20 resize-none" value={form.descricao} onChange={e=>set("descricao",e.target.value)} placeholder="Atividades que o estagiário irá desenvolver..."/>
+              <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-20 resize-none" value={form.descricao} onChange={e => set("descricao", e.target.value)} placeholder="Atividades que o estagiário irá desenvolver..."/>
             </div>
 
-            {/* Requisitos com Sugerir Requisitos */}
+            {/* Requisitos */}
             <div className="col-span-2">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-slate-600">Requisitos</label>
@@ -297,10 +371,10 @@ export default function NovaVagaPage() {
                   onResult={(text) => set("requisitos", form.requisitos ? form.requisitos + "\n\n" + text : text)}
                 />
               </div>
-              <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-16 resize-none" value={form.requisitos} onChange={e=>set("requisitos",e.target.value)} placeholder="Cursando Administração ou áreas correlatas..."/>
+              <textarea className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] h-16 resize-none" value={form.requisitos} onChange={e => set("requisitos", e.target.value)} placeholder="Cursando Administração ou áreas correlatas..."/>
             </div>
 
-            {/* Sugestão de Testes Seletivos — uso interno, não vai para a vaga */}
+            {/* Testes Seletivos */}
             <div className="col-span-2">
               <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 bg-slate-50/50">
                 <div className="flex items-start justify-between gap-3 mb-1">
@@ -320,47 +394,42 @@ export default function NovaVagaPage() {
                 {testesIA && (
                   <div className="mt-3 flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl">
                     <p className="text-xs text-amber-700 font-medium">✓ Testes gerados — apenas para uso interno da unidade</p>
-                    <button
-                      type="button"
-                      onClick={downloadTestesPDF}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition-colors"
-                    >
+                    <button type="button" onClick={downloadTestesPDF} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition-colors">
                       📄 Baixar PDF
                     </button>
                   </div>
                 )}
               </div>
             </div>
+
           </div>
         </Card>
 
         <Card className="p-6">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-4">Remuneração e Jornada</p>
           <div className="grid grid-cols-3 gap-4">
-            <Input label="Bolsa (R$) *" type="number" value={form.bolsa} onChange={e=>set("bolsa",e.target.value)} placeholder="1500"/>
-            <Input label="Aux. Transporte (R$)" type="number" value={form.auxTransporte} onChange={e=>set("auxTransporte",e.target.value)} placeholder="200"/>
-            <Input label="Benefícios" value={form.beneficios} onChange={e=>set("beneficios",e.target.value)}/>
+            <Input label="Bolsa (R$) *" type="number" value={form.bolsa} onChange={e => set("bolsa", e.target.value)} placeholder="1500"/>
+            <Input label="Aux. Transporte (R$)" type="number" value={form.auxTransporte} onChange={e => set("auxTransporte", e.target.value)} placeholder="200"/>
+            <Input label="Benefícios" value={form.beneficios} onChange={e => set("beneficios", e.target.value)}/>
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">C.H. Diária (máx. 6h)</label>
               <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.chDiaria}
-                onChange={e=>{ set("chDiaria",e.target.value); set("cargaHoraria",String(parseInt(e.target.value)*5)); }}>
-                {["4","5","6"].map(h=><option key={h} value={h}>{h}h/dia</option>)}
+                onChange={e => { set("chDiaria", e.target.value); set("cargaHoraria", String(parseInt(e.target.value) * 5)); }}>
+                {["4","5","6"].map(h => <option key={h} value={h}>{h}h/dia</option>)}
               </select>
             </div>
-            <Input label="C.H. Semanal" value={form.cargaHoraria+"h"} readOnly className="bg-slate-50"/>
-            <Input label="Horário" value={form.horario} onChange={e=>set("horario",e.target.value)} placeholder="08:00 - 14:00"/>
-            <div className="col-span-2">
+            <Input label="C.H. Semanal" value={form.cargaHoraria + "h"} readOnly className="bg-slate-50"/>
+            <Input label="Horário" value={form.horario} onChange={e => set("horario", e.target.value)} placeholder="08:00 - 14:00"/>
+            <div className="col-span-3">
               <label className="text-xs font-bold text-slate-600 block mb-1">Dias da Semana</label>
               <select
                 className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
                 value={diasPersonalizado ? "Personalizado (digitar abaixo)" : form.diasSemana}
                 onChange={e => {
                   if (e.target.value === "Personalizado (digitar abaixo)") {
-                    setDiasPersonalizado(true);
-                    set("diasSemana", "");
+                    setDiasPersonalizado(true); set("diasSemana", "");
                   } else {
-                    setDiasPersonalizado(false);
-                    set("diasSemana", e.target.value);
+                    setDiasPersonalizado(false); set("diasSemana", e.target.value);
                   }
                 }}
               >
@@ -377,14 +446,14 @@ export default function NovaVagaPage() {
                 />
               )}
             </div>
-            <Input label="Cidade" value={form.cidade} onChange={e=>set("cidade",e.target.value)} placeholder="São Paulo"/>
-            <Input label="UF" value={form.uf} onChange={e=>set("uf",e.target.value)} placeholder="SP"/>
+            <Input label="Cidade" value={form.cidade} onChange={e => set("cidade", e.target.value)} placeholder="São Paulo"/>
+            <Input label="UF" value={form.uf} onChange={e => set("uf", e.target.value)} placeholder="SP"/>
           </div>
         </Card>
 
         <div className="flex gap-3">
-          <Button variant="secondary" onClick={()=>router.back()}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={loading}>{loading?"Publicando...":"Publicar Vaga"}</Button>
+          <Button variant="secondary" onClick={() => router.back()}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={loading}>{loading ? "Publicando..." : "Publicar Vaga"}</Button>
         </div>
       </div>
     </div>

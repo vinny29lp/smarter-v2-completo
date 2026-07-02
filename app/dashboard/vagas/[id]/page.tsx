@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { VagaActions } from "./VagaActions";
+import { parseMultiField, formatMultiField } from "@/lib/vagas-constants";
 
 const statusBadge: Record<string,"green"|"yellow"|"gray"> = { ABERTA:"green",PAUSADA:"yellow",ENCERRADA:"gray" };
 const discColor: Record<string,string> = {
@@ -45,9 +46,9 @@ export default async function VagaDetailPage({ params }: { params: { id: string 
             {[
               ["Empresa", vaga.company.name],
               ["Área", vaga.area||"—"],
-              ["Nível de Ensino", (vaga as any).nivel||"—"],
-              ["Curso Requerido", (vaga as any).cursoRequerido||"—"],
               ["Modalidade", vaga.modalidade],
+              ["Nível de Ensino", formatMultiField(parseMultiField((vaga as any).nivel))],
+              ["Curso(s)", formatMultiField(parseMultiField((vaga as any).cursoRequerido))],
               ["Dias da Semana", (vaga as any).diasSemana||"—"],
               ["Horário", vaga.horario||"—"],
               ["Benefícios", vaga.beneficios||"—"],

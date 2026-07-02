@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { NIVEIS_ENSINO, CURSOS_TECNICO_LISTA, CURSOS_SUPERIOR_LISTA, parseMultiField } from "@/lib/vagas-constants";
 
 interface VagaData {
   id: string;
@@ -28,13 +29,11 @@ interface VagaData {
   publicSlug?: string | null;
 }
 
-interface Props {
-  vaga: VagaData;
-}
+interface Props { vaga: VagaData; }
 
 const MODALIDADES = ["Presencial", "Remoto", "Híbrido"];
-const NIVEIS = ["", "Ensino Médio", "Técnico", "Superior"];
 const DISCS = ["", "D", "I", "S", "C"];
+const chkCls = "w-4 h-4 rounded accent-[#0f2a5e] cursor-pointer flex-shrink-0";
 
 export function VagaActions({ vaga }: Props) {
   const router = useRouter();
@@ -48,7 +47,16 @@ export function VagaActions({ vaga }: Props) {
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const linkPublico = vaga.publicSlug ? `${base}/vaga/${vaga.publicSlug}` : null;
 
-  // Form state — pré-preenchido com os dados da vaga
+  // Nível e cursos — multi-select (pré-preenchido com valores existentes)
+  const [niveis, setNiveis] = useState<string[]>(() => parseMultiField(vaga.nivel));
+  const [cursosSelecionados, setCursosSelecionados] = useState<string[]>(() => parseMultiField(vaga.cursoRequerido));
+  const [showOutroTecnico, setShowOutroTecnico] = useState(false);
+  const [showOutroSuperior, setShowOutroSuperior] = useState(false);
+  const [cursoOutroTecnico, setCursoOutroTecnico] = useState("");
+  const [cursoOutroSuperior, setCursoOutroSuperior] = useState("");
+  const [filtroCursoTecnico, setFiltroCursoTecnico] = useState("");
+  const [filtroCursoSuperior, setFiltroCursoSuperior] = useState("");
+
   const [form, setForm] = useState({
     titulo: vaga.titulo || "",
     funcao: vaga.funcao || "",
@@ -65,13 +73,28 @@ export function VagaActions({ vaga }: Props) {
     diasSemana: vaga.diasSemana || "",
     cidade: vaga.cidade || "",
     uf: vaga.uf || "",
-    nivel: vaga.nivel || "",
-    cursoRequerido: vaga.cursoRequerido || "",
     discDesejado: vaga.discDesejado || "",
   });
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const toggleNivel = (nivel: string) => {
+    setNiveis(prev => {
+      if (prev.includes(nivel)) {
+        const lista = nivel === "Ensino Técnico" ? CURSOS_TECNICO_LISTA
+                    : nivel === "Ensino Superior" ? CURSOS_SUPERIOR_LISTA : [];
+        setCursosSelecionados(cs => cs.filter(c => !lista.includes(c)));
+        if (nivel === "Ensino Técnico") { setShowOutroTecnico(false); setCursoOutroTecnico(""); setFiltroCursoTecnico(""); }
+        if (nivel === "Ensino Superior") { setShowOutroSuperior(false); setCursoOutroSuperior(""); setFiltroCursoSuperior(""); }
+        return prev.filter(n => n !== nivel);
+      }
+      return [...prev, nivel];
+    });
+  };
+
+  const toggleCurso = (curso: string) =>
+    setCursosSelecionados(prev => prev.includes(curso) ? prev.filter(c => c !== curso) : [...prev, curso]);
 
   const changeStatus = async (s: string) => {
     setLoading(true);
@@ -83,9 +106,13 @@ export function VagaActions({ vaga }: Props) {
   };
 
   const saveEdit = async () => {
-    setSaving(true);
-    setEditError("");
+    setSaving(true); setEditError("");
     try {
+      const cursosFinais = [
+        ...cursosSelecionados,
+        ...(showOutroTecnico && cursoOutroTecnico.trim() ? [cursoOutroTecnico.trim()] : []),
+        ...(showOutroSuperior && cursoOutroSuperior.trim() ? [cursoOutroSuperior.trim()] : []),
+      ];
       const body = {
         titulo: form.titulo.trim(),
         funcao: form.funcao.trim() || null,
@@ -102,17 +129,16 @@ export function VagaActions({ vaga }: Props) {
         diasSemana: form.diasSemana.trim() || null,
         cidade: form.cidade.trim() || null,
         uf: form.uf.trim().toUpperCase().slice(0, 2) || null,
-        nivel: form.nivel || null,
-        cursoRequerido: form.cursoRequerido.trim() || null,
         discDesejado: form.discDesejado || null,
+        nivel: niveis.length ? JSON.stringify(niveis) : null,
+        cursoRequerido: cursosFinais.length ? JSON.stringify(cursosFinais) : null,
       };
       const res = await fetch(`/api/app/vagas/${vaga.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json();
-        setEditError(data.error || "Erro ao salvar.");
-        return;
+        setEditError(data.error || "Erro ao salvar."); return;
       }
       setEditModal(false);
       router.refresh();
@@ -133,12 +159,7 @@ export function VagaActions({ vaga }: Props) {
 
   return (
     <div className="space-y-2">
-      {/* Botão Editar */}
-      <Button
-        variant="secondary"
-        className="w-full justify-center"
-        onClick={() => { setEditModal(true); setEditError(""); }}
-      >
+      <Button variant="secondary" className="w-full justify-center" onClick={() => { setEditModal(true); setEditError(""); }}>
         ✏️ Editar Vaga
       </Button>
 
@@ -168,7 +189,7 @@ export function VagaActions({ vaga }: Props) {
         </Button>
       )}
 
-      {/* Modal Link de Divulgação */}
+      {/* Modal Link */}
       <Modal open={linkModal} onClose={() => setLinkModal(false)} title="Link de Divulgação da Vaga">
         <p className="text-sm text-slate-500 mb-3">Compartilhe este link para candidatos se inscreverem na vaga <strong>{vaga.titulo}</strong>:</p>
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-mono break-all mb-4 select-all">{linkPublico}</div>
@@ -180,9 +201,10 @@ export function VagaActions({ vaga }: Props) {
         </div>
       </Modal>
 
-      {/* Modal Editar Vaga */}
+      {/* Modal Editar */}
       <Modal open={editModal} onClose={() => setEditModal(false)} title="Editar Vaga">
         <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+
           {/* Título e Função */}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
@@ -191,31 +213,29 @@ export function VagaActions({ vaga }: Props) {
             </div>
             <div>
               <label className={labelCls}>Função</label>
-              <input className={inputCls} value={form.funcao} onChange={set("funcao")} placeholder="Ex: Analista" />
+              <input className={inputCls} value={form.funcao} onChange={set("funcao")} />
             </div>
             <div>
               <label className={labelCls}>Área</label>
-              <input className={inputCls} value={form.area} onChange={set("area")} placeholder="Ex: Tecnologia" />
+              <input className={inputCls} value={form.area} onChange={set("area")} />
             </div>
           </div>
 
-          {/* Descrição */}
+          {/* Descrição e Requisitos */}
           <div>
             <label className={labelCls}>Descrição</label>
-            <textarea className={inputCls + " min-h-[80px] resize-y"} value={form.descricao} onChange={set("descricao")} placeholder="Descreva as atividades da vaga..." />
+            <textarea className={inputCls + " min-h-[70px] resize-y"} value={form.descricao} onChange={set("descricao")} />
           </div>
-
-          {/* Requisitos */}
           <div>
             <label className={labelCls}>Requisitos</label>
-            <textarea className={inputCls + " min-h-[60px] resize-y"} value={form.requisitos} onChange={set("requisitos")} placeholder="Quais requisitos o candidato precisa ter?" />
+            <textarea className={inputCls + " min-h-[55px] resize-y"} value={form.requisitos} onChange={set("requisitos")} />
           </div>
 
           {/* Benefícios e Modalidade */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Benefícios</label>
-              <input className={inputCls} value={form.beneficios} onChange={set("beneficios")} placeholder="Ex: Vale-refeição" />
+              <input className={inputCls} value={form.beneficios} onChange={set("beneficios")} />
             </div>
             <div>
               <label className={labelCls}>Modalidade *</label>
@@ -229,19 +249,19 @@ export function VagaActions({ vaga }: Props) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelCls}>Bolsa (R$) *</label>
-              <input className={inputCls} type="number" value={form.bolsa} onChange={set("bolsa")} placeholder="0,00" />
+              <input className={inputCls} type="number" value={form.bolsa} onChange={set("bolsa")} />
             </div>
             <div>
               <label className={labelCls}>Aux. Transporte (R$)</label>
-              <input className={inputCls} type="number" value={form.auxTransporte} onChange={set("auxTransporte")} placeholder="0,00" />
+              <input className={inputCls} type="number" value={form.auxTransporte} onChange={set("auxTransporte")} />
             </div>
             <div>
               <label className={labelCls}>C.H. Semanal (h) *</label>
-              <input className={inputCls} type="number" value={form.cargaHoraria} onChange={set("cargaHoraria")} placeholder="20" />
+              <input className={inputCls} type="number" value={form.cargaHoraria} onChange={set("cargaHoraria")} />
             </div>
           </div>
 
-          {/* Horário, Dias e C.H. diária */}
+          {/* Horário, Dias e C.H. Diária */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Horário</label>
@@ -249,7 +269,7 @@ export function VagaActions({ vaga }: Props) {
             </div>
             <div>
               <label className={labelCls}>C.H. Diária (h) *</label>
-              <input className={inputCls} type="number" value={form.chDiaria} onChange={set("chDiaria")} placeholder="4" />
+              <input className={inputCls} type="number" value={form.chDiaria} onChange={set("chDiaria")} />
             </div>
             <div className="col-span-2">
               <label className={labelCls}>Dias da Semana</label>
@@ -261,33 +281,131 @@ export function VagaActions({ vaga }: Props) {
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className={labelCls}>Cidade</label>
-              <input className={inputCls} value={form.cidade} onChange={set("cidade")} placeholder="São Paulo" />
+              <input className={inputCls} value={form.cidade} onChange={set("cidade")} />
             </div>
             <div>
               <label className={labelCls}>UF</label>
-              <input className={inputCls} value={form.uf} onChange={set("uf")} placeholder="SP" maxLength={2} />
+              <input className={inputCls} value={form.uf} onChange={set("uf")} maxLength={2} />
             </div>
           </div>
 
-          {/* Nível, Curso e DISC */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={labelCls}>Nível de Ensino</label>
-              <select className={inputCls} value={form.nivel} onChange={set("nivel")}>
-                {NIVEIS.map(n => <option key={n} value={n}>{n || "—"}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Curso Requerido</label>
-              <input className={inputCls} value={form.cursoRequerido} onChange={set("cursoRequerido")} placeholder="Ex: Administração" />
-            </div>
-            <div>
-              <label className={labelCls}>DISC desejado</label>
-              <select className={inputCls} value={form.discDesejado} onChange={set("discDesejado")}>
-                {DISCS.map(d => <option key={d} value={d}>{d || "Qualquer"}</option>)}
-              </select>
+          {/* DISC */}
+          <div>
+            <label className={labelCls}>Perfil DISC desejado</label>
+            <select className={inputCls} value={form.discDesejado} onChange={set("discDesejado")}>
+              {DISCS.map(d => <option key={d} value={d}>{d || "Qualquer"}</option>)}
+            </select>
+          </div>
+
+          {/* Nível de Ensino — multi-select */}
+          <div>
+            <label className={labelCls}>Nível de Ensino (selecione um ou mais)</label>
+            <div className="flex flex-wrap gap-4 mt-1">
+              {NIVEIS_ENSINO.map(n => (
+                <label key={n} className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input type="checkbox" className={chkCls} checked={niveis.includes(n)} onChange={() => toggleNivel(n)} />
+                  <span className="text-sm text-slate-700">{n}</span>
+                </label>
+              ))}
             </div>
           </div>
+
+          {/* Cursos Técnicos */}
+          {niveis.includes("Ensino Técnico") && (
+            <div>
+              <label className={labelCls}>
+                Cursos Técnicos
+                {cursosSelecionados.filter(c => CURSOS_TECNICO_LISTA.includes(c)).length > 0 && (
+                  <span className="ml-2 px-1.5 py-0.5 bg-blue-600 text-white text-[10px] rounded-full">
+                    {cursosSelecionados.filter(c => CURSOS_TECNICO_LISTA.includes(c)).length}
+                  </span>
+                )}
+              </label>
+              <input
+                type="text"
+                className={inputCls + " mb-2"}
+                placeholder="Filtrar..."
+                value={filtroCursoTecnico}
+                onChange={e => setFiltroCursoTecnico(e.target.value)}
+              />
+              <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg p-2 grid grid-cols-2 gap-x-3 gap-y-1 bg-slate-50">
+                {CURSOS_TECNICO_LISTA.filter(c => c.toLowerCase().includes(filtroCursoTecnico.toLowerCase())).map(c => (
+                  <label key={c} className="flex items-start gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" className={chkCls} checked={cursosSelecionados.includes(c)} onChange={() => toggleCurso(c)} />
+                    <span className="text-xs text-slate-700 leading-tight">{c.replace("Técnico em ", "")}</span>
+                  </label>
+                ))}
+                {(!filtroCursoTecnico || "outro".includes(filtroCursoTecnico.toLowerCase())) && (
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" className={chkCls} checked={showOutroTecnico} onChange={() => setShowOutroTecnico(p => !p)} />
+                    <span className="text-xs font-semibold text-slate-700">Outro</span>
+                  </label>
+                )}
+              </div>
+              {showOutroTecnico && (
+                <input className={inputCls + " mt-1"} value={cursoOutroTecnico} onChange={e => setCursoOutroTecnico(e.target.value)} placeholder="Informe o curso técnico..." />
+              )}
+              {cursosSelecionados.filter(c => CURSOS_TECNICO_LISTA.includes(c)).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {cursosSelecionados.filter(c => CURSOS_TECNICO_LISTA.includes(c)).map(c => (
+                    <span key={c} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-full">
+                      {c.replace("Técnico em ", "")}
+                      <button type="button" onClick={() => toggleCurso(c)} className="opacity-60 hover:opacity-100">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Cursos Superiores */}
+          {niveis.includes("Ensino Superior") && (
+            <div>
+              <label className={labelCls}>
+                Cursos Superiores
+                {cursosSelecionados.filter(c => CURSOS_SUPERIOR_LISTA.includes(c)).length > 0 && (
+                  <span className="ml-2 px-1.5 py-0.5 bg-purple-600 text-white text-[10px] rounded-full">
+                    {cursosSelecionados.filter(c => CURSOS_SUPERIOR_LISTA.includes(c)).length}
+                  </span>
+                )}
+              </label>
+              <input
+                type="text"
+                className={inputCls + " mb-2"}
+                placeholder="Filtrar..."
+                value={filtroCursoSuperior}
+                onChange={e => setFiltroCursoSuperior(e.target.value)}
+              />
+              <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg p-2 grid grid-cols-2 gap-x-3 gap-y-1 bg-slate-50">
+                {CURSOS_SUPERIOR_LISTA.filter(c => c.toLowerCase().includes(filtroCursoSuperior.toLowerCase())).map(c => (
+                  <label key={c} className="flex items-start gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" className={chkCls} checked={cursosSelecionados.includes(c)} onChange={() => toggleCurso(c)} />
+                    <span className="text-xs text-slate-700 leading-tight">{c}</span>
+                  </label>
+                ))}
+                {(!filtroCursoSuperior || "outro".includes(filtroCursoSuperior.toLowerCase())) && (
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" className={chkCls} checked={showOutroSuperior} onChange={() => setShowOutroSuperior(p => !p)} />
+                    <span className="text-xs font-semibold text-slate-700">Outro</span>
+                  </label>
+                )}
+              </div>
+              {showOutroSuperior && (
+                <input className={inputCls + " mt-1"} value={cursoOutroSuperior} onChange={e => setCursoOutroSuperior(e.target.value)} placeholder="Informe o curso superior..." />
+              )}
+              {cursosSelecionados.filter(c => CURSOS_SUPERIOR_LISTA.includes(c)).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {cursosSelecionados.filter(c => CURSOS_SUPERIOR_LISTA.includes(c)).map(c => (
+                    <span key={c} className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 border border-purple-200 text-purple-700 text-xs rounded-full">
+                      {c}
+                      <button type="button" onClick={() => toggleCurso(c)} className="opacity-60 hover:opacity-100">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
 
         {editError && (
@@ -298,9 +416,7 @@ export function VagaActions({ vaga }: Props) {
           <Button onClick={saveEdit} disabled={saving} className="flex-1 justify-center">
             {saving ? "Salvando..." : "💾 Salvar Alterações"}
           </Button>
-          <Button variant="secondary" onClick={() => setEditModal(false)} disabled={saving}>
-            Cancelar
-          </Button>
+          <Button variant="secondary" onClick={() => setEditModal(false)} disabled={saving}>Cancelar</Button>
         </div>
       </Modal>
     </div>

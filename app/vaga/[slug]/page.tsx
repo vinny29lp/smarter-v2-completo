@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { parseMultiField, formatMultiField } from "@/lib/vagas-constants";
 
 export default function VagaPublicaPage() {
   const params = useParams();
@@ -83,6 +84,7 @@ export default function VagaPublicaPage() {
                   ["⏱ Jornada",vaga.cargaHoraria+"h/semana"],
                   ["🏢 Modalidade",vaga.modalidade],
                   ["📍 Local",vaga.cidade+"/"+vaga.uf],
+                  ...((vaga as any).nivel ? [["🎓 Nível", formatMultiField(parseMultiField((vaga as any).nivel))]] : []),
                   ...((vaga as any).diasSemana ? [["📅 Dias",(vaga as any).diasSemana]] : []),
                   ...(vaga.horario ? [["🕐 Horário",vaga.horario]] : []),
                 ].map(([l,v])=>(
