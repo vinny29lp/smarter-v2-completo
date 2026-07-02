@@ -150,6 +150,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(body.telefone       !== undefined ? { telefone: body.telefone }                     : {}),
       ...(body.cargo          !== undefined ? { cargo: body.cargo }                           : {}),
       ...(body.cidade         !== undefined ? { cidade: body.cidade }                         : {}),
+      ...(body.uf             !== undefined ? { uf: body.uf }                                 : {}),
+      ...(body.whatsapp       !== undefined ? { whatsapp: body.whatsapp }                     : {}),
+      ...(body.instagram      !== undefined ? { instagram: body.instagram }                   : {}),
+      ...(body.linkedin       !== undefined ? { linkedin: body.linkedin }                     : {}),
+      ...(body.setor          !== undefined ? { setor: body.setor }                           : {}),
+      ...(body.origem         !== undefined ? { origem: body.origem }                         : {}),
     },
     include: {
       tasks: { orderBy: { createdAt: "desc" } },

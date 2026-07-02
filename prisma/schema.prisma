@@ -43,6 +43,8 @@ model Franchise {
   responsavel          String
   email                String
   telefone             String?
+  whatsapp             String?
+  instagram            String?
   cidade               String
   uf                   String
   endereco             String?
@@ -396,8 +398,14 @@ model CrmLead {
   id              String    @id @default(dbgenerated("(gen_random_uuid())::text"))
   empresa         String
   contato         String?
+  cargo           String?
   email           String?
   telefone        String?
+  whatsapp        String?
+  instagram       String?
+  linkedin        String?
+  cidade          String?
+  uf              String?
   etapa           String?   @default("novo_lead")
   prioridade      String?   @default("media")
   valorNegociado  Float?
@@ -420,15 +428,47 @@ model CrmLead {
   origem          String?
   setor           String?
   contratoHtml    String?   @db.Text
-  company         Company?  @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  franchise       Franchise? @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  notas           CrmNota[]
-  tasks           CrmTask[]
+
+  // ─── Apresentação Comercial Rastreável ───────────────────────────────────────
+  apresentacaoToken      String?   @unique
+  apresentacaoCanal      String?   // email | whatsapp | instagram | linkedin | link
+  apresentacaoEnviadaEm  DateTime? @db.Timestamptz(6)
+  apresentacaoAbertaEm   DateTime? @db.Timestamptz(6)
+  apresentacaoAcessos    Int?      @default(0)
+  apresentacaoTempoSeg   Int?      @default(0)
+  apresentacaoScrollMax  Int?      @default(0)
+  apresentacaoCliques    String?   @db.Text   // JSON array de cliques
+  leadScore              Int?      @default(0)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  company              Company?              @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  franchise            Franchise?            @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  notas                CrmNota[]
+  tasks                CrmTask[]
+  apresentacaoEventos  ApresentacaoEvento[]
 
   @@index([franchiseId])
   @@index([situacao])
   @@index([updatedAt])
+  @@index([apresentacaoToken])
   @@map("crm_leads")
+}
+
+model ApresentacaoEvento {
+  id        String    @id @default(cuid())
+  leadId    String
+  token     String
+  tipo      String    // abriu | scroll_25 | scroll_50 | scroll_75 | chegou_ao_fim | clicou_whatsapp | clicou_agendamento | clicou_vaga | ping_tempo
+  ip        String?
+  userAgent String?
+  extra     String?   // JSON com dados extras (tempo em s, scroll %)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  lead      CrmLead   @relation(fields: [leadId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([leadId])
+  @@index([token])
+  @@index([tipo])
+  @@map("apresentacao_eventos")
 }
 
 model CrmNota {

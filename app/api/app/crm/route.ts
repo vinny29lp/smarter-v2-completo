@@ -81,11 +81,20 @@ export async function POST(req: Request) {
   const franchiseIdParaLead =
     role === "FRANQUEADORA" ? null : (session.user.franchiseId ?? null);
 
+  const b = body as any;
   const createData: any = {
     empresa:     body.empresa,
     contato:     body.contato     || null,
+    cargo:       b.cargo          || null,
     email:       body.email       || null,
     telefone:    body.telefone    || null,
+    whatsapp:    b.whatsapp       || null,
+    instagram:   b.instagram      || null,
+    linkedin:    b.linkedin       || null,
+    cidade:      b.cidade         || null,
+    uf:          b.uf             || null,
+    setor:       b.setor          || null,
+    origem:      b.origem         || null,
     proximaAcao: body.proximaAcao ? String(body.proximaAcao).slice(0, 500) : null,
     retornoAt:   body.retornoAt   ? new Date(body.retornoAt) : null,
     situacao:       "ativo",
