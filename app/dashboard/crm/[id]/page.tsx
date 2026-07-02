@@ -467,7 +467,7 @@ export default function LeadDetailPage() {
                   <p className="text-[10px] text-slate-400 uppercase font-bold">Link gerado</p>
                   <button
                     onClick={() => {
-                      const url = `${window.location.origin}/apresentacao-comercial/${lead.apresentacaoToken}`;
+                      const url = `https://sistema.smarterestagios.com.br/comercial/${lead.apresentacaoToken}`;
                       navigator.clipboard.writeText(url).then(() => toast("🔗 Link copiado!")).catch(() => {});
                     }}
                     className="text-[10px] text-blue-500 hover:underline font-semibold"
@@ -476,7 +476,7 @@ export default function LeadDetailPage() {
                   </button>
                 </div>
                 <p className="text-[10px] text-slate-500 truncate">
-                  /apresentacao-comercial/{lead.apresentacaoToken?.slice(0, 12)}…
+                  sistema.smarterestagios.com.br/comercial/{lead.apresentacaoToken?.slice(0, 12)}…
                 </p>
                 {lead.apresentacaoAbertaEm && (
                   <p className="text-[10px] text-emerald-600 font-bold mt-1">

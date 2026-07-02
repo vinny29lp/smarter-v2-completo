@@ -274,12 +274,8 @@ export default function ApresentacaoComercialPage() {
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#F4B400] flex items-center justify-center">
-              <span className="text-[#0D2B5C] font-black text-sm">S</span>
-            </div>
-            <span className="text-white font-black text-sm tracking-tight hidden sm:block">
-              Smarter Estágios
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/logo-smarter-white.png" alt="Smarter Estágios" className="h-8 w-auto" />
           </div>
 
           {/* Nav desktop */}
@@ -635,13 +631,9 @@ export default function ApresentacaoComercialPage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#F4B400] flex items-center justify-center">
-                <span className="text-[#0D2B5C] font-black">S</span>
-              </div>
-              <div>
-                <p className="text-white font-black text-sm">Smarter Estágios</p>
-                <p className="text-white/40 text-xs">Agente de Integração · Lei nº 11.788/2008</p>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/logo-smarter-white.png" alt="Smarter Estágios" className="h-9 w-auto" />
+              <p className="text-white/40 text-xs">Agente de Integração · Lei nº 11.788/2008</p>
             </div>
 
             {/* Links */}

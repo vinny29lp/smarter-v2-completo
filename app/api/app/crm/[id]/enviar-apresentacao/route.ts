@@ -117,7 +117,7 @@ export async function POST(
       } as any,
     });
 
-    const link = `${APP_URL}/apresentacao-comercial/${token}`;
+    const link = `https://sistema.smarterestagios.com.br/comercial/${token}`;
 
     const msgParams: ApresentacaoMsgParams = {
       contato:           lead.contato || "responsável",
