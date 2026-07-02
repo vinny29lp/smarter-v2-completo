@@ -9,6 +9,11 @@ import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
 import { getAllWhatsAppTemplates, buildWhatsAppUrl } from "@/lib/crm/whatsapp-templates";
 import { SLA_CONFIG, slaStatus, diasRestantes } from "@/lib/crm/sla-config";
+import {
+  detectarSituacao, todasSituacoes, GRUPOS_FOLLOWUP,
+  buildWppUrl, calcularProximoFollowup,
+  type FollowupSituacao, type LeadFollowupContext,
+} from "@/lib/crm/followup-messages";
 
 const ETAPAS = ["novo_lead","primeiro_contato","apresentacao","proposta","negociacao","fechado"];
 const ETAPA_LABEL: Record<string,string> = Object.fromEntries(
@@ -140,6 +145,14 @@ export default function LeadDetailPage() {
   const [apPreviewModal, setApPreviewModal] = useState(false);
   const [apData, setApData] = useState<any>(null);
 
+  // Follow-up Inteligente
+  const [fuMsgText, setFuMsgText]           = useState<string>("");
+  const [fuSituacaoId, setFuSituacaoId]     = useState<string | null>(null);
+  const [fuCopied, setFuCopied]             = useState(false);
+  const [fuEmailModal, setFuEmailModal]     = useState(false);
+  const [fuDropdown, setFuDropdown]         = useState(false);
+  const [fuLinkCopied, setFuLinkCopied]     = useState(false);
+
   const load = () => {
     fetch(`/api/app/crm/${params.id}`)
       .then(r => r.json())
@@ -251,6 +264,45 @@ export default function LeadDetailPage() {
       setApEnviando(null);
     }
   };
+
+  // ── Registra ação do follow-up na timeline ──────────────────────────────────
+  const registrarAcaoFu = async (texto: string) => {
+    await fetch(`/api/app/crm/${params.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "add_nota", texto, tipo: "whatsapp" }),
+    }).catch(() => {});
+    load();
+  };
+
+  // ── Helper: contexto do lead para mensagens ──────────────────────────────────
+  function leadCtx(): LeadFollowupContext {
+    return {
+      contato:               lead?.contato,
+      empresa:               lead?.empresa,
+      setor:                 lead?.setor,
+      cidade:                lead?.cidade,
+      whatsapp:              lead?.whatsapp || lead?.telefone,
+      telefone:              lead?.telefone,
+      email:                 lead?.email,
+      franqueadoNome:        lead?.franchise?.responsavel,
+      franqueadoCidade:      lead?.franchise?.cidade && lead?.franchise?.uf
+                               ? `${lead.franchise.cidade}/${lead.franchise.uf}` : undefined,
+      apresentacaoToken:     lead?.apresentacaoToken,
+      apresentacaoAcessos:   lead?.apresentacaoAcessos,
+      apresentacaoScrollMax: lead?.apresentacaoScrollMax,
+      apresentacaoTempoSeg:  lead?.apresentacaoTempoSeg,
+      apresentacaoCliques:   lead?.apresentacaoCliques,
+      apresentacaoEnviadaEm: lead?.apresentacaoEnviadaEm,
+      leadScore:             lead?.leadScore,
+    };
+  }
+
+  // ── Seleciona situação (automática ou manual) e carrega mensagem ─────────────
+  function selecionarSituacao(sit: FollowupSituacao) {
+    setFuSituacaoId(sit.id);
+    setFuMsgText(sit.mensagem.whatsapp);
+    setFuDropdown(false);
+  }
 
   if (loading) return <div className="p-8 text-center text-slate-400">Carregando...</div>;
   if (!lead) return <div className="p-8 text-center text-red-400">Lead não encontrado.</div>;
@@ -482,16 +534,190 @@ export default function LeadDetailPage() {
               </div>
             )}
 
-            {/* Sugestão de follow-up */}
+            {/* ── FOLLOW-UP INTELIGENTE ─────────────────────────────── */}
             {(() => {
-              const sugestao = getFollowupSugestao(lead);
-              if (!sugestao) return null;
-              const urgente = sugestao.startsWith("🔥");
+              if (!lead.apresentacaoEnviadaEm) return null;
+              const ctx = leadCtx();
+              const autoSit = detectarSituacao(ctx);
+              const todasSit = todasSituacoes(ctx);
+              const sitAtiva: FollowupSituacao | undefined =
+                fuSituacaoId ? todasSit.find(s => s.id === fuSituacaoId) ?? autoSit ?? undefined
+                             : autoSit ?? undefined;
+              if (!autoSit && !fuSituacaoId) return null;
+
+              const link = lead.apresentacaoToken
+                ? `https://sistema.smarterestagios.com.br/comercial/${lead.apresentacaoToken}`
+                : null;
+
+              const wppNum = lead.whatsapp || lead.telefone;
+              const wppUrl = buildWppUrl(wppNum, fuMsgText || sitAtiva?.mensagem.whatsapp || "");
+              const emailDisp = !!lead.email && !!sitAtiva?.mensagem.emailAssunto;
+
+              // Canal badge cores
+              const canalCor: Record<string, string> = {
+                whatsapp:          "bg-green-100 text-green-700",
+                whatsapp_email:    "bg-green-100 text-green-700",
+                ligacao_whatsapp:  "bg-orange-100 text-orange-700",
+                email:             "bg-purple-100 text-purple-700",
+                aguardar:          "bg-slate-100 text-slate-500",
+              };
+
               return (
-                <div className={`mb-4 p-3 rounded-xl text-xs font-semibold ${
-                  urgente ? "bg-red-50 border border-red-200 text-red-700" : "bg-amber-50 border border-amber-200 text-amber-800"
-                }`}>
-                  {sugestao}
+                <div className="mb-4 space-y-3">
+
+                  {/* Indicador contextual */}
+                  {sitAtiva && (
+                    <div className={`p-3 rounded-xl text-xs font-semibold ${
+                      sitAtiva.urgente
+                        ? "bg-red-50 border border-red-200 text-red-700"
+                        : "bg-amber-50 border border-amber-200 text-amber-800"
+                    }`}>
+                      {sitAtiva.indicador}
+                    </div>
+                  )}
+
+                  {/* Módulo de mensagem */}
+                  <div className="border border-[#0D2B5C]/15 rounded-2xl overflow-hidden">
+                    {/* Header do módulo */}
+                    <div className="bg-[#0D2B5C] px-4 py-2.5 flex items-center justify-between">
+                      <p className="text-white text-[11px] font-black uppercase tracking-wide">💬 Mensagem sugerida</p>
+                      {sitAtiva && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${canalCor[sitAtiva.canal] || "bg-slate-100 text-slate-600"}`}>
+                          {sitAtiva.canalLabel}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="bg-white p-3 space-y-3">
+                      {/* Textarea editável */}
+                      <textarea
+                        rows={7}
+                        value={fuMsgText || (sitAtiva?.mensagem.whatsapp ?? "")}
+                        onChange={e => setFuMsgText(e.target.value)}
+                        className="w-full text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-1 focus:ring-[#0D2B5C]/30 leading-relaxed"
+                        placeholder="Selecione uma situação para ver a mensagem sugerida..."
+                      />
+                      <p className="text-[10px] text-slate-400 italic">Você pode editar a mensagem antes de enviar.</p>
+
+                      {/* Botões de ação */}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {/* Copiar */}
+                        <button
+                          onClick={async () => {
+                            const txt = fuMsgText || sitAtiva?.mensagem.whatsapp || "";
+                            await navigator.clipboard.writeText(txt).catch(() => {});
+                            setFuCopied(true);
+                            setTimeout(() => setFuCopied(false), 2000);
+                            await registrarAcaoFu("📋 Mensagem sugerida copiada pelo usuário");
+                          }}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition-colors"
+                        >
+                          {fuCopied ? "✓ Copiada!" : "📋 Copiar"}
+                        </button>
+
+                        {/* WhatsApp */}
+                        <button
+                          disabled={!wppUrl}
+                          title={!wppUrl ? "Este lead não possui WhatsApp cadastrado." : undefined}
+                          onClick={async () => {
+                            if (!wppUrl) return;
+                            window.open(wppUrl, "_blank");
+                            await registrarAcaoFu("📱 Follow-up aberto no WhatsApp");
+                          }}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white text-[11px] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          📱 WhatsApp
+                        </button>
+
+                        {/* E-mail */}
+                        <button
+                          disabled={!emailDisp}
+                          title={!lead.email ? "Este lead não possui e-mail cadastrado." : undefined}
+                          onClick={async () => {
+                            setFuEmailModal(true);
+                            await registrarAcaoFu("📧 Follow-up preparado por e-mail");
+                          }}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 text-[11px] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          📧 E-mail
+                        </button>
+
+                        {/* Copiar link */}
+                        <button
+                          disabled={!link}
+                          onClick={async () => {
+                            if (!link) return;
+                            await navigator.clipboard.writeText(link).catch(() => {});
+                            setFuLinkCopied(true);
+                            setTimeout(() => setFuLinkCopied(false), 2000);
+                            await registrarAcaoFu("🔗 Link da apresentação copiado");
+                          }}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-100 hover:bg-blue-200 text-blue-700 text-[11px] font-bold transition-colors disabled:opacity-40"
+                        >
+                          {fuLinkCopied ? "✓ Copiado!" : "🔗 Copiar Link"}
+                        </button>
+                      </div>
+
+                      {/* Marcar follow-up realizado */}
+                      <button
+                        onClick={async () => {
+                          await registrarAcaoFu("✅ Follow-up realizado pelo franqueado");
+                          if (sitAtiva) {
+                            const prox = calcularProximoFollowup(sitAtiva);
+                            await fetch(`/api/app/crm/${params.id}`, {
+                              method: "PATCH", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                ultimoContato: new Date().toISOString(),
+                                retornoAt: prox.toISOString(),
+                                proximaAcao: `Follow-up: ${sitAtiva.canalLabel}`,
+                              }),
+                            }).catch(() => {});
+                            load();
+                          }
+                          toast("✅ Follow-up registrado! Próximo retorno agendado.");
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#0D2B5C] hover:bg-[#0f3470] text-white text-[11px] font-black transition-colors"
+                      >
+                        ✅ Marcar follow-up como realizado
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dropdown: escolher outro modelo */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setFuDropdown(!fuDropdown)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                    >
+                      <span>🔄 Escolher outro modelo de mensagem</span>
+                      <span className={`transition-transform ${fuDropdown ? "rotate-180" : ""}`}>▾</span>
+                    </button>
+
+                    {fuDropdown && (
+                      <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-72 overflow-y-auto">
+                        {GRUPOS_FOLLOWUP.map(grupo => (
+                          <div key={grupo.label}>
+                            <p className="px-3 py-1.5 bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-wide border-b border-slate-100">
+                              {grupo.label}
+                            </p>
+                            {grupo.ids.map(id => {
+                              const s = todasSit.find(x => x.id === id);
+                              if (!s) return null;
+                              return (
+                                <button
+                                  key={id}
+                                  onClick={() => selecionarSituacao(s)}
+                                  className={`w-full text-left px-3 py-2 text-[11px] hover:bg-[#0D2B5C]/5 transition-colors border-b border-slate-50 ${fuSituacaoId === id ? "bg-[#0D2B5C]/8 font-black text-[#0D2B5C]" : "text-slate-700"}`}
+                                >
+                                  {s.indicador.length > 60 ? s.indicador.slice(0, 57) + "…" : s.indicador}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })()}
@@ -839,6 +1065,60 @@ export default function LeadDetailPage() {
           <Button onClick={salvarEdicao} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
         </div>
       </Modal>
+
+      {/* Modal: Preview Apresentação Comercial */}
+      {/* Modal: E-mail do Follow-up Inteligente */}
+      {fuEmailModal && (() => {
+        const ctx = leadCtx();
+        const todasSit = todasSituacoes(ctx);
+        const sit = fuSituacaoId ? todasSit.find(s => s.id === fuSituacaoId) : detectarSituacao(ctx);
+        const assunto = sit?.mensagem.emailAssunto || "Smarter Estágios";
+        const corpo   = sit?.mensagem.emailCorpo   || fuMsgText;
+        const mailto  = `mailto:${lead.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+        return (
+          <Modal open={fuEmailModal} onClose={() => setFuEmailModal(false)} title="📧 Enviar por E-mail" size="lg">
+            <div className="space-y-3">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Para</p>
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                  <span className="text-xs font-semibold text-slate-700">{lead.email}</span>
+                  <button onClick={() => navigator.clipboard.writeText(lead.email || "").catch(()=>{})}
+                    className="text-[10px] text-blue-500 hover:underline font-bold">Copiar</button>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Assunto</p>
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                  <span className="text-xs font-semibold text-slate-700">{assunto}</span>
+                  <button onClick={() => navigator.clipboard.writeText(assunto).catch(()=>{})}
+                    className="text-[10px] text-blue-500 hover:underline font-bold">Copiar</button>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Corpo do e-mail</p>
+                <div className="relative">
+                  <textarea readOnly value={corpo} rows={9}
+                    className="w-full text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3 resize-none" />
+                  <button onClick={() => navigator.clipboard.writeText(corpo).catch(()=>{})}
+                    className="absolute top-2 right-2 text-[10px] text-blue-500 hover:underline font-bold bg-white px-1.5 py-0.5 rounded-lg border border-slate-200">
+                    Copiar corpo
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <a href={mailto}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0D2B5C] text-white text-xs font-black hover:bg-[#0f3470] transition-colors text-center">
+                  📨 Abrir no e-mail
+                </a>
+                <button onClick={() => setFuEmailModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors">
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* Modal: Preview Apresentação Comercial */}
       <Modal open={apPreviewModal} onClose={() => setApPreviewModal(false)} title="📊 Apresentação Gerada" size="lg">
