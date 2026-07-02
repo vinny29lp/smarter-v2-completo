@@ -54,6 +54,28 @@ const SITUACAO_BADGE: Record<string,"green"|"yellow"|"red"|"gray"|"blue"> = {
   ativo:"green",vendido:"blue",perdido:"red",pausado:"gray"
 };
 
+// ── Helpers Apresentação Comercial ───────────────────────────────────────────
+function scoreTemperatura(score: number) {
+  if (score >= 70) return { label: "🔥 Quente", cls: "bg-red-100 text-red-700 border-red-200" };
+  if (score >= 40) return { label: "🌡️ Morno",  cls: "bg-amber-100 text-amber-700 border-amber-200" };
+  return { label: "❄️ Frio", cls: "bg-sky-100 text-sky-700 border-sky-200" };
+}
+function getFollowupSugestao(lead: any): string | null {
+  if (!lead?.apresentacaoEnviadaEm) return null;
+  const acessos = lead.apresentacaoAcessos || 0;
+  const score   = lead.leadScore || 0;
+  let cliques: string[] = [];
+  try { cliques = JSON.parse(lead.apresentacaoCliques || "[]"); } catch {}
+  if (cliques.includes("clicou_agendamento")) return "🔥 URGENTE: lead clicou em 'Agendar conversa'! Entre em contato agora.";
+  if (cliques.includes("clicou_whatsapp"))    return "🔥 URGENTE: lead clicou no WhatsApp! Responda já.";
+  if (score >= 60)   return "🌡️ Lead engajado — envie um WhatsApp personalizado hoje.";
+  if (acessos >= 2)  return `👁️ Lead visitou ${acessos}x a apresentação — ótimo momento para ligar.`;
+  if (acessos === 1) return "✅ Lead abriu a apresentação! Envie um WhatsApp de confirmação.";
+  const diasEnviado = Math.floor((Date.now() - new Date(lead.apresentacaoEnviadaEm).getTime()) / 86400000);
+  if (diasEnviado >= 2 && acessos === 0) return `❄️ Lead não abriu em ${diasEnviado} dias. Reenvie por outro canal.`;
+  return null;
+}
+
 export default function LeadDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -78,6 +100,9 @@ export default function LeadDetailPage() {
   const [motivo, setMotivo] = useState("");
   const [editForm, setEditForm] = useState<any>({});
   const [sendingEmail, setSendingEmail] = useState<string|null>(null);
+  const [apEnviando, setApEnviando] = useState<string|null>(null);
+  const [apPreviewModal, setApPreviewModal] = useState(false);
+  const [apData, setApData] = useState<any>(null);
 
   const load = () => {
     fetch(`/api/app/crm/${params.id}`)
@@ -162,6 +187,35 @@ export default function LeadDetailPage() {
     toast("Dados atualizados ✓");
   };
 
+  const enviarApresentacao = async (canal: string) => {
+    if (!params.id) return;
+    setApEnviando(canal);
+    try {
+      const res = await fetch(`/api/app/crm/${params.id}/enviar-apresentacao`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ canal }),
+      });
+      const data = await res.json();
+      if (!data.ok) { toast(`Erro: ${data.error || "tente novamente"}`); return; }
+      load();
+      if (canal === "email") {
+        toast("✉️ Apresentação enviada por e-mail!");
+      } else if (canal === "link") {
+        setApData(data);
+        try { await navigator.clipboard.writeText(data.link); toast("🔗 Link copiado!"); }
+        catch { setApPreviewModal(true); }
+      } else {
+        setApData(data);
+        setApPreviewModal(true);
+      }
+    } catch {
+      toast("Erro ao gerar apresentação. Tente novamente.");
+    } finally {
+      setApEnviando(null);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-slate-400">Carregando...</div>;
   if (!lead) return <div className="p-8 text-center text-red-400">Lead não encontrado.</div>;
 
@@ -238,7 +292,11 @@ export default function LeadDetailPage() {
                 ["Cargo", lead.cargo],
                 ["E-mail", lead.email],
                 ["Telefone", lead.telefone],
-                ["Cidade", lead.cidade],
+                ["WhatsApp", lead.whatsapp],
+                ["Instagram", lead.instagram ? `@${lead.instagram.replace(/^@/,"")}` : null],
+                ["LinkedIn", lead.linkedin],
+                ["Cidade", lead.cidade ? `${lead.cidade}${lead.uf ? ` / ${lead.uf}` : ""}` : lead.uf],
+                ["Segmento", lead.setor],
                 ["Origem", lead.origem],
                 ["Prioridade", lead.prioridade],
               ].filter(([,v]) => v).map(([l,v]) => (
@@ -329,6 +387,128 @@ export default function LeadDetailPage() {
                   <p className="text-[10px] text-slate-500">Abre HTML pronto para impressão</p>
                 </button>
               )}
+            </div>
+          </Card>
+
+          {/* ── APRESENTAÇÃO COMERCIAL ─────────────────────────────── */}
+          <Card className="p-5">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">🎯 Apresentação Comercial</h3>
+
+            {/* Lead Score */}
+            {lead.leadScore != null && lead.apresentacaoEnviadaEm && (() => {
+              const temp = scoreTemperatura(lead.leadScore);
+              return (
+                <div className={`mb-4 p-3 rounded-xl border flex items-center justify-between ${temp.cls}`}>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold opacity-70">Lead Score</p>
+                    <p className="text-2xl font-black">{lead.leadScore}<span className="text-xs font-normal ml-1">/100</span></p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-black border ${temp.cls}`}>{temp.label}</span>
+                </div>
+              );
+            })()}
+
+            {/* Métricas de engajamento */}
+            {lead.apresentacaoEnviadaEm && (
+              <div className="mb-4">
+                <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">Engajamento</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "Acessos",   value: lead.apresentacaoAcessos || 0 },
+                    { label: "Tempo",     value: `${Math.floor((lead.apresentacaoTempoSeg || 0) / 60)}m${String((lead.apresentacaoTempoSeg || 0) % 60).padStart(2,"0")}s` },
+                    { label: "Scroll",    value: `${lead.apresentacaoScrollMax || 0}%` },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="text-center p-2 bg-slate-50 rounded-xl">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold">{label}</p>
+                      <p className="text-sm font-black text-slate-700">{String(value)}</p>
+                    </div>
+                  ))}
+                </div>
+                {/* Cliques */}
+                {lead.apresentacaoCliques && (() => {
+                  let cliques: string[] = [];
+                  try { cliques = JSON.parse(lead.apresentacaoCliques); } catch {}
+                  const labels: Record<string,string> = {
+                    clicou_whatsapp: "📱 WhatsApp",
+                    clicou_agendamento: "📅 Agendamento",
+                    clicou_vaga: "🎯 Vaga",
+                  };
+                  return cliques.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {cliques.map((c, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-[#0D2B5C]/10 text-[#0D2B5C] text-[10px] rounded-full font-bold">
+                          {labels[c] || c}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
+            {/* Sugestão de follow-up */}
+            {(() => {
+              const sugestao = getFollowupSugestao(lead);
+              if (!sugestao) return null;
+              const urgente = sugestao.startsWith("🔥");
+              return (
+                <div className={`mb-4 p-3 rounded-xl text-xs font-semibold ${
+                  urgente ? "bg-red-50 border border-red-200 text-red-700" : "bg-amber-50 border border-amber-200 text-amber-800"
+                }`}>
+                  {sugestao}
+                </div>
+              );
+            })()}
+
+            {/* Link enviado */}
+            {lead.apresentacaoToken && (
+              <div className="mb-4 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">Link gerado</p>
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/apresentacao-comercial/${lead.apresentacaoToken}`;
+                      navigator.clipboard.writeText(url).then(() => toast("🔗 Link copiado!")).catch(() => {});
+                    }}
+                    className="text-[10px] text-blue-500 hover:underline font-semibold"
+                  >
+                    Copiar
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 truncate">
+                  /apresentacao-comercial/{lead.apresentacaoToken?.slice(0, 12)}…
+                </p>
+                {lead.apresentacaoAbertaEm && (
+                  <p className="text-[10px] text-emerald-600 font-bold mt-1">
+                    ✓ Aberta em {new Date(lead.apresentacaoAbertaEm).toLocaleDateString("pt-BR")}
+                    {lead.apresentacaoCanal && ` · por ${lead.apresentacaoCanal}`}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Canais de envio */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">Enviar apresentação</p>
+              {[
+                { canal: "email",     icon: "✉️", label: "E-mail",       desc: "Envia automaticamente" },
+                { canal: "whatsapp",  icon: "📱", label: "WhatsApp",     desc: "Abre wa.me com mensagem" },
+                { canal: "instagram", icon: "📸", label: "Instagram",    desc: "Copia mensagem para DM" },
+                { canal: "linkedin",  icon: "💼", label: "LinkedIn",     desc: "Copia mensagem" },
+                { canal: "link",      icon: "🔗", label: "Copiar Link",  desc: "Link rastreável direto" },
+              ].map(({ canal, icon, label, desc }) => (
+                <button
+                  key={canal}
+                  disabled={!!apEnviando}
+                  onClick={() => enviarApresentacao(canal)}
+                  className="w-full text-left px-3 py-2 rounded-xl bg-[#0D2B5C]/5 hover:bg-[#0D2B5C]/10 border border-[#0D2B5C]/10 transition-colors disabled:opacity-40"
+                >
+                  <p className="text-[11px] font-bold text-[#0D2B5C]">
+                    {apEnviando === canal ? "Gerando..." : `${icon} ${label}`}
+                  </p>
+                  <p className="text-[10px] text-slate-400">{desc}</p>
+                </button>
+              ))}
             </div>
           </Card>
 
@@ -590,10 +770,23 @@ export default function LeadDetailPage() {
         <div className="grid grid-cols-2 gap-3">
           <Input label="Empresa" value={editForm.empresa||""} onChange={e=>setEditForm((p:any)=>({...p,empresa:e.target.value}))}/>
           <Input label="Contato" value={editForm.contato||""} onChange={e=>setEditForm((p:any)=>({...p,contato:e.target.value}))}/>
-          <Input label="Cargo" value={editForm.cargo||""} onChange={e=>setEditForm((p:any)=>({...p,cargo:e.target.value}))}/>
-          <Input label="Telefone / WhatsApp" value={editForm.telefone||""} onChange={e=>setEditForm((p:any)=>({...p,telefone:e.target.value}))}/>
+          <Input label="Cargo" value={editForm.cargo||""} onChange={e=>setEditForm((p:any)=>({...p,cargo:e.target.value}))} placeholder="Gerente de RH, CEO..."/>
+          <Input label="Telefone (fixo)" value={editForm.telefone||""} onChange={e=>setEditForm((p:any)=>({...p,telefone:e.target.value}))}/>
+          <Input label="WhatsApp" value={editForm.whatsapp||""} onChange={e=>setEditForm((p:any)=>({...p,whatsapp:e.target.value}))} placeholder="(11) 99999-9999"/>
           <Input label="E-mail" type="email" value={editForm.email||""} onChange={e=>setEditForm((p:any)=>({...p,email:e.target.value}))}/>
+          <Input label="Instagram" value={editForm.instagram||""} onChange={e=>setEditForm((p:any)=>({...p,instagram:e.target.value}))} placeholder="@usuario"/>
+          <Input label="LinkedIn" value={editForm.linkedin||""} onChange={e=>setEditForm((p:any)=>({...p,linkedin:e.target.value}))} placeholder="linkedin.com/in/..."/>
           <Input label="Cidade" value={editForm.cidade||""} onChange={e=>setEditForm((p:any)=>({...p,cidade:e.target.value}))}/>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">UF</label>
+            <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+              value={editForm.uf||""} onChange={e=>setEditForm((p:any)=>({...p,uf:e.target.value}))}>
+              <option value="">Selecionar...</option>
+              {["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"].map(uf=>(
+                <option key={uf} value={uf}>{uf}</option>
+              ))}
+            </select>
+          </div>
           <Input label="Valor Negociado (R$)" type="number" value={editForm.valorNegociado||""} onChange={e=>setEditForm((p:any)=>({...p,valorNegociado:e.target.value}))}/>
           <div>
             <label className="text-xs font-bold text-slate-600 block mb-1">Prioridade</label>
@@ -609,6 +802,59 @@ export default function LeadDetailPage() {
           <Button variant="secondary" onClick={() => setEditModal(false)}>Cancelar</Button>
           <Button onClick={salvarEdicao} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
         </div>
+      </Modal>
+
+      {/* Modal: Preview Apresentação Comercial */}
+      <Modal open={apPreviewModal} onClose={() => setApPreviewModal(false)} title="📊 Apresentação Gerada" size="lg">
+        {apData && (
+          <div className="space-y-4">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <p className="text-xs font-bold text-emerald-700 mb-2">✅ Link rastreável gerado!</p>
+              <div className="flex items-center gap-2">
+                <code className="text-[11px] bg-white border border-emerald-200 rounded-lg px-2 py-1 flex-1 text-emerald-800 break-all">{apData.link}</code>
+                <button
+                  onClick={() => navigator.clipboard.writeText(apData.link).then(() => toast("🔗 Link copiado!")).catch(()=>{})}
+                  className="text-xs text-blue-600 hover:underline font-semibold whitespace-nowrap"
+                >
+                  Copiar
+                </button>
+              </div>
+            </div>
+
+            {apData.mensagem && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-slate-600">Mensagem sugerida:</p>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(apData.mensagem).then(() => toast("📋 Mensagem copiada!")).catch(()=>{})}
+                    className="text-xs text-blue-500 hover:underline font-semibold"
+                  >
+                    📋 Copiar
+                  </button>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 max-h-48 overflow-y-auto">
+                  <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{apData.mensagem}</pre>
+                </div>
+              </div>
+            )}
+
+            {apData.whatsappLink && (
+              <a href={apData.whatsappLink} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-bold text-sm transition-colors">
+                📱 Abrir WhatsApp
+              </a>
+            )}
+
+            {apData.instagramProfile && (
+              <a href={`https://instagram.com/${apData.instagramProfile.replace(/^@/, "")}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white rounded-xl py-3 font-bold text-sm transition-opacity">
+                📸 Abrir Perfil no Instagram
+              </a>
+            )}
+
+            <Button variant="secondary" className="w-full" onClick={() => setApPreviewModal(false)}>Fechar</Button>
+          </div>
+        )}
       </Modal>
     </div>
   );

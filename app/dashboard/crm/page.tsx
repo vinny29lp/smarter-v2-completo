@@ -37,7 +37,9 @@ export default function CRMPage() {
   const [slaBreached, setSlaBreached] = useState(0);
   const [form, setForm] = useState({
     empresa:"", contato:"", cargo:"", email:"", telefone:"",
-    cidade:"", prioridade:"media", valorNegociado:"", observacao:"",
+    whatsapp:"", instagram:"", linkedin:"",
+    cidade:"", uf:"", setor:"", origem:"",
+    prioridade:"media", valorNegociado:"", observacao:"",
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
 
@@ -75,7 +77,7 @@ export default function CRMPage() {
       method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(form),
     });
     const data = await res.json();
-    if (data.lead) { load(); setNovoModal(false); setForm({empresa:"",contato:"",cargo:"",email:"",telefone:"",cidade:"",prioridade:"media",valorNegociado:"",observacao:""}); }
+    if (data.lead) { load(); setNovoModal(false); setForm({empresa:"",contato:"",cargo:"",email:"",telefone:"",whatsapp:"",instagram:"",linkedin:"",cidade:"",uf:"",setor:"",origem:"",prioridade:"media",valorNegociado:"",observacao:""}); }
     setLoading(false);
   };
 
@@ -268,6 +270,15 @@ export default function CRMPage() {
                               return null;
                             })()}
                             <Badge variant={PRIO_BADGE[l.prioridade]||"gray"}>{l.prioridade[0].toUpperCase()}</Badge>
+                            {(l as any).leadScore > 0 && (
+                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                                (l as any).leadScore >= 70 ? "bg-red-100 text-red-700" :
+                                (l as any).leadScore >= 40 ? "bg-amber-100 text-amber-700" :
+                                "bg-sky-100 text-sky-700"
+                              }`}>
+                                {(l as any).leadScore >= 70 ? "🔥" : (l as any).leadScore >= 40 ? "🌡️" : "❄️"}{(l as any).leadScore}
+                              </span>
+                            )}
                           </div>
                         </div>
                         {l.contato && <p className="text-[10px] text-slate-400">{l.contato}{l.cargo?` · ${l.cargo}`:""}</p>}
@@ -336,15 +347,38 @@ export default function CRMPage() {
       )}
 
       {/* Modal: Novo Lead */}
-      <Modal open={novoModal} onClose={()=>setNovoModal(false)} title="Novo Lead">
+      <Modal open={novoModal} onClose={()=>setNovoModal(false)} title="Novo Lead" size="lg">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2"><Input label="Empresa *" value={form.empresa} onChange={e=>set("empresa",e.target.value)} placeholder="Nome da empresa"/></div>
           <Input label="Contato" value={form.contato} onChange={e=>set("contato",e.target.value)} placeholder="Nome do responsável"/>
-          <Input label="Cargo" value={form.cargo} onChange={e=>set("cargo",e.target.value)} placeholder="Diretor de RH"/>
-          <Input label="Telefone / WhatsApp" value={form.telefone} onChange={e=>set("telefone",e.target.value)} placeholder="(11) 99999-0000"/>
+          <Input label="Cargo" value={form.cargo} onChange={e=>set("cargo",e.target.value)} placeholder="Diretor de RH, CEO..."/>
           <Input label="E-mail" type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="email@empresa.com"/>
-          <Input label="Cidade" value={form.cidade} onChange={e=>set("cidade",e.target.value)} placeholder="São Paulo / SP"/>
-          <Input label="Valor Negociado (R$)" type="number" value={form.valorNegociado} onChange={e=>set("valorNegociado",e.target.value)} placeholder="0"/>
+          <Input label="WhatsApp" value={form.whatsapp} onChange={e=>set("whatsapp",e.target.value)} placeholder="(11) 99999-0000"/>
+          <Input label="Telefone (fixo)" value={form.telefone} onChange={e=>set("telefone",e.target.value)} placeholder="(11) 3333-0000"/>
+          <Input label="Instagram" value={form.instagram} onChange={e=>set("instagram",e.target.value)} placeholder="@usuario"/>
+          <Input label="LinkedIn" value={form.linkedin} onChange={e=>set("linkedin",e.target.value)} placeholder="linkedin.com/in/..."/>
+          <Input label="Cidade" value={form.cidade} onChange={e=>set("cidade",e.target.value)} placeholder="São Paulo"/>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">UF</label>
+            <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+              value={form.uf} onChange={e=>set("uf",e.target.value)}>
+              <option value="">Selecionar...</option>
+              {["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"].map(uf=>(
+                <option key={uf} value={uf}>{uf}</option>
+              ))}
+            </select>
+          </div>
+          <Input label="Segmento" value={form.setor} onChange={e=>set("setor",e.target.value)} placeholder="Varejo, Indústria, Saúde..."/>
+          <div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Origem</label>
+            <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+              value={form.origem} onChange={e=>set("origem",e.target.value)}>
+              <option value="">Selecionar...</option>
+              {["Indicação","Instagram","LinkedIn","Site","WhatsApp","E-mail","Visita","Evento","Outro"].map(o=>(
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </div>
           <div className="col-span-2">
             <label className="text-xs font-bold text-slate-600 block mb-1">Prioridade</label>
             <div className="flex gap-2">
