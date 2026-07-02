@@ -289,7 +289,7 @@ ${fld("CNPJ", ies.cnpj)}${fld("Telefone", ies.telefone)}
 ${fld("Endereço", ies.endereco, true)}
 ${fld("Cidade / UF", ies.cidade + "/" + ies.estado)}${fld("CEP", ies.cep)}
 ${fld("Orientador(a) Responsável", ies.orientador)}${fld("Cargo", ies.cargoOrientador)}
-${fld("E-mail Institucional", ies.email)}${fld("E-mail do Orientador", ies.email)}
+${fld("E-mail Institucional", ies.email)}${fld("E-mail do Orientador", ies.emailOrientador)}
 </div></div>
 
 <!-- SEÇÃO 2 -->
@@ -525,7 +525,7 @@ ${schSummary(est.chSemanal, est.chDiaria, est.intervalo, est.localEstagio)}
     <div class="sup-role">Coordenador(a) — Escola</div>
     <div class="sup-name">${ies.orientador}</div>
     <div class="sup-detail">Tel: ${ies.telefone}</div>
-    <div class="sup-detail">E-mail: ${ies.email}</div>
+    <div class="sup-detail">E-mail: ${ies.emailOrientador}</div>
     <div class="sup-line">Visto: ____________________________</div>
     <div class="sup-line">Data: _____________________________</div>
   </div>

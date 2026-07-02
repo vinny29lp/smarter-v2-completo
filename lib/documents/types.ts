@@ -22,7 +22,7 @@ export interface ContratoData {
     nomeFan: string; razaoSocial: string; cnpj: string;
     endereco: string; bairro: string; cidade: string; estado: string; cep: string;
     telefone: string; email: string;
-    orientador: string; cargoOrientador: string;
+    orientador: string; cargoOrientador: string; emailOrientador: string;
   };
   smarter: {
     razaoSocial: string; cnpj: string;

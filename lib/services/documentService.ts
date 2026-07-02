@@ -194,8 +194,9 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       cep: institution?.cep || "—",
       telefone: institution?.telefone || "—",
       email: institution?.email || "—",
-      orientador: contract.coordNome || institution?.coordenador || "—",
-      cargoOrientador: contract.coordCargo || institution?.cargoCoord || "—",
+      orientador: institution?.coordenador || contract.coordNome || "—",
+      cargoOrientador: institution?.cargoCoord || contract.coordCargo || "—",
+      emailOrientador: contract.coordEmail || "—",
     },
     smarter,
     estagio: {
