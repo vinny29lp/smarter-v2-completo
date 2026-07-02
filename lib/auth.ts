@@ -99,9 +99,28 @@ export const authOptions: NextAuthOptions = {
         token.companyId = (user as any).companyId;
         token.studentId = (user as any).studentId;
         token.permissoes = (user as any).permissoes ?? [];
+        token.lastChecked = Math.floor(Date.now() / 1000);
         if (process.env.NODE_ENV === "development") console.log(`[AUTH_PERF] jwt callback (primeiro login): ${Date.now()-t}ms`);
+      } else {
+        // Requests subsequentes: verifica se usuário ainda está ativo a cada 1 hora
+        const ONE_HOUR = 60 * 60;
+        const lastChecked = token.lastChecked as number | undefined;
+        if (!lastChecked || Math.floor(Date.now() / 1000) - lastChecked > ONE_HOUR) {
+          try {
+            const dbUser = await prisma.user.findUnique({
+              where: { id: token.id as string },
+              select: { active: true, role: true },
+            });
+            if (!dbUser || !(dbUser as any).active) {
+              // Usuário desativado — invalida o token forçando logout
+              return null as any;
+            }
+            token.lastChecked = Math.floor(Date.now() / 1000);
+          } catch {
+            // Em caso de erro de DB, mantém o token atual para não derrubar todos os usuários
+          }
+        }
       }
-      // Requests subsequentes: jwt callback apenas lê o token (sem DB) — muito rápido
       return token;
     },
     async session({ session, token }) {
@@ -123,6 +142,6 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     error: "/login",
   },
-  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
+  session: { strategy: "jwt", maxAge: 8 * 60 * 60 }, // 8 horas (era 30 dias)
   secret: process.env.NEXTAUTH_SECRET,
 };

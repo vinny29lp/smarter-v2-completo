@@ -45,24 +45,30 @@ export async function POST(req: Request) {
       data: { titulo, corpo, resumo, thumbUrl, autor, importante: importante || false },
     });
 
-    // Notificar franqueados sobre nova notícia importante
+    // Notificar franqueados em background (fire-and-forget) — não bloqueia o response
     if (importante) {
-      const franqueados = await prisma.user.findMany({
-        where: { role: "FRANQUEADO" as any },
-        select: { id: true },
+      Promise.resolve().then(async () => {
+        try {
+          const franqueados = await prisma.user.findMany({
+            where: { role: "FRANQUEADO" as any },
+            select: { id: true },
+          });
+          if (franqueados.length > 0) {
+            await prisma.notification.createMany({
+              data: franqueados.map((u: any) => ({
+                userId: u.id,
+                titulo: "📰 Nova notícia da Rede Smarter",
+                mensagem: titulo,
+                tipo: "marketing",
+                link: "/dashboard/marketing/noticias",
+              })),
+              skipDuplicates: true,
+            });
+          }
+        } catch (err: any) {
+          console.error("[marketing/noticias] notificação background:", err?.message);
+        }
       });
-      if (franqueados.length > 0) {
-        await prisma.notification.createMany({
-          data: franqueados.map((u: any) => ({
-            userId: u.id,
-            titulo: "📰 Nova notícia da Rede Smarter",
-            mensagem: titulo,
-            tipo: "marketing",
-            link: "/dashboard/marketing/noticias",
-          })),
-          skipDuplicates: true,
-        });
-      }
     }
 
     return NextResponse.json({ noticia });

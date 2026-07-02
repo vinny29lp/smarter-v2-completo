@@ -53,22 +53,17 @@ export async function GET(req: Request) {
       take: 200,
     });
 
-    // Se filtrou por favoritos, buscar ids favoritados pelo user
-    if (favoritos) {
-      const favs = await db.marketingFavorito.findMany({
-        where: { userId: session.user.id },
-        select: { conteudoId: true },
-      });
-      const favIds = new Set(favs.map((f: any) => f.conteudoId));
-      conteudos = conteudos.filter((c: any) => favIds.has(c.id));
-    }
-
-    // Adicionar flag isFavorito para o usuário atual
+    // Busca favoritos do usuário UMA ÚNICA VEZ e reutiliza para filtro + flag
     const favsUser = await db.marketingFavorito.findMany({
       where: { userId: session.user.id },
       select: { conteudoId: true },
     });
     const favIdsSet = new Set(favsUser.map((f: any) => f.conteudoId));
+
+    if (favoritos) {
+      conteudos = conteudos.filter((c: any) => favIdsSet.has(c.id));
+    }
+
     const result = conteudos.map((c: any) => ({ ...c, isFavorito: favIdsSet.has(c.id) }));
 
     return NextResponse.json({ conteudos: result, total: result.length });
@@ -111,23 +106,29 @@ export async function POST(req: Request) {
       },
     });
 
-    // Notificar todos os usuários FRANQUEADO sobre novo conteúdo
-    const franqueados = await prisma.user.findMany({
-      where: { role: "FRANQUEADO" as any },
-      select: { id: true },
+    // Notificar franqueados em background (fire-and-forget) — não bloqueia o response
+    Promise.resolve().then(async () => {
+      try {
+        const franqueados = await prisma.user.findMany({
+          where: { role: "FRANQUEADO" as any },
+          select: { id: true },
+        });
+        if (franqueados.length > 0) {
+          await prisma.notification.createMany({
+            data: franqueados.map((u: any) => ({
+              userId: u.id,
+              titulo: "📢 Novo conteúdo no Marketing Hub",
+              mensagem: `"${titulo}" foi adicionado à biblioteca. Acesse o Marketing Hub para baixar.`,
+              tipo: "marketing",
+              link: "/dashboard/marketing/biblioteca",
+            })),
+            skipDuplicates: true,
+          });
+        }
+      } catch (err: any) {
+        console.error("[marketing/conteudos] notificação background:", err?.message);
+      }
     });
-    if (franqueados.length > 0) {
-      await prisma.notification.createMany({
-        data: franqueados.map((u: any) => ({
-          userId: u.id,
-          titulo: "📢 Novo conteúdo no Marketing Hub",
-          mensagem: `"${titulo}" foi adicionado à biblioteca. Acesse o Marketing Hub para baixar.`,
-          tipo: "marketing",
-          link: "/dashboard/marketing/biblioteca",
-        })),
-        skipDuplicates: true,
-      });
-    }
 
     return NextResponse.json({ conteudo });
   } catch (e: any) {

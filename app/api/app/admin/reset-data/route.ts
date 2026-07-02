@@ -4,11 +4,21 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // DELETE ALL TEST DATA — apenas FRANQUEADORA pode chamar isso
-export async function POST() {
+export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "FRANQUEADORA") {
     return NextResponse.json({ error: "Acesso negado. Apenas FRANQUEADORA." }, { status: 403 });
   }
+
+  // Token de confirmação obrigatório para evitar reset acidental
+  const body = await req.json().catch(() => ({}));
+  if (body?.confirmar !== "CONFIRMO_RESET_TOTAL") {
+    return NextResponse.json({
+      error: 'Confirmação obrigatória. Envie { "confirmar": "CONFIRMO_RESET_TOTAL" } no body.',
+    }, { status: 400 });
+  }
+
+  console.error(`[RESET-DATA] ⚠️ RESET TOTAL executado por: ${session.user.email} em ${new Date().toISOString()}`);
 
   const results: Record<string, number | string> = {};
 
