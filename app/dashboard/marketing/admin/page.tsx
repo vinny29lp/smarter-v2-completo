@@ -20,6 +20,25 @@ const TIPOS = [
   { value: "MATERIAL_MARCA", label: "Material de Marca" },
 ];
 
+// Tipos de conteúdo para cada aba
+const TIPOS_SOCIAL = ["POST_FEED", "STORY", "REELS", "CARROSSEL", "VIDEO", "COPY"];
+const TIPOS_BIBLIOTECA = ["ARTE_PDF", "TEMPLATE", "MATERIAL_MARCA"];
+
+const TIPOS_SOCIAL_CARDS = [
+  { value: "POST_FEED", label: "Feed",      icon: "🖼️",  hint: "1:1 ou 4:5" },
+  { value: "STORY",     label: "Story",     icon: "📱",  hint: "9:16 vertical" },
+  { value: "REELS",     label: "Reels",     icon: "🎬",  hint: "9:16 vídeo" },
+  { value: "CARROSSEL", label: "Carrossel", icon: "🗂️",  hint: "múltiplos slides" },
+  { value: "VIDEO",     label: "Vídeo",     icon: "🎥",  hint: "MP4 / MOV" },
+  { value: "COPY",      label: "Copy",      icon: "✍️",  hint: "legenda pronta" },
+];
+
+const TIPOS_BIBLIOTECA_CARDS = [
+  { value: "MATERIAL_MARCA", label: "Material de Marca", icon: "🎨", hint: "logos, cores, tipografia" },
+  { value: "ARTE_PDF",       label: "Arte PDF",          icon: "📄", hint: "artes para impressão" },
+  { value: "TEMPLATE",       label: "Template",          icon: "📋", hint: "modelos editáveis" },
+];
+
 const CATEGORIAS = [
   { value: "marca",        label: "🎨 Marca" },
   { value: "comercial",    label: "💼 Comercial" },
@@ -93,7 +112,8 @@ export default function MarketingAdminPage() {
   const [editId, setEditId]           = useState<string | null>(null);
   const [saving, setSaving]           = useState(false);
   const [deletingId, setDeletingId]   = useState<string | null>(null);
-  const [tab, setTab]                 = useState<"conteudos" | "metricas">("conteudos");
+  const [tab, setTab]                 = useState<"redes-sociais" | "biblioteca" | "metricas">("redes-sociais");
+  const [subTipo, setSubTipo]         = useState<string>("");
   const [form, setForm]               = useState({ ...FORM_INICIAL });
 
   // Upload state
@@ -122,7 +142,7 @@ export default function MarketingAdminPage() {
 
   useEffect(() => { load(); }, []);
 
-  function abrirModal(c?: any) {
+  function abrirModal(c?: any, defaultIsFixo?: boolean) {
     setUploadFile(null);
     setUploadPreview("");
     setUploadError("");
@@ -141,7 +161,13 @@ export default function MarketingAdminPage() {
       });
     } else {
       setEditId(null);
-      setForm({ ...FORM_INICIAL });
+      const isFixoDefault = defaultIsFixo ?? (tab === "biblioteca");
+      const tipoDefault = isFixoDefault ? "MATERIAL_MARCA" : (subTipo || "POST_FEED");
+      setForm({
+        ...FORM_INICIAL,
+        isFixo: isFixoDefault,
+        tipo: tipoDefault,
+      });
     }
     setModalOpen(true);
   }
@@ -280,6 +306,11 @@ export default function MarketingAdminPage() {
   const totalDownloads = conteudos.reduce((acc, c) => acc + (c.totalDownloads || 0), 0);
   const totalFavoritos = conteudos.reduce((acc, c) => acc + (c._count?.favoritos || 0), 0);
 
+  // Conteúdos separados por aba
+  const redesSociaisAll = conteudos.filter(c => !c.isFixo);
+  const redesSociaisFiltrado = redesSociaisAll.filter(c => !subTipo || c.tipo === subTipo);
+  const bibliotecaAll = conteudos.filter(c => c.isFixo || TIPOS_BIBLIOTECA.includes(c.tipo));
+
   if (session && !isMarketingAdmin(session)) return null;
 
   return (
@@ -293,9 +324,9 @@ export default function MarketingAdminPage() {
             <p className="text-sm text-slate-500">Gerencie todos os conteúdos da rede</p>
           </div>
         </div>
-        <button onClick={() => abrirModal()}
+        <button onClick={() => abrirModal(undefined, tab === "biblioteca")}
           className="flex items-center gap-2 px-4 py-2 bg-[#0D2B5C] text-white rounded-xl text-sm font-bold hover:bg-[#1a4080] transition-colors">
-          <Plus size={15} /> Adicionar conteúdo
+          <Plus size={15} /> {tab === "biblioteca" ? "Adicionar material" : tab === "redes-sociais" ? "Adicionar criativo" : "Adicionar conteúdo"}
         </button>
       </div>
 
@@ -325,15 +356,32 @@ export default function MarketingAdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
-        {(["conteudos", "metricas"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={clsx("px-4 py-2 rounded-xl text-sm font-bold transition-all capitalize",
-              tab === t ? "bg-[#0D2B5C] text-white" : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300")}>
-            {t === "conteudos" ? "Conteúdos" : "Métricas"}
+      <div className="flex gap-2 flex-wrap">
+        {([
+          { value: "redes-sociais", label: "📲 Redes Sociais" },
+          { value: "biblioteca",    label: "🗂️ Biblioteca" },
+          { value: "metricas",      label: "📊 Métricas" },
+        ] as const).map(t => (
+          <button key={t.value} onClick={() => { setTab(t.value); setSubTipo(""); }}
+            className={clsx("px-4 py-2 rounded-xl text-sm font-bold transition-all",
+              tab === t.value ? "bg-[#0D2B5C] text-white" : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300")}>
+            {t.label}
           </button>
         ))}
       </div>
+
+      {/* Sub-filtros de tipo para Redes Sociais */}
+      {tab === "redes-sociais" && (
+        <div className="flex gap-2 flex-wrap">
+          {[{ value: "", label: "Todos" }, ...TIPOS_SOCIAL_CARDS.map(t => ({ value: t.value, label: `${t.icon} ${t.label}` }))].map(t => (
+            <button key={t.value} onClick={() => setSubTipo(t.value)}
+              className={clsx("px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                subTipo === t.value ? "bg-[#0D2B5C]/10 text-[#0D2B5C] border border-[#0D2B5C]/30" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300")}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === "metricas" ? (
         <div className="space-y-4">
@@ -376,74 +424,83 @@ export default function MarketingAdminPage() {
             </div>
           </div>
         </div>
-      ) : (
-        loading ? (
-          <div className="text-center py-16 text-slate-400">Carregando...</div>
-        ) : (
-          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100">
-              <span className="font-bold text-slate-800 text-sm">{conteudos.length} conteúdo{conteudos.length !== 1 ? "s" : ""}</span>
-            </div>
-            <div className="divide-y divide-slate-50">
-              {conteudos.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">
-                  <p className="font-semibold">Nenhum conteúdo ainda</p>
-                  <p className="text-sm mt-1">Clique em "Adicionar conteúdo" para começar.</p>
-                </div>
-              ) : conteudos.map(c => (
-                <div key={c.id} className={clsx("flex items-center gap-3 px-4 py-3 transition-colors", !c.ativo && "opacity-50")}>
-                  {c.thumbUrl ? (
-                    <img src={c.thumbUrl} alt={c.titulo} className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-slate-100 shrink-0 flex items-center justify-center text-slate-400">
-                      {c.formato === "VIDEO" ? <FileVideo size={18} /> : c.formato === "PDF" ? <File size={18} /> : <FileImage size={18} />}
+      ) : loading ? (
+        <div className="text-center py-16 text-slate-400">Carregando...</div>
+      ) : (() => {
+          const lista = tab === "redes-sociais" ? redesSociaisFiltrado : bibliotecaAll;
+          const emptyMsg = tab === "redes-sociais"
+            ? "Nenhum criativo de redes sociais ainda. Clique em \"Adicionar criativo\"."
+            : "Nenhum material na biblioteca ainda. Clique em \"Adicionar material\".";
+          const countLabel = tab === "redes-sociais"
+            ? `${redesSociaisAll.length} criativo${redesSociaisAll.length !== 1 ? "s" : ""} de redes sociais${subTipo ? ` · filtrando por ${subTipo}` : ""}`
+            : `${bibliotecaAll.length} material${bibliotecaAll.length !== 1 ? "is" : ""} na biblioteca`;
+          return (
+            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100">
+                <span className="font-bold text-slate-800 text-sm">{countLabel}</span>
+              </div>
+              <div className="divide-y divide-slate-50">
+                {lista.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <p className="font-semibold">Nenhum conteúdo ainda</p>
+                    <p className="text-sm mt-1">{emptyMsg}</p>
+                  </div>
+                ) : lista.map(c => (
+                  <div key={c.id} className={clsx("flex items-center gap-3 px-4 py-3 transition-colors", !c.ativo && "opacity-50")}>
+                    {c.thumbUrl ? (
+                      <img src={c.thumbUrl} alt={c.titulo} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-slate-100 shrink-0 flex items-center justify-center text-slate-400">
+                        {c.formato === "VIDEO" ? <FileVideo size={18} /> : c.formato === "PDF" ? <File size={18} /> : <FileImage size={18} />}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-slate-800 text-sm truncate">{c.titulo}</span>
+                        {c.destaque && <span className="text-[9px] bg-[#F4B400] text-[#0D2B5C] font-black px-1.5 rounded">⭐ DESTAQUE</span>}
+                        {!c.ativo && <span className="text-[9px] bg-slate-200 text-slate-600 font-black px-1.5 rounded">OCULTO</span>}
+                        {c.isFixo
+                          ? <span className="text-[9px] bg-green-100 text-green-700 font-black px-1.5 rounded flex items-center gap-0.5"><Lock size={8} /> FIXO</span>
+                          : <span className="text-[9px] bg-blue-100 text-blue-700 font-black px-1.5 rounded flex items-center gap-0.5"><RotateCcw size={8} /> ROTATIVO</span>
+                        }
+                        <span className="text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 rounded">{c.tipo}</span>
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        {c.categoria} · {c.formato}
+                        {c.tamanhoKb && <span className="ml-1 text-slate-300">· {formatBytes(c.tamanhoKb)}</span>}
+                        {c.campanha && <> · <span style={{ color: c.campanha.cor || "#0D2B5C" }}>{c.campanha.nome}</span></>}
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-0.5">
+                        <span className="flex items-center gap-0.5"><Download size={9} /> {c.totalDownloads || 0}</span>
+                        <span className="flex items-center gap-0.5"><Heart size={9} /> {c._count?.favoritos || 0}</span>
+                        <span>👁 {c.visualizacoes || 0}</span>
+                      </div>
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-slate-800 text-sm truncate">{c.titulo}</span>
-                      {c.destaque && <span className="text-[9px] bg-[#F4B400] text-[#0D2B5C] font-black px-1.5 rounded">⭐ DESTAQUE</span>}
-                      {!c.ativo && <span className="text-[9px] bg-slate-200 text-slate-600 font-black px-1.5 rounded">OCULTO</span>}
-                      {c.isFixo
-                        ? <span className="text-[9px] bg-green-100 text-green-700 font-black px-1.5 rounded flex items-center gap-0.5"><Lock size={8} /> FIXO</span>
-                        : <span className="text-[9px] bg-blue-100 text-blue-700 font-black px-1.5 rounded flex items-center gap-0.5"><RotateCcw size={8} /> ROTATIVO</span>
-                      }
-                    </div>
-                    <div className="text-xs text-slate-400 mt-0.5">
-                      {c.categoria} · {c.tipo} · {c.formato}
-                      {c.tamanhoKb && <span className="ml-1 text-slate-300">· {formatBytes(c.tamanhoKb)}</span>}
-                      {c.campanha && <> · <span style={{ color: c.campanha.cor || "#0D2B5C" }}>{c.campanha.nome}</span></>}
-                    </div>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-0.5">
-                      <span className="flex items-center gap-0.5"><Download size={9} /> {c.totalDownloads || 0}</span>
-                      <span className="flex items-center gap-0.5"><Heart size={9} /> {c._count?.favoritos || 0}</span>
-                      <span>👁 {c.visualizacoes || 0}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => toggleDestaque(c)} title={c.destaque ? "Remover destaque" : "Marcar destaque"}
+                        className={clsx("p-1.5 rounded-lg transition-colors", c.destaque ? "bg-[#F4B400]/20 text-[#F4B400]" : "hover:bg-slate-100 text-slate-400")}>
+                        ⭐
+                      </button>
+                      <button onClick={() => toggleAtivo(c)} title={c.ativo ? "Ocultar" : "Mostrar"}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+                        {c.ativo ? <Eye size={14} /> : <EyeOff size={14} />}
+                      </button>
+                      <button onClick={() => abrirModal(c)}
+                        className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => excluir(c.id)} disabled={deletingId === c.id}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors disabled:opacity-50">
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => toggleDestaque(c)} title={c.destaque ? "Remover destaque" : "Marcar destaque"}
-                      className={clsx("p-1.5 rounded-lg transition-colors", c.destaque ? "bg-[#F4B400]/20 text-[#F4B400]" : "hover:bg-slate-100 text-slate-400")}>
-                      ⭐
-                    </button>
-                    <button onClick={() => toggleAtivo(c)} title={c.ativo ? "Ocultar" : "Mostrar"}
-                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
-                      {c.ativo ? <Eye size={14} /> : <EyeOff size={14} />}
-                    </button>
-                    <button onClick={() => abrirModal(c)}
-                      className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors">
-                      <Edit2 size={14} />
-                    </button>
-                    <button onClick={() => excluir(c.id)} disabled={deletingId === c.id}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 transition-colors disabled:opacity-50">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )
-      )}
+          );
+        })()
+      }
 
       {/* Modal adicionar/editar conteúdo */}
       {modalOpen && (
@@ -463,16 +520,35 @@ export default function MarketingAdminPage() {
                   placeholder="Ex: Arte Dia do Estagiário — Feed Instagram" />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-600 block mb-1">Tipo</label>
-                  <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0D2B5C] bg-white">
-                    {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
+              {/* Seletor visual de tipo */}
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-2">
+                  Tipo de conteúdo
+                  {form.isFixo
+                    ? <span className="ml-1 font-normal text-green-600">(Biblioteca — fixo)</span>
+                    : <span className="ml-1 font-normal text-blue-600">(Redes Sociais — rotativo)</span>}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(form.isFixo ? TIPOS_BIBLIOTECA_CARDS : TIPOS_SOCIAL_CARDS).map(t => (
+                    <button key={t.value} type="button"
+                      onClick={() => setForm(f => ({ ...f, tipo: t.value }))}
+                      className={clsx(
+                        "flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center",
+                        form.tipo === t.value
+                          ? "border-[#0D2B5C] bg-[#0D2B5C]/5 text-[#0D2B5C]"
+                          : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                      )}>
+                      <span className="text-xl">{t.icon}</span>
+                      <span className="text-xs font-bold leading-tight">{t.label}</span>
+                      <span className="text-[10px] text-slate-400 leading-tight">{t.hint}</span>
+                    </button>
+                  ))}
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-600 block mb-1">Formato</label>
+                  <label className="text-xs font-bold text-slate-600 block mb-1">Formato do arquivo</label>
                   <select value={form.formato} onChange={e => setForm(f => ({ ...f, formato: e.target.value }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0D2B5C] bg-white">
                     {FORMATOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -635,10 +711,20 @@ export default function MarketingAdminPage() {
                   <span className="text-sm font-semibold text-slate-700">⭐ Marcar como destaque (aparece na página principal)</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.isFixo} onChange={e => setForm(f => ({ ...f, isFixo: e.target.checked }))}
+                  <input type="checkbox" checked={form.isFixo} onChange={e => {
+                    const isFixo = e.target.checked;
+                    setForm(f => ({
+                      ...f,
+                      isFixo,
+                      // Ao trocar de aba, sugere tipo padrão
+                      tipo: isFixo
+                        ? (TIPOS_BIBLIOTECA.includes(f.tipo) ? f.tipo : "MATERIAL_MARCA")
+                        : (TIPOS_SOCIAL.includes(f.tipo) ? f.tipo : "POST_FEED"),
+                    }));
+                  }}
                     className="w-4 h-4 rounded accent-green-600" />
                   <span className="text-sm font-semibold text-slate-700">
-                    🔒 Conteúdo fixo (permanente — não entra na cota semanal)
+                    🔒 Conteúdo fixo / Biblioteca (permanente — não entra na cota semanal)
                   </span>
                 </label>
                 {!form.isFixo && COTAS[form.tipo] && (
