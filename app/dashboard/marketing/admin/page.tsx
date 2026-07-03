@@ -220,54 +220,44 @@ export default function MarketingAdminPage() {
 
   async function fazerUpload(): Promise<{ url: string; tamanhoKb: number } | null> {
     if (!uploadFile) return null;
+
+    // Limite de 4 MB para arquivos não-vídeo (limite do Vercel é 4,5 MB)
+    const isVideo = uploadFile.type.startsWith("video/");
+    const MAX_BYTES = isVideo ? 100 * 1024 * 1024 : 4 * 1024 * 1024;
+    if (uploadFile.size > MAX_BYTES) {
+      const limitMsg = isVideo ? "100 MB" : "4 MB";
+      setUploadError(
+        `Arquivo muito grande (${(uploadFile.size / 1024 / 1024).toFixed(1)} MB). ` +
+        `O limite é ${limitMsg}. Reduza o tamanho e tente novamente.`
+      );
+      return null;
+    }
+
     setUploadProgress(5);
 
     try {
-      // 1. Obter token + path do servidor (valida permissões e cotas)
-      const params = new URLSearchParams({
-        tipo:     form.tipo,
-        isFixo:   String(form.isFixo),
-        fileName: uploadFile.name,
-      });
-      const presignRes = await fetch(`/api/app/marketing/upload/presign?${params}`);
-      const presignData = await presignRes.json();
-      setUploadProgress(10);
+      const fd = new FormData();
+      fd.append("file",   uploadFile);
+      fd.append("tipo",   form.tipo);
+      fd.append("isFixo", String(form.isFixo));
 
-      if (!presignRes.ok) {
-        setUploadError(presignData.error || "Erro ao preparar upload.");
-        return null;
-      }
-
-      const { token, path, publicUrl } = presignData;
-
-      // 2. Upload direto browser → Supabase via cliente oficial (resolve CORS e usa multipart correto)
-      setUploadProgress(20);
-      // Progresso simulado enquanto sobe (SDK não expõe onProgress nessa versão)
+      // Progresso simulado (fetch não expõe eventos de progresso de upload)
       const progressTimer = setInterval(() => {
-        setUploadProgress((prev) => (prev < 88 ? prev + 4 : prev));
-      }, 600);
+        setUploadProgress((prev) => (prev < 88 ? prev + 5 : prev));
+      }, 500);
 
+      let result: { url: string; tamanhoKb: number; path?: string };
       try {
-        const { createClient } = await import("@supabase/supabase-js");
-        const supabaseBrowser = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          { auth: { persistSession: false } }
-        );
-
-        const { error: uploadErr } = await supabaseBrowser.storage
-          .from("marketing-assets")
-          .uploadToSignedUrl(path, token, uploadFile, {
-            contentType: uploadFile.type,
-          });
-
-        if (uploadErr) throw new Error(uploadErr.message);
+        const res = await fetch("/api/app/marketing/upload", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erro no upload.");
+        result = data;
       } finally {
         clearInterval(progressTimer);
       }
 
       setUploadProgress(100);
-      return { url: publicUrl, tamanhoKb: Math.ceil(uploadFile.size / 1024) };
+      return { url: result.url, tamanhoKb: result.tamanhoKb };
 
     } catch (err: any) {
       setUploadProgress(0);
