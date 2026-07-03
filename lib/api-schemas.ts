@@ -109,13 +109,24 @@ export const criarLancamentoSchema = z.object({
 });
 
 export const criarLeadSchema = z.object({
-  empresa:     z.string().min(1, "Nome da empresa obrigatório.").max(200),
-  contato:     z.string().max(150).optional().nullable(),
-  email:       emailField,
-  telefone:    telField,
-  proximaAcao: z.string().max(500).optional().nullable(),
-  retornoAt:   z.string().optional().nullable(),
-  observacao:  z.string().max(2000).optional().nullable(),
+  empresa:        z.string().min(1, "Nome da empresa obrigatório.").max(200),
+  contato:        z.string().max(150).optional().nullable(),
+  cargo:          z.string().max(100).optional().nullable(),
+  email:          emailField,
+  telefone:       telField,
+  whatsapp:       telField,
+  instagram:      z.string().max(100).optional().nullable(),
+  linkedin:       z.string().max(300).optional().nullable(),
+  cidade:         z.string().max(100).optional().nullable(),
+  uf:             z.string().max(2).optional().nullable(),
+  setor:          z.string().max(100).optional().nullable(),
+  origem:         z.string().max(50).optional().nullable(),
+  prioridade:     z.enum(["baixa", "media", "alta"]).optional().default("media"),
+  valorNegociado: z.union([z.number(), z.string()]).optional().nullable()
+                    .transform(v => (v !== null && v !== undefined && v !== "" ? parseFloat(String(v)) : null)),
+  proximaAcao:    z.string().max(500).optional().nullable(),
+  retornoAt:      z.string().optional().nullable(),
+  observacao:     z.string().max(2000).optional().nullable(),
 });
 
 // ── Helper de resposta de erro ────────────────────────────────────────────

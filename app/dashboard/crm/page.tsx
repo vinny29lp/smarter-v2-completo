@@ -34,6 +34,11 @@ export default function CRMPage() {
   const [linkModal, setLinkModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedLinkKey, setCopiedLinkKey] = useState<string|null>(null);
+  const copyLinkItem = (url: string, key: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedLinkKey(key); setTimeout(()=>setCopiedLinkKey(null), 2000);
+  };
   const [slaBreached, setSlaBreached] = useState(0);
   const [form, setForm] = useState({
     empresa:"", contato:"", cargo:"", email:"", telefone:"",
@@ -374,8 +379,19 @@ export default function CRMPage() {
             <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
               value={form.origem} onChange={e=>set("origem",e.target.value)}>
               <option value="">Selecionar...</option>
-              {["Indicação","Instagram","LinkedIn","Site","WhatsApp","E-mail","Visita","Evento","Outro"].map(o=>(
-                <option key={o} value={o}>{o}</option>
+              {[
+                {v:"link_publico",    l:"Site / Link Público"},
+                {v:"instagram",       l:"Instagram"},
+                {v:"trafego_pago",    l:"Tráfego Pago"},
+                {v:"equipe_comercial",l:"Equipe Comercial"},
+                {v:"whatsapp",        l:"WhatsApp"},
+                {v:"manual",          l:"Inserção Manual"},
+                {v:"indicacao",       l:"Indicação"},
+                {v:"linkedin",        l:"LinkedIn"},
+                {v:"email",           l:"E-mail"},
+                {v:"evento",          l:"Evento"},
+              ].map(({v,l})=>(
+                <option key={v} value={v}>{l}</option>
               ))}
             </select>
           </div>
@@ -412,20 +428,20 @@ export default function CRMPage() {
 
           {/* Link principal */}
           {[
-            { label: "🔗 Link principal", desc: "Use no Instagram, WhatsApp e bio.", url: linkPublico },
-            { label: "📱 Instagram / Bio", desc: "Tráfego orgânico e story.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}utm=instagram` },
-            { label: "💰 Tráfego pago (Meta/Google)", desc: "Para anúncios pagos — rastreia a origem.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}utm=trafego_pago` },
-            { label: "🤝 Equipe comercial", desc: "Para sua equipe indicar clientes.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}origem=equipe_comercial` },
-            { label: "💬 WhatsApp / Mensagem", desc: "Envio direto por WhatsApp.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}utm=whatsapp` },
-          ].map(({ label, desc, url }) => (
-            <div key={label} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+            { key:"principal", label: "🔗 Link principal", desc: "Use no Instagram, WhatsApp e bio.", url: linkPublico },
+            { key:"instagram", label: "📱 Instagram / Bio", desc: "Tráfego orgânico e story.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}utm=instagram` },
+            { key:"trafego",   label: "💰 Tráfego pago (Meta/Google)", desc: "Para anúncios pagos — rastreia a origem.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}utm=trafego_pago` },
+            { key:"equipe",    label: "🤝 Equipe comercial", desc: "Para sua equipe indicar clientes.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}origem=equipe_comercial` },
+            { key:"whatsapp",  label: "💬 WhatsApp / Mensagem", desc: "Envio direto por WhatsApp.", url: `${linkPublico}${linkPublico.includes("?")?"&":"?"}utm=whatsapp` },
+          ].map(({ key, label, desc, url }) => (
+            <div key={key} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-bold text-slate-700">{label}</span>
                 <button
-                  onClick={() => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(()=>setCopied(false),2000); }}
+                  onClick={() => copyLinkItem(url, key)}
                   className="text-[10px] font-bold text-blue-600 hover:text-blue-800 px-2 py-0.5 bg-blue-50 rounded-lg"
                 >
-                  {copied ? "✓ Copiado" : "Copiar"}
+                  {copiedLinkKey===key ? "✓ Copiado" : "Copiar"}
                 </button>
               </div>
               <p className="text-[10px] text-slate-400 mb-1">{desc}</p>
