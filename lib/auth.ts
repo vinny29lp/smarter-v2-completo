@@ -58,12 +58,15 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Log activity + lastLoginAt — NÃO bloqueia o retorno (fire-and-forget)
+        // Log activity + lastLoginAt + abre sessão de rastreamento de horas — NÃO bloqueia o retorno (fire-and-forget)
         Promise.all([
           prisma.activityLog.create({
             data: { userId: user.id, acao: "LOGIN", modulo: "auth", detalhes: `Login de ${user.email}` },
           }),
           prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
+          prisma.userSessionLog.create({
+            data: { userId: user.id, franchiseId: user.franchiseId ?? null },
+          }),
         ]).catch(() => {});
         // ↑ fire-and-forget: não esperamos — esses escritos ocorrem em background
 

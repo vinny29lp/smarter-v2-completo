@@ -71,6 +71,7 @@ model Franchise {
   vacancies            Vacancy[]
   aiUsageLogs          AIUsageLog[]
   vagaSolicitacoes     VagaSolicitacao[]
+  monthOpenings        MonthOpening[]
 
   @@map("franchises")
 }
@@ -1021,4 +1022,77 @@ model VagaSolicitacao {
   @@index([franchiseId])
   @@index([status])
   @@map("vaga_solicitacoes")
+}
+
+// ─── Abertura e Fechamento de Mês ──────────────────────────────────────────
+model MonthOpening {
+  id              String    @id @default(cuid())
+  franchiseId     String
+  franchise       Franchise @relation(fields: [franchiseId], references: [id])
+  mes             Int       // 1-12
+  ano             Int
+  criadoEm        DateTime  @default(now())
+  criadoPor       String    // userId
+
+  // Metas declaradas pelo franqueado
+  metaEmpresas    Int?
+  metaLeads       Int?
+  metaContratos   Int?
+  metaVagas       Int?
+  metaEstudantes  Int?
+  contasAPagar    Json?     // array de { descricao, valor, vencimento }
+  observacoes     String?
+
+  fechamento      MonthClosing?
+
+  @@unique([franchiseId, mes, ano])
+  @@index([franchiseId])
+  @@map("month_openings")
+}
+
+model MonthClosing {
+  id              String       @id @default(cuid())
+  openingId       String       @unique
+  opening         MonthOpening @relation(fields: [openingId], references: [id])
+  franchiseId     String
+  mes             Int
+  ano             Int
+  criadoEm        DateTime     @default(now())
+  criadoPor       String
+
+  // Números reais do mês (calculados automaticamente)
+  empresasCadastradas   Int   @default(0)
+  estudantesCadastrados Int   @default(0)
+  iesCadastradas        Int   @default(0)
+  leadsNoMes            Int   @default(0)
+  contratosFirmados     Int   @default(0)
+  estagiariosAtivos     Int   @default(0)
+  horasNoSistema        Float @default(0)
+  score                 Int   @default(0)  // 0-100
+
+  // Reconciliação financeira
+  contasConfirmadas     Boolean @default(false)
+  contasJson            Json?   // { recebidos: [], pagos: [], atrasados: [] }
+
+  // Confirmação de leitura
+  leituraConfirmada     Boolean   @default(false)
+  leituraConfirmadaEm   DateTime?
+  pdfGerado             Boolean   @default(false)
+
+  @@index([franchiseId])
+  @@map("month_closings")
+}
+
+model UserSessionLog {
+  id          String   @id @default(cuid())
+  userId      String
+  franchiseId String?
+  inicio      DateTime @default(now())
+  fim         DateTime?
+  duracaoMin  Int?     // calculado ao fazer logout ou timeout
+
+  @@index([userId])
+  @@index([franchiseId])
+  @@index([inicio])
+  @@map("user_session_logs")
 }

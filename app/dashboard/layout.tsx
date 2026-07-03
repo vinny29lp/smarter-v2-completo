@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { MesGate } from "@/components/MesGate";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -25,7 +26,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </span>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 pb-20 md:p-7 md:pb-7">{children}</main>
+        <MesGate>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 pb-20 md:p-7 md:pb-7">{children}</main>
+        </MesGate>
       </div>
     </div>
   );

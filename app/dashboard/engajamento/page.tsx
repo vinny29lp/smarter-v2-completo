@@ -5,16 +5,27 @@ import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
+import { mesAtual } from "@/lib/mes/status";
+import { gerarMensagens } from "@/lib/mes/coaching";
+import { Download } from "lucide-react";
 
 type Periodo = "semana" | "mes";
+type Aba = "atividade" | "abertura-fechamento";
+
+const NOMES_MES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
 export default async function EngajamentoPage({
   searchParams,
 }: {
-  searchParams: { periodo?: Periodo; id?: string };
+  searchParams: { periodo?: Periodo; id?: string; aba?: Aba; mes?: string; ano?: string; unidade?: string };
 }) {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "FRANQUEADORA") redirect("/dashboard");
+
+  const aba: Aba = searchParams.aba === "abertura-fechamento" ? "abertura-fechamento" : "atividade";
 
   const periodo: Periodo = searchParams.periodo === "semana" ? "semana" : "mes";
   const dataLimite = new Date();
@@ -89,6 +100,51 @@ export default async function EngajamentoPage({
 
   const focusFranq = focusId ? franqueados.find(f => f.id === focusId) : null;
 
+  // ─── Aba: Abertura/Fechamento de Mês ──────────────────────────────────────
+  const { mes: mesPadrao, ano: anoPadrao } = mesAtual();
+  const mesRede = searchParams.mes ? parseInt(searchParams.mes) : mesPadrao;
+  const anoRede = searchParams.ano ? parseInt(searchParams.ano) : anoPadrao;
+  const unidadeId = searchParams.unidade;
+
+  let redeMes: any[] = [];
+  let unidadeRelatorio: any = null;
+  if (aba === "abertura-fechamento") {
+    const franquiasRede = await prisma.franchise.findMany({
+      where: { status: "ATIVO" },
+      select: {
+        id: true, name: true, cidade: true, uf: true,
+        monthOpenings: { where: { mes: mesRede, ano: anoRede }, include: { fechamento: true } },
+      },
+      orderBy: { name: "asc" },
+    });
+    redeMes = franquiasRede.map(f => {
+      const abertura = f.monthOpenings[0] ?? null;
+      const fechamento = abertura?.fechamento ?? null;
+      return {
+        id: f.id, nome: f.name, cidade: f.cidade, uf: f.uf,
+        abertura, fechamento,
+      };
+    });
+
+    if (unidadeId) {
+      const u = redeMes.find(r => r.id === unidadeId);
+      if (u?.fechamento) {
+        unidadeRelatorio = {
+          unidade: u,
+          mensagens: gerarMensagens(
+            {
+              empresasCadastradas: u.fechamento.empresasCadastradas,
+              leadsNoMes: u.fechamento.leadsNoMes,
+              contratosFirmados: u.fechamento.contratosFirmados,
+              horasNoSistema: u.fechamento.horasNoSistema,
+            },
+            { metaEmpresas: u.abertura.metaEmpresas, metaLeads: u.abertura.metaLeads }
+          ),
+        };
+      }
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -113,8 +169,20 @@ export default async function EngajamentoPage({
         </div>
       </div>
 
+      {/* Abas */}
+      <div className="flex items-center gap-2 mb-6 border-b border-slate-200">
+        <Link href="/dashboard/engajamento"
+          className={`text-sm font-semibold px-4 py-2 border-b-2 -mb-px transition-colors ${aba==="atividade"?"border-[#0f2a5e] text-[#0f2a5e]":"border-transparent text-slate-400 hover:text-slate-600"}`}>
+          Score de Atividade
+        </Link>
+        <Link href="/dashboard/engajamento?aba=abertura-fechamento"
+          className={`text-sm font-semibold px-4 py-2 border-b-2 -mb-px transition-colors ${aba==="abertura-fechamento"?"border-[#0f2a5e] text-[#0f2a5e]":"border-transparent text-slate-400 hover:text-slate-600"}`}>
+          Abertura / Fechamento de Mês
+        </Link>
+      </div>
+
       {/* Detalhe de uma unidade */}
-      {focusData && focusFranq && (
+      {aba === "atividade" && focusData && focusFranq && (
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[
             ["Contratos criados", focusData.contratos.length, "text-[#0f2a5e]"],
@@ -132,7 +200,7 @@ export default async function EngajamentoPage({
       )}
 
       {/* Lista de franqueados */}
-      {!focusId && (
+      {aba === "atividade" && !focusId && (
         <div className="space-y-3">
           {franqueados.map(f => {
             const { score, alertas, level } = scoreEngajamento(f);
@@ -172,6 +240,121 @@ export default async function EngajamentoPage({
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Aba: Abertura/Fechamento de Mês */}
+      {aba === "abertura-fechamento" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Link href={`?aba=abertura-fechamento&mes=${mesRede === 1 ? 12 : mesRede - 1}&ano=${mesRede === 1 ? anoRede - 1 : anoRede}`}
+                className="text-xs border border-slate-200 px-3 py-1.5 rounded-lg font-semibold hover:border-blue-400 transition-colors">
+                ← Mês anterior
+              </Link>
+              <span className="text-sm font-bold text-slate-700 px-2">{NOMES_MES[mesRede - 1]} de {anoRede}</span>
+              <Link href={`?aba=abertura-fechamento&mes=${mesRede === 12 ? 1 : mesRede + 1}&ano=${mesRede === 12 ? anoRede + 1 : anoRede}`}
+                className="text-xs border border-slate-200 px-3 py-1.5 rounded-lg font-semibold hover:border-blue-400 transition-colors">
+                Próximo mês →
+              </Link>
+            </div>
+            <a href={`/api/app/mes/engajamento/pdf?mes=${mesRede}&ano=${anoRede}`} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-2 text-xs border border-slate-200 hover:border-blue-400 px-3 py-1.5 rounded-lg font-semibold transition-colors">
+              <Download size={14} /> Baixar relatório da rede em PDF
+            </a>
+          </div>
+
+          {unidadeRelatorio ? (
+            <div>
+              <Link href={`?aba=abertura-fechamento&mes=${mesRede}&ano=${anoRede}`} className="text-xs border border-slate-200 px-3 py-1.5 rounded-lg font-semibold hover:border-blue-400 transition-colors inline-block mb-4">
+                ← Voltar à rede
+              </Link>
+              <Card className="p-6 mb-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <p className="font-bold text-slate-800">{unidadeRelatorio.unidade.nome}</p>
+                  <Badge variant={unidadeRelatorio.unidade.fechamento.score >= 70 ? "green" : unidadeRelatorio.unidade.fechamento.score >= 40 ? "yellow" : "red"}>
+                    Score: {unidadeRelatorio.unidade.fechamento.score}%
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    ["Empresas", unidadeRelatorio.unidade.fechamento.empresasCadastradas],
+                    ["Leads", unidadeRelatorio.unidade.fechamento.leadsNoMes],
+                    ["Contratos", unidadeRelatorio.unidade.fechamento.contratosFirmados],
+                    ["Horas", unidadeRelatorio.unidade.fechamento.horasNoSistema.toFixed(1)],
+                  ].map(([l, v]) => (
+                    <div key={String(l)} className="text-center">
+                      <p className="text-xs text-slate-400">{l}</p>
+                      <p className="text-xl font-black text-[#0f2a5e] mt-1">{v as any}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+              <div className="space-y-3">
+                {unidadeRelatorio.mensagens.map((m: any, i: number) => (
+                  <Card key={i} className={`p-4 border-l-4 ${m.nivel === "critico" ? "border-red-400" : m.nivel === "atencao" ? "border-amber-400" : "border-emerald-400"}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-bold text-slate-800 text-sm">{m.indicador}</p>
+                      <Badge variant={m.nivel === "critico" ? "red" : m.nivel === "atencao" ? "yellow" : "green"}>
+                        {m.nivel === "critico" ? "Crítico" : m.nivel === "atencao" ? "Atenção" : "Bom"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-slate-600 leading-relaxed mb-2">{m.mensagem}</p>
+                    <p className="text-sm text-[#0f2a5e] font-semibold">→ {m.acao}</p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-slate-400 border-b border-slate-200">
+                    <th className="pb-2 font-semibold">Unidade</th>
+                    <th className="pb-2 font-semibold text-center">Abertura</th>
+                    <th className="pb-2 font-semibold text-center">Fechamento</th>
+                    <th className="pb-2 font-semibold text-center">Score</th>
+                    <th className="pb-2 font-semibold text-center">Empresas</th>
+                    <th className="pb-2 font-semibold text-center">Leads</th>
+                    <th className="pb-2 font-semibold text-center">Contratos</th>
+                    <th className="pb-2 font-semibold text-center">Horas</th>
+                    <th className="pb-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {redeMes.map(r => (
+                    <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/60">
+                      <td className="py-2.5">
+                        <p className="font-semibold text-slate-800">{r.nome}</p>
+                        <p className="text-xs text-slate-400">{r.cidade}/{r.uf}</p>
+                      </td>
+                      <td className="py-2.5 text-center">
+                        {r.abertura ? <Badge variant="green">✓ {new Date(r.abertura.criadoEm).toLocaleDateString("pt-BR")}</Badge> : <Badge variant="red">✗</Badge>}
+                      </td>
+                      <td className="py-2.5 text-center">
+                        {r.fechamento?.leituraConfirmada
+                          ? <Badge variant="green">✓ {new Date(r.fechamento.leituraConfirmadaEm).toLocaleDateString("pt-BR")}</Badge>
+                          : <Badge variant="red">✗</Badge>}
+                      </td>
+                      <td className="py-2.5 text-center font-bold text-[#0f2a5e]">{r.fechamento?.score ?? "—"}</td>
+                      <td className="py-2.5 text-center">{r.fechamento?.empresasCadastradas ?? "—"}</td>
+                      <td className="py-2.5 text-center">{r.fechamento?.leadsNoMes ?? "—"}</td>
+                      <td className="py-2.5 text-center">{r.fechamento?.contratosFirmados ?? "—"}</td>
+                      <td className="py-2.5 text-center">{r.fechamento?.horasNoSistema != null ? r.fechamento.horasNoSistema.toFixed(1) : "—"}</td>
+                      <td className="py-2.5 text-right">
+                        {r.fechamento && (
+                          <Link href={`?aba=abertura-fechamento&mes=${mesRede}&ano=${anoRede}&unidade=${r.id}`}
+                            className="text-xs font-semibold text-blue-600 hover:underline">
+                            Ver relatório →
+                          </Link>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

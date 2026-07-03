@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Building2, GraduationCap, Briefcase, FileText, DollarSign, Phone, Users, Star, Settings, Shield, LogOut, KanbanSquare, PenTool, BookOpen, Activity, Menu, X, MoreHorizontal, HeartPulse, TrendingUp, Megaphone } from "lucide-react";
+import { LayoutDashboard, Building2, GraduationCap, Briefcase, FileText, DollarSign, Phone, Users, Star, Settings, Shield, LogOut, KanbanSquare, PenTool, BookOpen, Activity, Menu, X, MoreHorizontal, HeartPulse, TrendingUp, Megaphone, Calendar } from "lucide-react";
 import clsx from "clsx";
 import { useState } from "react";
 
@@ -73,6 +73,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
   ESTUDANTE: [[]],
   FRANQUEADO: [[
     {href:"/dashboard",label:"Dashboard",icon:LayoutDashboard},
+    {href:"/dashboard/mes",label:"Mês Atual",icon:Calendar},
   ],[
     {href:"/dashboard/empresas",label:"Empresas",icon:Building2},
     {href:"/dashboard/estudantes",label:"Estudantes",icon:GraduationCap},
@@ -99,6 +100,8 @@ function SidebarPanel({ onClose }: { onClose?: () => void }) {
   const sections: {href:string;label:string;icon:any;badge?:number}[][] = (role === "FUNCIONARIO" || role === "EQUIPE")
     ? [[
         {href:"/dashboard", label:"Dashboard", icon:LayoutDashboard},
+        // Abertura/fechamento de mês é obrigatório para FUNCIONARIO de unidade franqueada — não passa por permissoes
+        ...(role === "FUNCIONARIO" ? [{href:"/dashboard/mes", label:"Mês Atual", icon:Calendar}] : []),
         ...((session?.user?.permissoes ?? [])
           .map(p => PERM_NAV_MAP[p])
           .filter(Boolean)),
