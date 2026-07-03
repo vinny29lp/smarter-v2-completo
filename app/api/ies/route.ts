@@ -34,11 +34,27 @@ export async function GET(req: Request) {
         cidade: true, uf: true, endereco: true, site: true,
         token: true, convenioStatus: true, convenioAssinadoEm: true,
         conviteEnviadoEm: true, assinanteName: true, assinanteEmail: true,
-        franchiseId: true, createdAt: true,
+        franchiseId: true, createdAt: true, updatedAt: true,
       },
     });
 
-    return NextResponse.json({ institutions });
+    // Enriquece com nome da unidade (para o painel da Franqueadora)
+    const franchiseIds = [...new Set(institutions.map(i => i.franchiseId).filter(Boolean))] as string[];
+    let franchiseMap: Record<string, { id: string; name: string }> = {};
+    if (franchiseIds.length > 0) {
+      const franchises = await prisma.franchise.findMany({
+        where: { id: { in: franchiseIds } },
+        select: { id: true, name: true },
+      });
+      franchiseMap = Object.fromEntries(franchises.map(f => [f.id, f]));
+    }
+
+    const enriched = institutions.map(i => ({
+      ...i,
+      franchise: i.franchiseId ? franchiseMap[i.franchiseId] || null : null,
+    }));
+
+    return NextResponse.json({ institutions: enriched });
   } catch (e) {
     return handleApiError(e, "IES_GET");
   }

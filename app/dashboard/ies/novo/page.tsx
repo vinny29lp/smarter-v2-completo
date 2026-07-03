@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -15,6 +15,79 @@ export default function NovaIESPage() {
     cidade: "", uf: "", endereco: "", cep: "", site: "",
   });
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  // ── Autocomplete de busca de IES cadastradas ──────────────────────────────
+  const [busca, setBusca] = useState("");
+  const [resultados, setResultados] = useState<any[]>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [buscaAberta, setBuscaAberta] = useState(false);
+  const [iesSelecionada, setIesSelecionada] = useState<any>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const buscarIES = useCallback(async (q: string) => {
+    if (q.length < 2) { setResultados([]); setBuscaAberta(false); return; }
+    setBuscando(true);
+    try {
+      const res = await fetch(`/api/app/instituicoes/buscar?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      setResultados(data.instituicoes || []);
+      setBuscaAberta(true);
+    } catch {
+      setResultados([]);
+    } finally {
+      setBuscando(false);
+    }
+  }, []);
+
+  const handleBuscaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setBusca(val);
+    setIesSelecionada(null);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => buscarIES(val), 300);
+  };
+
+  const selecionarIES = async (item: any) => {
+    setBusca(item.name);
+    setResultados([]);
+    setBuscaAberta(false);
+    setIesSelecionada(item);
+    // Busca dados completos para auto-preencher
+    try {
+      const res = await fetch(`/api/app/instituicoes/${item.id}`);
+      const data = await res.json();
+      const inst = data.instituicao;
+      if (inst) {
+        setForm({
+          name: inst.name || "",
+          razaoSocial: inst.razaoSocial || "",
+          cnpj: inst.cnpj || "",
+          tipo: inst.tipo || "SUPERIOR",
+          email: inst.email || "",
+          telefone: inst.telefone || "",
+          coordenador: inst.coordenador || "",
+          cargoCoord: inst.cargoCoord || "",
+          cidade: inst.cidade || "",
+          uf: inst.uf || "",
+          endereco: inst.endereco || "",
+          cep: inst.cep || "",
+          site: inst.site || "",
+        });
+      }
+    } catch {
+      // Preenche o que já tem
+      setForm(p => ({ ...p, name: item.name, cnpj: item.cnpj || "", cidade: item.cidade || "", uf: item.uf || "" }));
+    }
+  };
+
+  const limparSelecao = () => {
+    setBusca("");
+    setIesSelecionada(null);
+    setResultados([]);
+    setBuscaAberta(false);
+    setForm({ name:"", razaoSocial:"", cnpj:"", tipo:"SUPERIOR", email:"", telefone:"", coordenador:"", cargoCoord:"", cidade:"", uf:"", endereco:"", cep:"", site:"" });
+  };
 
   const handleSubmit = async () => {
     setErro("");
@@ -72,7 +145,7 @@ export default function NovaIESPage() {
               className="flex-1 border-2 border-slate-200 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-50 text-sm">
               Ver lista
             </button>
-            <button onClick={() => { setSucesso(null); setForm({ name:"", razaoSocial:"", cnpj:"", tipo:"SUPERIOR", email:"", telefone:"", coordenador:"", cargoCoord:"", cidade:"", uf:"", endereco:"", cep:"", site:"" }); }}
+            <button onClick={() => { setSucesso(null); limparSelecao(); }}
               className="flex-1 bg-[#0f2a5e] text-white font-bold py-3 rounded-xl hover:bg-[#1e4a8f] text-sm">
               + Nova IES
             </button>
@@ -93,6 +166,56 @@ export default function NovaIESPage() {
       {erro && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{erro}</div>}
 
       <div className="max-w-2xl space-y-5">
+
+        {/* ── Auto-preenchimento: busca IES já cadastrada ── */}
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-blue-800 mb-1">🔍 Buscar IES já cadastrada</h3>
+          <p className="text-xs text-blue-600 mb-3">Se a instituição já existe no sistema, selecione abaixo para preencher o formulário automaticamente.</p>
+          <div ref={wrapperRef} className="relative">
+            <div className="relative">
+              <input
+                type="text"
+                value={busca}
+                onChange={handleBuscaChange}
+                onFocus={() => { if (resultados.length > 0) setBuscaAberta(true); }}
+                placeholder="Digite o nome ou CNPJ da instituição (mín. 2 caracteres)..."
+                className="w-full border-2 border-blue-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white pr-10"
+              />
+              {busca && (
+                <button type="button" onClick={limparSelecao}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xl leading-none">
+                  ×
+                </button>
+              )}
+            </div>
+            {buscando && <p className="text-xs text-blue-500 mt-1">Buscando...</p>}
+            {buscaAberta && resultados.length > 0 && (
+              <ul className="absolute z-50 w-full bg-white border-2 border-slate-200 rounded-xl shadow-lg mt-1 max-h-48 overflow-y-auto">
+                {resultados.map((item: any) => (
+                  <li key={item.id}
+                    className="px-4 py-2.5 text-sm cursor-pointer hover:bg-blue-50 border-b border-slate-100 last:border-0"
+                    onMouseDown={() => selecionarIES(item)}>
+                    <p className="font-semibold text-slate-800">{item.name}</p>
+                    {(item.cidade || item.cnpj) && (
+                      <p className="text-xs text-slate-400">{[item.cnpj, item.cidade && `${item.cidade}/${item.uf}`].filter(Boolean).join(" • ")}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {buscaAberta && resultados.length === 0 && !buscando && busca.length >= 2 && (
+              <div className="absolute z-50 w-full bg-white border-2 border-slate-200 rounded-xl shadow-lg mt-1 px-4 py-3 text-sm text-slate-400">
+                Nenhuma IES encontrada. Preencha os dados abaixo para criar nova.
+              </div>
+            )}
+          </div>
+          {iesSelecionada && (
+            <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-xs text-emerald-700">
+              <span>✅ Dados de <strong>{iesSelecionada.name}</strong> carregados automaticamente. Revise e ajuste se necessário.</span>
+            </div>
+          )}
+        </div>
+
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
           <h3 className="text-sm font-bold text-slate-700 mb-4">Dados da Instituição</h3>
           <div className="grid grid-cols-2 gap-4">

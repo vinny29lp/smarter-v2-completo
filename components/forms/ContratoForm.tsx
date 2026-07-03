@@ -182,14 +182,32 @@ export function ContratoForm({ franchiseId }: Props) {
   });
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  // Calcula CH total baseado no preset escolhido; se "Personalizado", usa chSemanal manual
-  const diasCount = DIAS_MAP[form.diasSemana];
-  const chTotal = diasCount !== undefined
-    ? parseInt(form.chDiaria || "0") * diasCount
-    : parseInt(form.chSemanal || "0");
   // Controla o select de dias: preset vs personalizado
   const selectDiasValue = DIAS_PRESETS.includes(form.diasSemana) ? form.diasSemana : "Personalizado";
   const isDiasPersonalizado = selectDiasValue === "Personalizado";
+
+  // ── Calcula CH diária real a partir dos horários e intervalo ────────────────
+  // Lei 11.788/2008: máx 6h/dia e 30h/semana
+  const calcChDiariaFromTimes = (inicio: string, fim: string, intervaloMin: number): number => {
+    const [h1s, m1s] = inicio.split(":");
+    const [h2s, m2s] = fim.split(":");
+    const h1 = parseInt(h1s), m1 = parseInt(m1s ?? "0");
+    const h2 = parseInt(h2s), m2 = parseInt(m2s ?? "0");
+    if (isNaN(h1) || isNaN(h2)) return 0;
+    const totalMin = (h2 * 60 + m2) - (h1 * 60 + m1) - intervaloMin;
+    return Math.max(0, totalMin / 60);
+  };
+
+  // CH diária efetiva: calculada dos horários (modo preset) ou campo manual (personalizado)
+  const chDiariaCalc = (!isDiasPersonalizado && form.horarioInicio && form.horarioFim)
+    ? calcChDiariaFromTimes(form.horarioInicio, form.horarioFim, parseInt(form.intervalo || "0"))
+    : parseFloat(form.chDiaria || "0");
+
+  // Calcula CH total: chDiária × dias (modo preset) ou manual (personalizado)
+  const diasCount = DIAS_MAP[form.diasSemana];
+  const chTotal = diasCount !== undefined
+    ? chDiariaCalc * diasCount
+    : parseInt(form.chSemanal || "0");
 
   // Payload para IA de atividades TCE
   const aiAtividadesPayload = {
@@ -199,8 +217,8 @@ export function ContratoForm({ franchiseId }: Props) {
     empresa: selectedCompany?.name || "",
     setor: selectedCompany?.setor || "",
     bolsa: form.bolsa,
-    cargaHoraria: String(chTotal),
-    chDiaria: form.chDiaria,
+    cargaHoraria: String(Math.round(chTotal * 10) / 10),
+    chDiaria: isDiasPersonalizado ? form.chDiaria : String(Math.round(chDiariaCalc * 10) / 10),
     diasSemana: form.diasSemana,
     tipoEstagio: form.tipoEstagio,
   };
@@ -209,8 +227,12 @@ export function ContratoForm({ franchiseId }: Props) {
     if (!form.studentId || !form.companyId || !form.bolsa || !form.dataInicio || !form.dataFim) {
       setError("Preencha: Estudante, Empresa, Bolsa e Datas."); return;
     }
+    if (!isDiasPersonalizado && chDiariaCalc > 6) {
+      setError(`⚠️ C.H. diária (${chDiariaCalc.toFixed(1)}h) excede o limite legal de 6h/dia (Lei 11.788/2008, art. 10). Ajuste os horários ou o intervalo de descanso.`);
+      setEtapa(2); return;
+    }
     if (chTotal > 30) {
-      setError(`⚠️ Carga horária semanal (${chTotal}h) excede o limite legal de 30h/semana (Lei 11.788/2008, art. 10). Ajuste a C.H. Diária ou os dias da semana.`);
+      setError(`⚠️ Carga horária semanal (${chTotal.toFixed(1)}h) excede o limite legal de 30h/semana (Lei 11.788/2008, art. 10). Ajuste os horários ou os dias da semana.`);
       setEtapa(2); return;
     }
     if (!form.supervisorNome) { setError("Informe o Supervisor da Empresa (obrigatório pela Lei 11.788/2008)."); return; }
@@ -249,8 +271,8 @@ export function ContratoForm({ franchiseId }: Props) {
         vencimento: parseInt(form.vencimento),
         dataInicio: new Date(form.dataInicio),
         dataFim: new Date(form.dataFim),
-        chDiaria: parseInt(form.chDiaria),
-        chSemanal: chTotal,
+        chDiaria: isDiasPersonalizado ? parseInt(form.chDiaria) : Math.round(chDiariaCalc),
+        chSemanal: Math.round(chTotal * 10) / 10,
         intervalo: parseInt(form.intervalo),
         institutionId: form.institutionId || null,
       });
@@ -386,12 +408,23 @@ export function ContratoForm({ franchiseId }: Props) {
             <Input label="Benefícios" value={form.beneficios} onChange={e => set("beneficios", e.target.value)} placeholder="Auxílio Transporte" />
             <Input label="Data de Início *" type="date" value={form.dataInicio} onChange={e => set("dataInicio", e.target.value)} />
             <Input label="Data de Término *" type="date" value={form.dataFim} onChange={e => set("dataFim", e.target.value)} />
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">C.H. Diária (máx. 6h)</label>
-              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.chDiaria} onChange={e => set("chDiaria", e.target.value)}>
-                {["4", "5", "6"].map(h => <option key={h} value={h}>{h}h/dia</option>)}
-              </select>
-            </div>
+            {!isDiasPersonalizado ? (
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">C.H. Diária (calculada)</label>
+                <div className={`w-full border-2 rounded-xl px-3 py-2.5 text-sm font-semibold ${chDiariaCalc > 6 ? "border-red-300 bg-red-50 text-red-700" : "border-slate-100 bg-slate-50 text-slate-700"}`}>
+                  {chDiariaCalc % 1 === 0 ? chDiariaCalc.toFixed(0) : chDiariaCalc.toFixed(1)}h/dia
+                  {chDiariaCalc > 6 && <span className="ml-2 text-xs font-bold">⚠️ Excede 6h (limite legal)</span>}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Calculado: (horário fim − início) − intervalo</p>
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">C.H. Diária (máx. 6h)</label>
+                <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.chDiaria} onChange={e => set("chDiaria", e.target.value)}>
+                  {["4", "5", "6"].map(h => <option key={h} value={h}>{h}h/dia</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Modalidade</label>
               <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.modalidade} onChange={e => set("modalidade", e.target.value)}>
@@ -476,8 +509,15 @@ export function ContratoForm({ franchiseId }: Props) {
                 <option value="60">60 min (1h)</option>
               </select>
             </div>
-            <div className="col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 font-bold">
-              ⏱ Total: {chTotal}h/semana {chTotal > 30 && <span className="text-red-500">⚠️ Excede limite legal (30h)</span>}
+            <div className={`col-span-2 p-3 rounded-xl text-sm font-bold border-2 ${(chTotal > 30 || (!isDiasPersonalizado && chDiariaCalc > 6)) ? "bg-red-50 border-red-200 text-red-700" : "bg-blue-50 border-blue-200 text-blue-700"}`}>
+              ⏱ C.H. Semanal: {chTotal % 1 === 0 ? chTotal.toFixed(0) : chTotal.toFixed(1)}h/semana
+              {!isDiasPersonalizado && diasCount && (
+                <span className="ml-2 font-normal text-xs opacity-75">
+                  ({chDiariaCalc % 1 === 0 ? chDiariaCalc.toFixed(0) : chDiariaCalc.toFixed(1)}h/dia × {diasCount} dias)
+                </span>
+              )}
+              {chTotal > 30 && <span className="ml-2">⚠️ Excede limite legal de 30h/semana</span>}
+              {!isDiasPersonalizado && chDiariaCalc > 6 && chTotal <= 30 && <span className="ml-2">⚠️ C.H. diária excede 6h/dia (limite legal)</span>}
             </div>
             <Input label="Vencimento (dia do mês)" type="number" value={form.vencimento} onChange={e => set("vencimento", e.target.value)} placeholder="5" />
             <Input label="Cidade do Estágio" value={form.cidade} onChange={e => set("cidade", e.target.value)} placeholder="São Paulo" />

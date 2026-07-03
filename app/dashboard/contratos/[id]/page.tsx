@@ -562,8 +562,8 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
               <strong>Financeiro pendente:</strong> enquanto o estágio estiver como <em>{contract.status}</em>,
               o valor de <strong>R$ {Number(contract.valorEmpresa || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong> de taxa de gestão
               <strong> não será computado no financeiro</strong> da unidade.
-              O lançamento em "A Receber" e a taxa de R$13 da Franqueadora são gerados automaticamente
-              apenas quando o estágio é <strong>ativado</strong>.
+              O lançamento em &ldquo;A Receber&rdquo; é gerado automaticamente apenas quando o estágio é <strong>ativado</strong>.{" "}
+              <strong>Atenção: o estágio só é válido e o seguro obrigatório só é ativado após a ativação no sistema com todas as assinaturas realizadas.</strong>
             </span>
           </div>
         )}
