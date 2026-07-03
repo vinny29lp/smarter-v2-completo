@@ -13,24 +13,7 @@ const COTAS: Record<string, number> = {
   STORY:     5,
 };
 
-function getSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error("Supabase não configurado. Adicione NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nas variáveis de ambiente.");
-  }
-
-  return createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false },
-  });
-}
-
 // POST /api/app/marketing/upload
-// Recebe multipart/form-data com os campos:
-//   file   — o arquivo (imagem, vídeo ou PDF)
-//   tipo   — tipo do conteúdo (POST_FEED | STORY | REELS | etc.)
-//   isFixo — "true" ou "false" (string)
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -45,12 +28,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Sem permissão para fazer upload." }, { status: 403 });
   }
 
-  let supabase: ReturnType<typeof createClient>;
-  try {
-    supabase = getSupabaseAdmin();
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
+    return NextResponse.json(
+      { error: "Supabase não configurado. Adicione NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nas variáveis de ambiente." },
+      { status: 500 }
+    );
   }
+
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
 
   try {
     const formData = await req.formData();
@@ -133,7 +123,6 @@ export async function POST(req: Request) {
 }
 
 // DELETE /api/app/marketing/upload?path=POST_FEED/uuid.jpg
-// Remove um arquivo do Storage (chamado ao excluir conteúdo com arquivo próprio)
 export async function DELETE(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -152,12 +141,18 @@ export async function DELETE(req: Request) {
   const path = searchParams.get("path");
   if (!path) return NextResponse.json({ error: "path obrigatório." }, { status: 400 });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return NextResponse.json({ ok: true });
+
   try {
-    const supabase = getSupabaseAdmin();
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false },
+    });
     await supabase.storage.from("marketing-assets").remove([path]);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("[marketing/upload] DELETE:", e?.message);
-    return NextResponse.json({ ok: true }); // não quebra o fluxo se falhar
+    return NextResponse.json({ ok: true });
   }
 }
