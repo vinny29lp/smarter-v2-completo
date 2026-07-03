@@ -83,12 +83,13 @@ export async function criarOuAtualizarLancamentoContrato({
   });
 }
 
-async function gerarNumeroContrato(franchiseId: string): Promise<string> {
+// tx: aceita tanto prisma direto quanto um TransactionClient — usa 'any' para evitar import de tipo Prisma
+async function gerarNumeroContrato(franchiseId: string, tx: any): Promise<string> {
   const ano = new Date().getFullYear();
-  // Advisory lock por franchiseId evita race condition em criações simultâneas
-  // hashtext() é determinístico: mesma string → mesmo lock int4
-  await prisma.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${franchiseId}::text))`;
-  const count = await prisma.contract.count({
+  // pg_advisory_xact_lock é TRANSACTION-LEVEL: mantém o lock até o commit/rollback da tx
+  // Precisa rodar DENTRO da transaction para que o lock não seja liberado antes do INSERT
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${franchiseId}::text))`;
+  const count = await tx.contract.count({
     where: { franchiseId, createdAt: { gte: new Date(`${ano}-01-01`) } },
   });
   return `${String(count + 1).padStart(3, "0")}/${ano}`;
@@ -214,10 +215,9 @@ export async function createContract(data: any) {
     ...(modalidade ? { modalidade } : {}),
   };
 
-  // Gerar número automático se não fornecido
-  const numero = _numero || await gerarNumeroContrato(franchiseId);
-
   // Criar contrato e documentos em transaction — se createMany falhar, o contrato é revertido
+  // IMPORTANTE: o numero é gerado DENTRO da transaction para que o advisory lock seja mantido
+  // até o INSERT (evita race condition em criações simultâneas da mesma franquia)
   const docTipos = [
     { tipo: "tce",  titulo: "Termo de Compromisso de Estagio" },
     { tipo: "pe",   titulo: "Plano de Estagio" },
@@ -235,6 +235,8 @@ export async function createContract(data: any) {
   let contract;
   try {
     contract = await prisma.$transaction(async (tx) => {
+      // Gera o número dentro da tx: advisory lock é mantido até o commit
+      const numero = _numero || await gerarNumeroContrato(franchiseId, tx);
       const created = await tx.contract.create({
         data: { ...safeData, numero },
       });

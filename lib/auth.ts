@@ -101,7 +101,9 @@ export const authOptions: NextAuthOptions = {
         token.franchiseId = (user as any).franchiseId;
         token.companyId = (user as any).companyId;
         token.studentId = (user as any).studentId;
-        token.permissoes = (user as any).permissoes ?? [];
+        // Só serializa permissoes quando não vazio — reduz tamanho do JWT para 95% dos usuários
+        const perms: string[] = (user as any).permissoes ?? [];
+        if (perms.length > 0) token.permissoes = perms;
         token.lastChecked = Math.floor(Date.now() / 1000);
         if (process.env.NODE_ENV === "development") console.log(`[AUTH_PERF] jwt callback (primeiro login): ${Date.now()-t}ms`);
       } else {
@@ -135,7 +137,8 @@ export const authOptions: NextAuthOptions = {
         session.user.franchiseId = token.franchiseId as string | undefined;
         session.user.companyId = token.companyId as string | undefined;
         session.user.studentId = token.studentId as string | undefined;
-        session.user.permissoes = token.permissoes as string[] | undefined;
+        // Garante array mesmo quando token.permissoes está ausente (usuários sem permissões especiais)
+        session.user.permissoes = (token.permissoes as string[] | undefined) ?? [];
       }
       if (process.env.NODE_ENV === "development") console.log(`[AUTH_PERF] session callback: ${Date.now()-t}ms`);
       return session;
