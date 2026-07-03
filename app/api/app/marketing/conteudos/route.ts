@@ -92,13 +92,16 @@ export async function POST(req: Request) {
     const { titulo, descricao, tipo, formato, categoria, tags, url, thumbUrl, texto,
             hashtags, canalIdeal, publicoPara, destaque, campanhaId, isFixo, tamanhoKb } = body;
 
-    if (!titulo || !tipo || !categoria) {
-      return NextResponse.json({ error: "titulo, tipo e categoria são obrigatórios." }, { status: 400 });
+    if (!tipo || !categoria) {
+      return NextResponse.json({ error: "tipo e categoria são obrigatórios." }, { status: 400 });
     }
+
+    // Título é opcional na UI — usa descrição como fallback para não violar NOT NULL do DB
+    const finalTitulo = (titulo || "").trim() || (descricao || "").substring(0, 80).trim() || "Sem título";
 
     const conteudo = await prisma.marketingConteudo.create({
       data: {
-        titulo, descricao, tipo,
+        titulo: finalTitulo, descricao, tipo,
         formato: formato || "IMAGEM",
         categoria,
         tags: tags || [],
@@ -125,7 +128,7 @@ export async function POST(req: Request) {
             data: franqueados.map((u: any) => ({
               userId: u.id,
               titulo: "📢 Novo conteúdo no Marketing Hub",
-              mensagem: `"${titulo}" foi adicionado à biblioteca. Acesse o Marketing Hub para baixar.`,
+              mensagem: `"${finalTitulo}" foi adicionado à biblioteca. Acesse o Marketing Hub para baixar.`,
               tipo: "marketing",
               link: "/dashboard/marketing/biblioteca",
             })),

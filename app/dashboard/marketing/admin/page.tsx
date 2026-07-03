@@ -191,15 +191,12 @@ export default function MarketingAdminPage() {
   }
 
   async function salvar() {
-    if (!form.titulo.trim()) {
-      setUploadError("Informe um título para o conteúdo.");
-      return;
-    }
     if (!form.descricao || (!uploadFile && !form.url)) return;
     setSaving(true);
     setUploadError("");
 
     let url       = form.url;
+    let thumbUrl  = form.thumbUrl;
     let tamanhoKb: number | undefined;
 
     try {
@@ -207,11 +204,22 @@ export default function MarketingAdminPage() {
       if (uploadFile) {
         const result = await fazerUpload();
         if (!result) return; // fazerUpload já definiu uploadError; finally reseta saving
-        url       = result.url;
+        url      = result.url;
         tamanhoKb = result.tamanhoKb;
+        // Auto-usar a URL como thumbnail quando for imagem (evita card sem preview)
+        if (uploadFile.type.startsWith("image/") && !thumbUrl) {
+          thumbUrl = url;
+        }
       }
 
-      const payload: any = { ...form, url, tags: form.tags };
+      const payload: any = {
+        ...form,
+        url,
+        thumbUrl,
+        tags: form.tags,
+        // Se título não foi preenchido, usa o início da descrição como título
+        titulo: form.titulo.trim() || form.descricao.substring(0, 80).trim(),
+      };
       delete payload.tagInput;
       if (tamanhoKb !== undefined) payload.tamanhoKb = tamanhoKb;
 
@@ -441,7 +449,7 @@ export default function MarketingAdminPage() {
       {modalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl my-4">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl z-10">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-white rounded-t-2xl">
               <h3 className="font-black text-slate-800">{editId ? "Editar conteúdo" : "Novo conteúdo"}</h3>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
@@ -500,7 +508,7 @@ export default function MarketingAdminPage() {
                     accept="image/*,video/mp4,video/quicktime,application/pdf"
                     className="hidden" onChange={onFileChange} />
                   {uploadPreview ? (
-                    <img src={uploadPreview} alt="preview" className="h-24 mx-auto rounded-lg object-cover" />
+                    <img src={uploadPreview} alt="preview" className="h-40 mx-auto rounded-lg object-cover" />
                   ) : uploadFile ? (
                     <div className="flex items-center justify-center gap-2 text-[#0D2B5C]">
                       {uploadFile.type.startsWith("video/") ? <FileVideo size={28} /> : <File size={28} />}
@@ -646,7 +654,7 @@ export default function MarketingAdminPage() {
                 className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50">
                 Cancelar
               </button>
-              <button onClick={salvar} disabled={!form.titulo.trim() || !form.descricao || (!uploadFile && !form.url) || saving}
+              <button onClick={salvar} disabled={!form.descricao || (!uploadFile && !form.url) || saving}
                 className="flex-1 px-4 py-2 bg-[#0D2B5C] text-white rounded-xl text-sm font-bold hover:bg-[#1a4080] disabled:opacity-50 flex items-center justify-center gap-2">
                 {saving
                   ? (uploadFile && uploadProgress < 100 ? `Enviando ${uploadProgress}%...` : "Salvando...")
