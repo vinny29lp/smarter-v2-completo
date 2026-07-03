@@ -223,7 +223,7 @@ export default function MarketingAdminPage() {
     setUploadProgress(5);
 
     try {
-      // 1. Obter URL assinada do servidor (upload direto ao Supabase, sem passar pelo Vercel)
+      // 1. Obter token + path do servidor (valida permissões e cotas)
       const params = new URLSearchParams({
         tipo:     form.tipo,
         isFixo:   String(form.isFixo),
@@ -238,28 +238,33 @@ export default function MarketingAdminPage() {
         return null;
       }
 
-      const { signedUrl, publicUrl } = presignData;
+      const { token, path, publicUrl } = presignData;
 
-      // 2. Upload direto do browser → Supabase (bypassa limite de 4,5 MB do Vercel)
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.upload.addEventListener("progress", (ev) => {
-          if (ev.lengthComputable) {
-            const pct = Math.round((ev.loaded / ev.total) * 85) + 10;
-            setUploadProgress(Math.min(pct, 95));
-          }
-        });
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error(`Erro no storage: HTTP ${xhr.status}`));
-        });
-        xhr.addEventListener("error",   () => reject(new Error("Falha de rede durante o upload. Verifique sua internet.")));
-        xhr.addEventListener("timeout", () => reject(new Error("Upload demorou muito. Tente um arquivo menor ou verifique sua conexão.")));
-        xhr.timeout = 5 * 60 * 1000; // 5 minutos
-        xhr.open("PUT", signedUrl);
-        xhr.setRequestHeader("Content-Type", uploadFile.type);
-        xhr.send(uploadFile);
-      });
+      // 2. Upload direto browser → Supabase via cliente oficial (resolve CORS e usa multipart correto)
+      setUploadProgress(20);
+      // Progresso simulado enquanto sobe (SDK não expõe onProgress nessa versão)
+      const progressTimer = setInterval(() => {
+        setUploadProgress((prev) => (prev < 88 ? prev + 4 : prev));
+      }, 600);
+
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabaseBrowser = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          { auth: { persistSession: false } }
+        );
+
+        const { error: uploadErr } = await supabaseBrowser.storage
+          .from("marketing-assets")
+          .uploadToSignedUrl(path, token, uploadFile, {
+            contentType: uploadFile.type,
+          });
+
+        if (uploadErr) throw new Error(uploadErr.message);
+      } finally {
+        clearInterval(progressTimer);
+      }
 
       setUploadProgress(100);
       return { url: publicUrl, tamanhoKb: Math.ceil(uploadFile.size / 1024) };
