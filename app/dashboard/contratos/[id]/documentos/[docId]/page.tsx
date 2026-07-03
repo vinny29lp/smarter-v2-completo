@@ -85,6 +85,7 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
   const [autentiqueLoading, setAutentiqueLoading] = useState(false);
   const [autentiqueSuccess, setAutentiqueSuccess] = useState<string|null>(null);
   const [checkingStatus, setCheckingStatus]     = useState(false);
+  const [copiedLink, setCopiedLink]             = useState<string|null>(null);
 
   // Dados derivados
   const isTce      = doc?.tipo === "tce" || doc?.tipo === "pe";
@@ -237,6 +238,25 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
     setCheckingStatus(false);
   };
 
+  // Copiar link de assinatura de um signatário para a área de transferência
+  const copiarLink = (link: string) => {
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedLink(link);
+      setTimeout(() => setCopiedLink(null), 2500);
+    }).catch(() => {
+      try {
+        const el = document.createElement("textarea");
+        el.value = link;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        setCopiedLink(link);
+        setTimeout(() => setCopiedLink(null), 2500);
+      } catch {}
+    });
+  };
+
   // Visualizar o PDF assinado em nova aba (link direto)
   const visualizarAssinado = () => {
     const url = doc?.signedUrl;
@@ -293,15 +313,13 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
               {checkingStatus ? "Verificando..." : "🔄 Verificar Assinaturas"}
             </Button>
           )}
-          {assinado && (
+          {doc?.signedUrl && (
             <>
-              {doc?.signedUrl && (
-                <Button variant="secondary" onClick={visualizarAssinado}>
-                  👁 Visualizar Assinado
-                </Button>
-              )}
+              <Button variant="secondary" onClick={visualizarAssinado}>
+                👁 {assinado ? "Visualizar Assinado" : "Visualizar Assinaturas"}
+              </Button>
               <Button onClick={downloadAssinado}>
-                ⬇ Baixar Assinado (PDF)
+                ⬇ {assinado ? "Baixar Assinado (PDF)" : "Baixar com Assinaturas"}
               </Button>
             </>
           )}
@@ -333,21 +351,19 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                 Status das Assinaturas
                 {isTce && <span className="ml-2 text-[#0f2a5e] normal-case font-normal">(3 obrigatórias para ativar o estágio)</span>}
               </p>
-              {assinado && (
+              {doc?.signedUrl && (
                 <div className="flex items-center gap-3">
-                  {doc?.signedUrl && (
-                    <button
-                      onClick={visualizarAssinado}
-                      className="text-xs text-slate-500 font-bold hover:underline flex items-center gap-1"
-                    >
-                      👁 Visualizar
-                    </button>
-                  )}
+                  <button
+                    onClick={visualizarAssinado}
+                    className="text-xs text-slate-500 font-bold hover:underline flex items-center gap-1"
+                  >
+                    👁 Visualizar
+                  </button>
                   <button
                     onClick={downloadAssinado}
                     className="text-xs text-[#0f2a5e] font-bold hover:underline flex items-center gap-1"
                   >
-                    ⬇ Baixar PDF
+                    ⬇ {assinado ? "Baixar PDF" : "Baixar com Assinaturas"}
                   </button>
                 </div>
               )}
@@ -396,6 +412,21 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                         {isViewed && !isSigned && !isRejected && (
                           <p className="text-[10px] font-normal text-yellow-600">Visualizado — aguardando</p>
                         )}
+                        {(() => {
+                          const lnk = typeof signer.link === "string"
+                            ? signer.link
+                            : (signer.link as any)?.short_link;
+                          return lnk && !isRejected ? (
+                            <button
+                              onClick={() => copiarLink(lnk)}
+                              className={`text-[10px] font-bold hover:underline mt-0.5 ${
+                                copiedLink === lnk ? "text-emerald-600" : "text-[#0f2a5e]"
+                              }`}
+                            >
+                              {copiedLink === lnk ? "✅ Copiado!" : "🔗 Copiar link"}
+                            </button>
+                          ) : null;
+                        })()}
                       </div>
                     </div>
                   );
@@ -405,7 +436,7 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
 
             {!assinado && (
               <p className="text-[10px] text-slate-400 mt-3">
-                Os signatários receberam o link por e-mail. Use "Verificar Assinaturas" para atualizar o status.
+                Os signatários receberam o link por e-mail. Use "🔗 Copiar link" para reenviar manualmente caso não encontrem, ou "Verificar Assinaturas" para atualizar o status.
               </p>
             )}
           </div>
