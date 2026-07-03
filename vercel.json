@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/verificar-boletos-cora",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/fechar-mes",
+      "schedule": "0 8 23 * *"
     }
   ]
 }

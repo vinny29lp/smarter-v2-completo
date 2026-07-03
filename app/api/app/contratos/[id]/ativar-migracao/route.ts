@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const contract = await prisma.contract.update({
     where: { id: params.id },
-    data: { status: "ATIVO" },
+    data: { status: "ATIVO", ativadoEm: new Date() } as any,
   });
 
   // ── Garantir lançamento financeiro ──────────────────────────────────────

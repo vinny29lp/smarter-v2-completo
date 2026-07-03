@@ -219,7 +219,7 @@ export async function PATCH(
 
     // Auto-ativar contrato quando TCE 100% assinado pelos 3
     if (todosAssinaram && doc.tipo === "tce") {
-      await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO" as any } });
+      await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO", ativadoEm: new Date() } as any });
       // Lançamento automático de Taxa de Administração
       await criarLancamentoTaxaAdmin(params.id);
     }
@@ -239,7 +239,7 @@ export async function PATCH(
 
   // Auto-ativar contrato quando TCE marcado como ASSINADO diretamente
   if (body.status === "ASSINADO" && doc.tipo === "tce") {
-    await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO" as any } });
+    await prisma.contract.update({ where: { id: params.id }, data: { status: "ATIVO", ativadoEm: new Date() } as any });
     await criarLancamentoTaxaAdmin(params.id);
   }
 

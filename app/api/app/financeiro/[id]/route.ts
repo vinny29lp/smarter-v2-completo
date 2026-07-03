@@ -24,9 +24,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   // Ownership check: verify the financial record belongs to the user's franchise
   if (role !== "FRANQUEADORA") {
-    const record = await prisma.financial.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    const record = await prisma.financial.findUnique({ where: { id: params.id }, select: { franchiseId: true, categoria: true } });
     if (!record || record.franchiseId !== franchiseId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (record.categoria === "Franquia") {
+      return NextResponse.json({
+        error: "Cobranças de rede só podem ser editadas pela Franqueadora.",
+      }, { status: 403 });
     }
   }
 
@@ -96,9 +101,14 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
   // Ownership check: verify the financial record belongs to the user's franchise
   if (role !== "FRANQUEADORA") {
-    const record = await prisma.financial.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    const record = await prisma.financial.findUnique({ where: { id: params.id }, select: { franchiseId: true, categoria: true } });
     if (!record || record.franchiseId !== franchiseId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (record.categoria === "Franquia") {
+      return NextResponse.json({
+        error: "Cobranças de rede só podem ser excluídas pela Franqueadora.",
+      }, { status: 403 });
     }
   }
 

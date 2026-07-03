@@ -334,6 +334,7 @@ model Contract {
   tipoEstagio      String?              @default("Nao Obrigatorio")
   status           ContractStatus?      @default(PENDENTE)
   origem           String?              @default("NORMAL")
+  ativadoEm        DateTime?            @db.Timestamptz(6)
   migradoEm        DateTime?            @db.Timestamptz(6)
   migradoPor       String?
   migradoPorNome   String?
