@@ -172,12 +172,39 @@ export default function MarketingAdminPage() {
     setModalOpen(true);
   }
 
+  // Limites de tamanho por tipo de arquivo
+  const LIMITES = {
+    video:  { mb: 200, label: "200 MB" },
+    imagem: { mb: 20,  label: "20 MB"  },
+    pdf:    { mb: 20,  label: "20 MB"  },
+    outros: { mb: 20,  label: "20 MB"  },
+  };
+
+  function getLimite(file: File) {
+    if (file.type.startsWith("video/"))      return LIMITES.video;
+    if (file.type === "application/pdf")     return LIMITES.pdf;
+    if (file.type.startsWith("image/"))      return LIMITES.imagem;
+    return LIMITES.outros;
+  }
+
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validação de tamanho ANTES de qualquer upload
+    const limite  = getLimite(file);
+    const fileMb  = file.size / (1024 * 1024);
+    if (fileMb > limite.mb) {
+      setUploadError(
+        `Arquivo muito grande: ${fileMb.toFixed(1)} MB. O limite para este tipo é ${limite.label}. Reduza o tamanho e tente novamente.`
+      );
+      e.target.value = "";
+      return;
+    }
+
     setUploadFile(file);
     setUploadError("");
-    // Preview local
+    // Preview local para imagens
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = ev => setUploadPreview(ev.target?.result as string);
@@ -186,32 +213,60 @@ export default function MarketingAdminPage() {
       setUploadPreview("");
     }
     // Auto-detectar formato
-    if (file.type.startsWith("video/")) setForm(f => ({ ...f, formato: "VIDEO" }));
+    if (file.type.startsWith("video/"))     setForm(f => ({ ...f, formato: "VIDEO" }));
     else if (file.type === "application/pdf") setForm(f => ({ ...f, formato: "PDF" }));
     else if (file.type.startsWith("image/")) setForm(f => ({ ...f, formato: "IMAGEM" }));
   }
 
   async function fazerUpload(): Promise<{ url: string; tamanhoKb: number } | null> {
     if (!uploadFile) return null;
-    setUploadProgress(10);
-    const fd = new FormData();
-    fd.append("file", uploadFile);
-    fd.append("tipo", form.tipo);
-    fd.append("isFixo", String(form.isFixo));
-    setUploadProgress(30);
+    setUploadProgress(5);
+
     try {
-      const res = await fetch("/api/app/marketing/upload", { method: "POST", body: fd });
-      setUploadProgress(80);
-      const data = await res.json();
-      setUploadProgress(100);
-      if (!res.ok) {
-        setUploadError(data.error || "Erro no upload.");
+      // 1. Obter URL assinada do servidor (upload direto ao Supabase, sem passar pelo Vercel)
+      const params = new URLSearchParams({
+        tipo:     form.tipo,
+        isFixo:   String(form.isFixo),
+        fileName: uploadFile.name,
+      });
+      const presignRes = await fetch(`/api/app/marketing/upload/presign?${params}`);
+      const presignData = await presignRes.json();
+      setUploadProgress(10);
+
+      if (!presignRes.ok) {
+        setUploadError(presignData.error || "Erro ao preparar upload.");
         return null;
       }
-      return { url: data.url, tamanhoKb: data.tamanhoKb };
+
+      const { signedUrl, publicUrl } = presignData;
+
+      // 2. Upload direto do browser → Supabase (bypassa limite de 4,5 MB do Vercel)
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener("progress", (ev) => {
+          if (ev.lengthComputable) {
+            const pct = Math.round((ev.loaded / ev.total) * 85) + 10;
+            setUploadProgress(Math.min(pct, 95));
+          }
+        });
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`Erro no storage: HTTP ${xhr.status}`));
+        });
+        xhr.addEventListener("error",   () => reject(new Error("Falha de rede durante o upload. Verifique sua internet.")));
+        xhr.addEventListener("timeout", () => reject(new Error("Upload demorou muito. Tente um arquivo menor ou verifique sua conexão.")));
+        xhr.timeout = 5 * 60 * 1000; // 5 minutos
+        xhr.open("PUT", signedUrl);
+        xhr.setRequestHeader("Content-Type", uploadFile.type);
+        xhr.send(uploadFile);
+      });
+
+      setUploadProgress(100);
+      return { url: publicUrl, tamanhoKb: Math.ceil(uploadFile.size / 1024) };
+
     } catch (err: any) {
       setUploadProgress(0);
-      setUploadError("Falha de conexão durante o upload. Verifique sua internet e tente novamente.");
+      setUploadError(err.message || "Falha no upload. Verifique sua conexão e tente novamente.");
       return null;
     }
   }
@@ -598,7 +653,7 @@ export default function MarketingAdminPage() {
                     <div className="flex flex-col items-center gap-1 text-slate-400">
                       <Upload size={24} />
                       <span className="text-sm">Clique para selecionar ou arraste o arquivo</span>
-                      <span className="text-xs">JPG, PNG, GIF, MP4, MOV, PDF · máx. 100 MB (vídeo) / 20 MB (imagem)</span>
+                      <span className="text-xs">JPG, PNG, GIF, WebP, PDF: até 20 MB · MP4/MOV: até 200 MB</span>
                     </div>
                   )}
                   {uploadFile && (
