@@ -115,6 +115,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
       seguradora:      contract.seguradora      || "",
       localEstagio:    contract.localEstagio    || "",
       atividades:      contract.atividades      || "",
+      modalidade:      contract.modalidade      || "Presencial",
     });
     setActionMsg(null);
     setEditModal(true);
@@ -737,11 +738,22 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-          {/* Local e atividades */}
-          <div>
-            <label className="text-xs font-bold text-slate-600 block mb-1">Local do Estágio</label>
-            <input type="text" value={editForm.localEstagio} onChange={e => setF("localEstagio", e.target.value)}
-              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+          {/* Local, modalidade e atividades */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Local do Estágio</label>
+              <input type="text" value={editForm.localEstagio} onChange={e => setF("localEstagio", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Modalidade</label>
+              <select value={editForm.modalidade || "Presencial"} onChange={e => setF("modalidade", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white">
+                <option value="Presencial">Presencial</option>
+                <option value="Híbrido">Híbrido</option>
+                <option value="Home Office">Home Office</option>
+              </select>
+            </div>
           </div>
           <div>
             <label className="text-xs font-bold text-slate-600 block mb-1">Atividades do Estágio</label>

@@ -498,7 +498,7 @@ ${fld("Instituição de Ensino", ies.razaoSocial)}${fld("CNPJ da IES", ies.cnpj)
 ${fld("Empresa Concedente", emp.razaoSocial)}${fld("CNPJ da Empresa", emp.cnpj)}
 ${fld("Ramo de Atividade", "—")}${fld("Contato de RH", emp.supervisor)}
 ${fld("Tel / E-mail do RH", `${emp.telefoneSupervisor} · ${emp.emailSupervisor}`)}${fld("Período do Estágio", `${est.dataInicio} a ${est.dataFim}`)}
-${fld("Local de Realização", est.localEstagio)}${fld("Modelo", "Presencial")}
+${fld("Local de Realização", est.localEstagio)}${fld("Modalidade", est.modalidade || "Presencial")}
 </div></div>
 
 <!-- SEÇÃO 2 -->

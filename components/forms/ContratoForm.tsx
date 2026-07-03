@@ -170,6 +170,7 @@ export function ContratoForm({ franchiseId }: Props) {
   const [form, setForm] = useState({
     studentId: "", companyId: "", institutionId: "",
     tipoEstagio: "Nao Obrigatorio",
+    modalidade: "Presencial",
     bolsa: "", valorEmpresa: "", auxTransporte: "", beneficios: "Auxilio Transporte",
     dataInicio: "", dataFim: "", vencimento: "5",
     atividades: "", localEstagio: "", cidade: "", uf: "",
@@ -208,6 +209,10 @@ export function ContratoForm({ franchiseId }: Props) {
     if (!form.studentId || !form.companyId || !form.bolsa || !form.dataInicio || !form.dataFim) {
       setError("Preencha: Estudante, Empresa, Bolsa e Datas."); return;
     }
+    if (chTotal > 30) {
+      setError(`⚠️ Carga horária semanal (${chTotal}h) excede o limite legal de 30h/semana (Lei 11.788/2008, art. 10). Ajuste a C.H. Diária ou os dias da semana.`);
+      setEtapa(2); return;
+    }
     if (!form.supervisorNome) { setError("Informe o Supervisor da Empresa (obrigatório pela Lei 11.788/2008)."); return; }
     if (!form.apoliceSeguro) { setError("Informe a Apólice de Seguro (obrigatório pela Lei 11.788/2008)."); return; }
     if (menorDeIdade && !nomeResponsavel.trim()) { setError("Informe o Nome do Responsável Legal do estagiário menor de idade."); return; }
@@ -236,6 +241,7 @@ export function ContratoForm({ franchiseId }: Props) {
         diasSemana: diasSemanaFinal,
         horarioInicio: horarioInicioFinal,
         horarioFim: horarioFimFinal,
+        modalidade: form.modalidade || "Presencial",
         franchiseId,
         bolsa: parseFloat(form.bolsa),
         valorEmpresa: form.valorEmpresa ? parseFloat(form.valorEmpresa) : null,
@@ -384,6 +390,14 @@ export function ContratoForm({ franchiseId }: Props) {
               <label className="text-xs font-bold text-slate-600 block mb-1">C.H. Diária (máx. 6h)</label>
               <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.chDiaria} onChange={e => set("chDiaria", e.target.value)}>
                 {["4", "5", "6"].map(h => <option key={h} value={h}>{h}h/dia</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Modalidade</label>
+              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.modalidade} onChange={e => set("modalidade", e.target.value)}>
+                <option value="Presencial">Presencial</option>
+                <option value="Híbrido">Híbrido</option>
+                <option value="Home Office">Home Office</option>
               </select>
             </div>
             <div className="space-y-2">

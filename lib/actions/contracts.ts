@@ -180,7 +180,7 @@ export async function createContract(data: any) {
     chDiaria, chSemanal, diasSemana, horarioInicio, horarioFim, intervalo,
     supervisorNome, supervisorCargo, supervisorEmail, supervisorTel,
     coordNome, coordCargo, coordEmail, coordTel,
-    apoliceSeguro, seguradora, tipoEstagio,
+    apoliceSeguro, seguradora, tipoEstagio, modalidade,
     numero: _numero,
     ...rest  // descartamos campos extras
   } = data;
@@ -211,6 +211,7 @@ export async function createContract(data: any) {
     ...(apoliceSeguro ? { apoliceSeguro } : {}),
     ...(seguradora ? { seguradora } : {}),
     ...(tipoEstagio ? { tipoEstagio } : {}),
+    ...(modalidade ? { modalidade } : {}),
   };
 
   // Gerar número automático se não fornecido

@@ -79,7 +79,7 @@ export async function PATCH(
     "chDiaria","chSemanal","diasSemana","horarioInicio","horarioFim","intervalo",
     "supervisorNome","supervisorCargo","supervisorEmail","supervisorTel","supervisorAssina",
     "coordNome","coordCargo","coordEmail","coordTel",
-    "apoliceSeguro","seguradora","tipoEstagio",
+    "apoliceSeguro","seguradora","tipoEstagio","modalidade",
   ];
   const data: Record<string,any> = {};
   for (const key of allowed) {

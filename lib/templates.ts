@@ -183,7 +183,7 @@ ${horarioTable(est.horarios)}
 <p style="font-size:10px;margin-top:4px">Intervalo: <strong>${intv}</strong> &nbsp;|&nbsp; C.H. diária: <strong>${est.chDiaria}h</strong> &nbsp;|&nbsp; C.H. semanal: <strong>${est.chSemanal}h</strong></p>
 </div>
 
-<div class="section"><div class="grid2">${f("Cidade onde será desenvolvido o estágio",est.localEstagio,true)}</div></div>
+<div class="section"><div class="grid2">${f("Cidade onde será desenvolvido o estágio",est.localEstagio,true)}${f("Modalidade",(est as any).modalidade||"Presencial",true)}</div></div>
 
 <div class="section"><div class="section-title">Supervisores do Estágio</div>
 <div class="grid2">

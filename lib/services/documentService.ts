@@ -216,6 +216,7 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       intervalo: contract.intervalo ?? 0,
       atividades: contract.atividades || "—",
       localEstagio: contract.localEstagio || (company.cidade + "/" + company.uf),
+      modalidade: (contract as any).modalidade || "Presencial",
       horarios,
       apoliceSeguro: contract.apoliceSeguro || "A ser informada pelo Agente",
       seguradora: contract.seguradora || "A ser contratada pelo Agente de Integração",

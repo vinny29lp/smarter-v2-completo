@@ -38,6 +38,7 @@ export interface ContratoData {
     chDiaria: number; chSemanal: number;
     intervalo: number; atividades: string;
     localEstagio: string;
+    modalidade: string;
     horarios: Array<{ dia: string; inicio: string; fim: string }>;
     apoliceSeguro: string; seguradora: string;
   };
