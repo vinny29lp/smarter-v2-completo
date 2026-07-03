@@ -185,7 +185,7 @@ export default function MarketingAdminPage() {
   }
 
   async function salvar() {
-    if (!form.titulo || !form.tipo || !form.categoria) return;
+    if (!form.descricao || (!uploadFile && !form.url)) return;
     setSaving(true);
     setUploadError("");
 
@@ -429,7 +429,7 @@ export default function MarketingAdminPage() {
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">Título *</label>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Título</label>
                 <input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0D2B5C]"
                   placeholder="Ex: Arte Dia do Estagiário — Feed Instagram" />
@@ -437,7 +437,7 @@ export default function MarketingAdminPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-600 block mb-1">Tipo *</label>
+                  <label className="text-xs font-bold text-slate-600 block mb-1">Tipo</label>
                   <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0D2B5C] bg-white">
                     {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -451,7 +451,7 @@ export default function MarketingAdminPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-600 block mb-1">Categoria *</label>
+                  <label className="text-xs font-bold text-slate-600 block mb-1">Categoria</label>
                   <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0D2B5C] bg-white">
                     {CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -531,7 +531,7 @@ export default function MarketingAdminPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">Descrição</label>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Descrição *</label>
                 <textarea value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0D2B5C] resize-none"
                   rows={2} placeholder="Breve descrição do conteúdo" />
@@ -626,7 +626,7 @@ export default function MarketingAdminPage() {
                 className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50">
                 Cancelar
               </button>
-              <button onClick={salvar} disabled={!form.titulo || !form.tipo || !form.categoria || saving}
+              <button onClick={salvar} disabled={!form.descricao || (!uploadFile && !form.url) || saving}
                 className="flex-1 px-4 py-2 bg-[#0D2B5C] text-white rounded-xl text-sm font-bold hover:bg-[#1a4080] disabled:opacity-50 flex items-center justify-center gap-2">
                 {saving
                   ? (uploadFile && uploadProgress < 100 ? `Enviando ${uploadProgress}%...` : "Salvando...")
