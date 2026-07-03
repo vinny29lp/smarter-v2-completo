@@ -37,6 +37,27 @@ const TIPOS = [
   { value: "MATERIAL_MARCA",label: "Material de Marca" },
 ];
 
+// Tipos que pertencem a cada seção
+const SOCIAL_TIPOS = ["POST_FEED", "STORY", "REELS", "CARROSSEL", "VIDEO", "COPY"];
+const BIBLIOTECA_TIPOS = ["ARTE_PDF", "TEMPLATE", "MATERIAL_MARCA"];
+
+const FILTROS_SOCIAL = [
+  { value: "",          label: "Todos",     icon: "🔍" },
+  { value: "POST_FEED", label: "Feed",      icon: "🖼️" },
+  { value: "STORY",     label: "Story",     icon: "📱" },
+  { value: "REELS",     label: "Reels",     icon: "🎬" },
+  { value: "CARROSSEL", label: "Carrossel", icon: "🗂️" },
+  { value: "VIDEO",     label: "Vídeo",     icon: "🎥" },
+  { value: "COPY",      label: "Copy",      icon: "✍️" },
+];
+
+const FILTROS_BIBLIOTECA = [
+  { value: "",               label: "Todos",            icon: "🔍" },
+  { value: "MATERIAL_MARCA", label: "Material de Marca",icon: "🎨" },
+  { value: "ARTE_PDF",       label: "Arte PDF",         icon: "📄" },
+  { value: "TEMPLATE",       label: "Template",         icon: "📋" },
+];
+
 const CANAL_ICON: Record<string, any> = {
   instagram: Link2,
   linkedin: Briefcase,
@@ -71,9 +92,13 @@ export default function BibliotecaPage() {
   const [busca, setBusca]           = useState("");
   const [buscaDebounced, setBuscaDebounced] = useState("");
   const [categoria, setCategoria]   = useState(sp?.get("categoria") || "");
-  const [tipo, setTipo]             = useState(sp?.get("tipo") || "");
+  // tipo agora é gerenciado via subTipo (filtro client-side por aba)
   const [apenasDestaque, setApenasDestaque] = useState(sp?.get("destaque") === "true");
   const [apenasFavoritos, setApenasFavoritos] = useState(false);
+  const [tabSection, setTabSection] = useState<"redes-sociais" | "biblioteca" | "campanhas">("redes-sociais");
+  const [subTipo, setSubTipo]       = useState<string>("");
+  const [campanhas, setCampanhas]   = useState<any[]>([]);
+  const [campanhaFiltro, setCampanhaFiltro] = useState<string>("");
   const [modalConteudo, setModalConteudo] = useState<any>(null);
   const [copiadoId, setCopiadoId]   = useState<string | null>(null);
   const [favoriteLoading, setFavoriteLoading] = useState<string | null>(null);
@@ -92,15 +117,21 @@ export default function BibliotecaPage() {
     const params = new URLSearchParams();
     if (buscaDebounced) params.set("busca", buscaDebounced);
     if (categoria)       params.set("categoria", categoria);
-    if (tipo)            params.set("tipo", tipo);
     if (apenasDestaque)  params.set("destaque", "true");
     if (apenasFavoritos) params.set("favoritos", "true");
 
-    const res = await fetch(`/api/app/marketing/conteudos?${params}`);
+    const [res, campRes] = await Promise.all([
+      fetch(`/api/app/marketing/conteudos?${params}`),
+      fetch("/api/app/marketing/campanhas").catch(() => null),
+    ]);
     const data = await res.json();
     setConteudos(data.conteudos || []);
+    if (campRes?.ok) {
+      const campData = await campRes.json();
+      setCampanhas(campData.campanhas || []);
+    }
     setLoading(false);
-  }, [buscaDebounced, categoria, tipo, apenasDestaque, apenasFavoritos]);
+  }, [buscaDebounced, categoria, apenasDestaque, apenasFavoritos]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -171,9 +202,58 @@ export default function BibliotecaPage() {
     setTimeout(() => setCopiadoId(null), 2000);
   }
 
+  // Filtro client-side por aba + subTipo
+  const conteudosFiltrados = (() => {
+    let list = conteudos;
+    if (tabSection === "redes-sociais") {
+      list = list.filter(c => !c.isFixo && SOCIAL_TIPOS.includes(c.tipo));
+    } else if (tabSection === "biblioteca") {
+      list = list.filter(c => c.isFixo || BIBLIOTECA_TIPOS.includes(c.tipo));
+    } else if (tabSection === "campanhas") {
+      list = campanhaFiltro ? list.filter(c => c.campanhaId === campanhaFiltro) : list.filter(c => !!c.campanhaId);
+    }
+    if (subTipo) list = list.filter(c => c.tipo === subTipo);
+    return list;
+  })();
+
+  const filtrosAtivos = tabSection === "redes-sociais" ? FILTROS_SOCIAL : FILTROS_BIBLIOTECA;
+
   return (
     <div className="space-y-4">
-      {/* Filtros */}
+
+      {/* Abas principais */}
+      <div className="flex gap-2 flex-wrap">
+        {([
+          { value: "redes-sociais", label: "📲 Redes Sociais" },
+          { value: "biblioteca",    label: "🗂️ Biblioteca" },
+          { value: "campanhas",     label: "📢 Campanhas" },
+        ] as const).map(t => (
+          <button key={t.value}
+            onClick={() => { setTabSection(t.value); setSubTipo(""); setCampanhaFiltro(""); }}
+            className={clsx("px-4 py-2 rounded-xl text-sm font-bold transition-all",
+              tabSection === t.value ? "bg-[#0D2B5C] text-white" : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300")}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Filtros de tipo por aba */}
+      {tabSection !== "campanhas" && (
+        <div className="flex gap-2 flex-wrap">
+          {filtrosAtivos.map(f => (
+            <button key={f.value}
+              onClick={() => setSubTipo(f.value)}
+              className={clsx("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all",
+                subTipo === f.value
+                  ? "bg-[#0D2B5C] text-white border-[#0D2B5C]"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300")}>
+              {f.icon} {f.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Filtros adicionais + busca */}
       <div className="bg-white rounded-2xl border border-slate-100 p-4">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
@@ -181,7 +261,7 @@ export default function BibliotecaPage() {
             <input
               value={busca}
               onChange={e => setBusca(e.target.value)}
-              placeholder="Buscar conteúdos..."
+              placeholder={tabSection === "redes-sociais" ? "Buscar criativos..." : tabSection === "biblioteca" ? "Buscar materiais..." : "Buscar em campanhas..."}
               className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0D2B5C]"
             />
           </div>
@@ -190,14 +270,9 @@ export default function BibliotecaPage() {
               className="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0D2B5C] bg-white">
               {CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
-            <select value={tipo} onChange={e => setTipo(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0D2B5C] bg-white">
-              {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
           </div>
         </div>
 
-        {/* Filtros rápidos */}
         <div className="flex gap-2 mt-3 flex-wrap">
           <button onClick={() => setApenasDestaque(v => !v)}
             className={clsx("flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all",
@@ -209,23 +284,66 @@ export default function BibliotecaPage() {
               apenasFavoritos ? "bg-red-50 border-red-300 text-red-600" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300")}>
             <Heart size={12} /> Meus favoritos
           </button>
-          {(busca || categoria || tipo || apenasDestaque || apenasFavoritos) && (
-            <button onClick={() => { setBusca(""); setCategoria(""); setTipo(""); setApenasDestaque(false); setApenasFavoritos(false); }}
+          {(busca || categoria || subTipo || apenasDestaque || apenasFavoritos) && (
+            <button onClick={() => { setBusca(""); setCategoria(""); setSubTipo(""); setApenasDestaque(false); setApenasFavoritos(false); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 text-slate-500 hover:bg-slate-50">
               <X size={12} /> Limpar filtros
             </button>
           )}
-          <span className="ml-auto text-xs text-slate-400 self-center">{conteudos.length} conteúdo{conteudos.length !== 1 ? "s" : ""}</span>
+          <span className="ml-auto text-xs text-slate-400 self-center">{conteudosFiltrados.length} conteúdo{conteudosFiltrados.length !== 1 ? "s" : ""}</span>
         </div>
       </div>
 
+      {/* Aba Campanhas — lista de campanhas */}
+      {tabSection === "campanhas" && !campanhaFiltro && (
+        <div>
+          {campanhas.length === 0 ? (
+            <div className="text-center py-16 text-slate-400 bg-white rounded-2xl border border-slate-100">
+              <p className="font-semibold">Nenhuma campanha ativa</p>
+              <p className="text-sm mt-1">As campanhas criadas pelo time de marketing aparecerão aqui.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {campanhas.map((camp: any) => {
+                const qtd = conteudos.filter(c => c.campanhaId === camp.id).length;
+                return (
+                  <div key={camp.id} onClick={() => setCampanhaFiltro(camp.id)}
+                    className="bg-white rounded-2xl border border-slate-100 p-4 cursor-pointer hover:shadow-md transition-all group">
+                    <div className="w-10 h-10 rounded-xl mb-3 flex items-center justify-center text-white font-black text-lg"
+                      style={{ backgroundColor: camp.cor || "#0D2B5C" }}>
+                      📢
+                    </div>
+                    <div className="font-bold text-slate-800">{camp.nome}</div>
+                    {camp.descricao && <div className="text-xs text-slate-500 mt-1 line-clamp-2">{camp.descricao}</div>}
+                    <div className="text-xs text-slate-400 mt-2">{qtd} material{qtd !== 1 ? "is" : ""}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Botão voltar para lista de campanhas */}
+      {tabSection === "campanhas" && campanhaFiltro && (
+        <div className="flex items-center gap-2">
+          <button onClick={() => setCampanhaFiltro("")}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            ← Voltar às campanhas
+          </button>
+          <span className="text-sm font-bold text-slate-700">
+            {campanhas.find((c: any) => c.id === campanhaFiltro)?.nome || "Campanha"}
+          </span>
+        </div>
+      )}
+
       {/* Grade de conteúdos */}
-      {loading ? (
+      {!(tabSection === "campanhas" && !campanhaFiltro) && (loading ? (
         <div className="text-center py-16 text-slate-400">
           <Library size={40} className="mx-auto mb-3 opacity-30" />
-          <p>Carregando biblioteca...</p>
+          <p>Carregando...</p>
         </div>
-      ) : conteudos.length === 0 ? (
+      ) : conteudosFiltrados.length === 0 ? (
         <div className="text-center py-16 text-slate-400 bg-white rounded-2xl border border-slate-100">
           <Library size={40} className="mx-auto mb-3 opacity-30" />
           <p className="font-semibold">Nenhum conteúdo encontrado</p>
@@ -233,7 +351,7 @@ export default function BibliotecaPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-          {conteudos.map(c => (
+          {conteudosFiltrados.map(c => (
             <div key={c.id} onClick={() => setModalConteudo(c)}
               className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-md transition-all cursor-pointer group">
               {/* Thumbnail */}
@@ -294,7 +412,7 @@ export default function BibliotecaPage() {
             </div>
           ))}
         </div>
-      )}
+      ))}
 
       {/* Modal de detalhe */}
       {modalConteudo && (

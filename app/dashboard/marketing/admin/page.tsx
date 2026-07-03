@@ -504,8 +504,9 @@ export default function MarketingAdminPage() {
 
       {/* Modal adicionar/editar conteúdo */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl my-4">
+        <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-start justify-center p-4 py-6">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
             <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-white rounded-t-2xl">
               <h3 className="font-black text-slate-800">{editId ? "Editar conteúdo" : "Novo conteúdo"}</h3>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -735,7 +736,7 @@ export default function MarketingAdminPage() {
               </div>
             </div>
 
-            <div className="flex gap-2 p-5 border-t border-slate-100 sticky bottom-0 bg-white rounded-b-2xl">
+            <div className="flex gap-2 p-5 border-t border-slate-100 bg-white rounded-b-2xl">
               <button onClick={() => setModalOpen(false)}
                 className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50">
                 Cancelar
@@ -747,6 +748,7 @@ export default function MarketingAdminPage() {
                   : <><Check size={14} /> {editId ? "Salvar alterações" : "Criar conteúdo"}</>}
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}
