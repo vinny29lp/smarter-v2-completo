@@ -108,25 +108,30 @@ export async function POST(
 
         // Notificação urgente para clique em WhatsApp ou agendamento
         if (["clicou_whatsapp", "clicou_agendamento"].includes(tipo) && lead.franchiseId) {
-          const franqUser = await prisma.user.findFirst({
-            where: { franchiseId: lead.franchiseId, role: "FRANQUEADO" },
+          const franqUsers = await prisma.user.findMany({
+            where: {
+              franchiseId: lead.franchiseId,
+              role: { in: ["FRANQUEADO", "FUNCIONARIO", "EQUIPE"] as any[] },
+              active: true,
+            },
             select: { id: true },
           });
-          if (franqUser) {
+          if (franqUsers.length > 0) {
             const nt = tipo === "clicou_whatsapp"
               ? `🔥 ${lead.empresa} clicou para falar com a Smarter!`
               : `📅 ${lead.empresa} quer agendar uma conversa!`;
             const nm = tipo === "clicou_whatsapp"
               ? `${lead.empresa} clicou no botão de WhatsApp na apresentação comercial. Entre em contato agora!`
               : `${lead.empresa} clicou em "Agendar conversa" na apresentação. Ótima oportunidade!`;
-            await prisma.notification.create({
-              data: {
-                userId: franqUser.id,
+            await prisma.notification.createMany({
+              data: franqUsers.map(u => ({
+                userId: u.id,
                 titulo: nt,
                 mensagem: nm,
                 tipo: "apresentacao",
                 link: `/dashboard/crm/${lead.id}`,
-              },
+              })),
+              skipDuplicates: true,
             });
           }
         }

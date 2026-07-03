@@ -93,15 +93,18 @@ export async function GET(
       },
     });
 
-    // Notificação para o franqueado (se tiver franchiseId)
+    // Notificação para todos os usuários da unidade responsável pelo lead
     if (lead.franchiseId) {
       try {
-        // Busca o userId do franqueado responsável
-        const franqUser = await prisma.user.findFirst({
-          where: { franchiseId: lead.franchiseId, role: "FRANQUEADO" },
+        const franqUsers = await prisma.user.findMany({
+          where: {
+            franchiseId: lead.franchiseId,
+            role: { in: ["FRANQUEADO", "FUNCIONARIO", "EQUIPE"] as any[] },
+            active: true,
+          },
           select: { id: true },
         });
-        if (franqUser) {
+        if (franqUsers.length > 0) {
           const titulo = isFirstOpen
             ? `🔥 Lead quente: ${lead.empresa} abriu a apresentação!`
             : `👁️ ${lead.empresa} acessou a apresentação novamente (${novosAcessos}x)`;
@@ -109,14 +112,15 @@ export async function GET(
             ? `A empresa ${lead.empresa} abriu sua apresentação comercial. Ótimo momento para fazer follow-up!`
             : `${lead.empresa} acessou a apresentação ${novosAcessos} vezes. Considere entrar em contato agora.`;
 
-          await prisma.notification.create({
-            data: {
-              userId: franqUser.id,
+          await prisma.notification.createMany({
+            data: franqUsers.map(u => ({
+              userId: u.id,
               titulo,
               mensagem,
               tipo: "apresentacao",
               link: `/dashboard/crm/${lead.id}`,
-            },
+            })),
+            skipDuplicates: true,
           });
         }
       } catch (e) {

@@ -47,6 +47,49 @@ export default function CRMPage() {
     prioridade:"media", valorNegociado:"", observacao:"",
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
+  const [cnpj, setCnpj] = useState("");
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [perdidoModal, setPerdidoModal] = useState(false);
+  const [perdidoLeadId, setPerdidoLeadId] = useState<string|null>(null);
+  const [motivoPerda, setMotivoPerda] = useState("");
+
+  const enrichCnpj = async (valor: string) => {
+    const digits = valor.replace(/\D/g, "");
+    if (digits.length !== 14) return;
+    setCnpjLoading(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      if (res.ok) {
+        const data = await res.json();
+        setForm(p => ({
+          ...p,
+          empresa: p.empresa || (data.nome_fantasia || data.razao_social || ""),
+          cidade:  p.cidade  || (data.municipio || ""),
+          uf:      p.uf      || (data.uf || ""),
+          setor:   p.setor   || ((data.cnae_fiscal_descricao || "").slice(0, 100)),
+        }));
+      }
+    } catch {}
+    setCnpjLoading(false);
+  };
+
+  const abrirPerdidoModal = (leadId: string) => {
+    setPerdidoLeadId(leadId);
+    setMotivoPerda("");
+    setPerdidoModal(true);
+  };
+
+  const confirmarPerdido = async () => {
+    if (!perdidoLeadId || !motivoPerda) return;
+    await fetch(`/api/app/crm/${perdidoLeadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "perdido", motivo: `❌ Motivo da perda: ${motivoPerda}` }),
+    });
+    setLeads(p => p.filter(l => l.id !== perdidoLeadId));
+    setPerdidoModal(false);
+    load();
+  };
 
   const franchiseId = (session?.user as any)?.franchiseId as string | null | undefined;
   const linkBase = typeof window !== "undefined" ? `${window.location.origin}/lead` : "/lead";
@@ -82,7 +125,7 @@ export default function CRMPage() {
       method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(form),
     });
     const data = await res.json();
-    if (data.lead) { load(); setNovoModal(false); setForm({empresa:"",contato:"",cargo:"",email:"",telefone:"",whatsapp:"",instagram:"",linkedin:"",cidade:"",uf:"",setor:"",origem:"",prioridade:"media",valorNegociado:"",observacao:""}); }
+    if (data.lead) { load(); setNovoModal(false); setCnpj(""); setForm({empresa:"",contato:"",cargo:"",email:"",telefone:"",whatsapp:"",instagram:"",linkedin:"",cidade:"",uf:"",setor:"",origem:"",prioridade:"media",valorNegociado:"",observacao:""}); }
     setLoading(false);
   };
 
@@ -341,6 +384,13 @@ export default function CRMPage() {
                             {ETAPAS.map(e=><option key={e} value={e}>{ETAPA_LABEL[e]}</option>)}
                           </select>
                         )}
+                        {/* Marcar como perdido */}
+                        {l.situacao==="ativo" && (
+                          <button onClick={e=>{e.stopPropagation();abrirPerdidoModal(l.id);}}
+                            className="w-full mt-1 text-[10px] text-red-400 hover:text-red-600 hover:bg-red-50 py-0.5 rounded-lg transition-colors">
+                            ✕ perdido
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -354,6 +404,17 @@ export default function CRMPage() {
       {/* Modal: Novo Lead */}
       <Modal open={novoModal} onClose={()=>setNovoModal(false)} title="Novo Lead" size="lg">
         <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="text-xs font-bold text-slate-600 block mb-1">
+              CNPJ <span className="text-slate-400 font-normal">(opcional — preenche campos automaticamente)</span>
+            </label>
+            <div className="relative">
+              <input type="text" className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] pr-28"
+                value={cnpj} onChange={e=>setCnpj(e.target.value)} onBlur={e=>enrichCnpj(e.target.value)}
+                placeholder="00.000.000/0000-00" maxLength={18}/>
+              {cnpjLoading && <span className="absolute right-3 top-2.5 text-xs text-blue-500 font-bold animate-pulse">Buscando…</span>}
+            </div>
+          </div>
           <div className="col-span-2"><Input label="Empresa *" value={form.empresa} onChange={e=>set("empresa",e.target.value)} placeholder="Nome da empresa"/></div>
           <Input label="Contato" value={form.contato} onChange={e=>set("contato",e.target.value)} placeholder="Nome do responsável"/>
           <Input label="Cargo" value={form.cargo} onChange={e=>set("cargo",e.target.value)} placeholder="Diretor de RH, CEO..."/>
@@ -453,6 +514,36 @@ export default function CRMPage() {
             <Button onClick={copy} className="flex-1 justify-center">{copied?"✓ Copiado!":"📋 Copiar Link Principal"}</Button>
             <Button variant="secondary" onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent("Preencha seus dados e nossa equipe entra em contato: "+linkPublico)}`)}>
               📱 Enviar no WhatsApp
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Motivo de Perda */}
+      <Modal open={perdidoModal} onClose={()=>setPerdidoModal(false)} title="❌ Motivo da Perda">
+        <div className="space-y-3">
+          <p className="text-sm text-slate-500">Por que esse lead não foi convertido? Isso ajuda a identificar padrões e melhorar o processo.</p>
+          <div className="grid grid-cols-2 gap-2">
+            {["Preço","Concorrência","Timing / Momento","Sem resposta","Não qualificado","Outro"].map(m=>(
+              <button key={m} onClick={()=>setMotivoPerda(m)}
+                className={`py-2 px-3 text-xs font-bold rounded-xl border-2 text-left transition-colors ${
+                  motivoPerda===m?"border-red-500 bg-red-50 text-red-700":"border-slate-200 text-slate-500 hover:border-slate-300"
+                }`}>
+                {m}
+              </button>
+            ))}
+          </div>
+          <textarea
+            className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm h-16 resize-none outline-none focus:border-red-400"
+            value={motivoPerda}
+            onChange={e=>setMotivoPerda(e.target.value)}
+            placeholder="Ou descreva o motivo com mais detalhes…"
+          />
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={()=>setPerdidoModal(false)}>Cancelar</Button>
+            <Button onClick={confirmarPerdido} disabled={!motivoPerda}
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white">
+              Confirmar Perda
             </Button>
           </div>
         </div>
