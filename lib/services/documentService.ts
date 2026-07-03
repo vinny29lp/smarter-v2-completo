@@ -1,6 +1,58 @@
 import { prisma } from "@/lib/prisma";
 import type { ContratoData } from "@/lib/documents/types";
 
+/** Converte valor numérico em reais para extenso em pt-BR.
+ *  Ex: 1500 → "um mil e quinhentos reais"
+ *      600.50 → "seiscentos reais e cinquenta centavos"
+ */
+function valorParaExtenso(valor: number): string {
+  if (!valor || isNaN(valor) || valor <= 0) return "—";
+
+  const unidades = [
+    "", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove",
+    "dez", "onze", "doze", "treze", "quatorze", "quinze",
+    "dezesseis", "dezessete", "dezoito", "dezenove",
+  ];
+  const dezenas  = ["", "", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"];
+  const centenas = ["", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos", "seiscentos", "setecentos", "oitocentos", "novecentos"];
+
+  function grupo(n: number): string {
+    if (n === 0) return "";
+    if (n === 100) return "cem";
+    if (n < 20) return unidades[n];
+    if (n < 100) {
+      const d = Math.floor(n / 10), u = n % 10;
+      return u === 0 ? dezenas[d] : `${dezenas[d]} e ${unidades[u]}`;
+    }
+    const c = Math.floor(n / 100), resto = n % 100;
+    return resto === 0 ? centenas[c] : `${centenas[c]} e ${grupo(resto)}`;
+  }
+
+  const reais     = Math.floor(valor);
+  const centavos  = Math.round((valor - reais) * 100);
+
+  let parteReais = "";
+  if (reais >= 1000000) {
+    const mi = Math.floor(reais / 1000000), resto = reais % 1000000;
+    parteReais = `${grupo(mi)} ${mi === 1 ? "milhão" : "milhões"}${resto > 0 ? " e " + valorParaExtenso(resto).replace(/ reais$/, "") : ""} reais`;
+  } else if (reais >= 1000) {
+    const mil = Math.floor(reais / 1000), resto = reais % 1000;
+    const milPart = mil === 1 ? "um mil" : `${grupo(mil)} mil`;
+    parteReais = resto === 0 ? `${milPart} reais` : `${milPart} e ${grupo(resto)} reais`;
+  } else if (reais > 0) {
+    parteReais = `${grupo(reais)} ${reais === 1 ? "real" : "reais"}`;
+  }
+
+  const parteCentavos = centavos > 0
+    ? `${grupo(centavos)} ${centavos === 1 ? "centavo" : "centavos"}`
+    : "";
+
+  if (parteReais && parteCentavos) return `${parteReais} e ${parteCentavos}`;
+  if (parteReais) return parteReais;
+  if (parteCentavos) return parteCentavos;
+  return "—";
+}
+
 export async function buildContratoData(contractId: string): Promise<ContratoData | null> {
   const [contract, systemConfig] = await Promise.all([
     prisma.contract.findUnique({
@@ -208,7 +260,7 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       dataInicio: new Date(contract.dataInicio).toLocaleDateString("pt-BR"),
       dataFim: new Date(contract.dataFim).toLocaleDateString("pt-BR"),
       valorBolsa: contract.bolsa ?? 0,
-      valorBolsaExtenso: "—",
+      valorBolsaExtenso: valorParaExtenso(contract.bolsa ?? 0),
       auxilioTransporte: contract.auxTransporte ?? 0,
       beneficios: contract.beneficios ?? "—",
       chDiaria: contract.chDiaria ?? 0,

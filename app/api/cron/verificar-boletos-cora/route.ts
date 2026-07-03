@@ -14,7 +14,8 @@ export const maxDuration = 60;
 
 export async function GET(req: Request) {
   // Aceita chamada via cron (sem auth) OU via FRANQUEADORA autenticada
-  const isCron = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+  const cronSecret = process.env.CRON_SECRET;
+  const isCron = !!cronSecret && req.headers.get("authorization") === `Bearer ${cronSecret}`;
   if (!isCron) {
     const { getServerSession } = await import("next-auth");
     const { authOptions } = await import("@/lib/auth");

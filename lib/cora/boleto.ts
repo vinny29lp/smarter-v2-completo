@@ -123,7 +123,6 @@ export async function gerarBoleto(input: GerarBoletoInput): Promise<CoraInvoice>
 
   // Usa UUID fresco para evitar cache de erros anteriores
   const idempotencyKey = randomUUID();
-  console.log("[gerarBoleto] payload:", JSON.stringify(payload));
   return coraRequest<CoraInvoice>("POST", "/v2/invoices", payload, idempotencyKey);
 }
 

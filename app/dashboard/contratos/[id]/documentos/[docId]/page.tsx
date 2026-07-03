@@ -115,6 +115,9 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
             student: d.contractEmails.student || "",
           });
         }
+      })
+      .catch(() => {
+        setAlertas(["⚠️ Erro ao carregar documento. Tente recarregar a página."]);
       });
   }, [params.id, params.docId]);
 
@@ -130,13 +133,18 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
 
   const gerarDoc = async (extraData?: Record<string,any>) => {
     setLoading(true); setAlertas([]);
-    const res  = await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(extraData || extraFields),
-    });
-    const data = await res.json();
-    if (data.error) { setAlertas([data.error]); setLoading(false); return; }
-    setDoc(data.document); setHtml(data.html); setExtraModal(false); setLoading(false);
+    try {
+      const res  = await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(extraData || extraFields),
+      });
+      const data = await res.json();
+      if (data.error) { setAlertas([data.error]); setLoading(false); return; }
+      setDoc(data.document); setHtml(data.html); setExtraModal(false);
+    } catch {
+      setAlertas(["⚠️ Erro ao gerar documento. Verifique sua conexão e tente novamente."]);
+    }
+    setLoading(false);
   };
 
   const openAsPDF = () => {
@@ -187,7 +195,7 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
         setAutentiqueSuccess(data.message || "Enviado com sucesso!");
         setDoc((p: any) => ({
           ...p,
-          status: isTr ? "ENVIADO_ASSINATURA" : "ENVIADO_ASSINATURA",
+          status: "ENVIADO_ASSINATURA",
           authDocId: data.autentiqueId,
           signers: data.signers || [],
         }));
@@ -274,13 +282,18 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
   };
 
   const marcarAssinado = async () => {
-    const res  = await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
-      method:"PATCH", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ status:"ASSINADO" }),
-    });
-    const data = await res.json();
-    setDoc(data.document);
-    if (isTr) setAlertas(["⚠️ Rescisão assinada — contrato marcado como INATIVO."]);
+    try {
+      const res  = await fetch(`/api/app/contratos/${params.id}/documentos/${params.docId}`, {
+        method:"PATCH", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ status:"ASSINADO" }),
+      });
+      const data = await res.json();
+      if (data.error) { setAlertas(["⚠️ " + data.error]); return; }
+      setDoc(data.document);
+      if (isTr) setAlertas(["⚠️ Rescisão assinada — contrato marcado como INATIVO."]);
+    } catch {
+      setAlertas(["⚠️ Erro ao marcar como assinado. Verifique sua conexão."]);
+    }
   };
 
   return (

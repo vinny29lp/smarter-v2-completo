@@ -228,11 +228,23 @@ export async function PATCH(
   }
 
   // ─── Update simples de status ───
+  // Sanitizar metaData: só aceita chaves seguras para evitar sobrescrita de campos críticos
+  const SAFE_META_KEYS = [
+    "ultimoDia", "motivo", "tipoRescisao", "diasBolsa", "mesesRecesso",
+    "dozeavos", "descontos", "periodo", "notas", "parecer", "recomendacao",
+    "diasTrabalhados", "diasRecesso",
+  ];
+  const safeMetaData = body.metaData && typeof body.metaData === "object"
+    ? Object.fromEntries(
+        Object.entries(body.metaData as Record<string, unknown>).filter(([k]) => SAFE_META_KEYS.includes(k))
+      )
+    : undefined;
+
   const updated = await prisma.internshipDocument.update({
     where: { id: params.docId },
     data: {
       status: body.status as any,
-      metaData: body.metaData,
+      ...(safeMetaData !== undefined ? { metaData: safeMetaData } : {}),
       signedAt: body.status === "ASSINADO" ? new Date() : undefined,
     },
   });

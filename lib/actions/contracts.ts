@@ -289,7 +289,7 @@ export async function updateContract(id: string, data: any) {
     chDiaria, chSemanal, diasSemana, horarioInicio, horarioFim, intervalo,
     supervisorNome, supervisorCargo, supervisorEmail, supervisorTel,
     coordNome, coordCargo, coordEmail, coordTel,
-    apoliceSeguro, seguradora, tipoEstagio, status, numero,
+    apoliceSeguro, seguradora, tipoEstagio, modalidade, status, numero,
   } = data;
 
   const safeUpdate = {
@@ -321,6 +321,7 @@ export async function updateContract(id: string, data: any) {
     ...(apoliceSeguro !== undefined ? { apoliceSeguro } : {}),
     ...(seguradora !== undefined ? { seguradora } : {}),
     ...(tipoEstagio !== undefined ? { tipoEstagio } : {}),
+    ...(modalidade !== undefined ? { modalidade } : {}),
     ...(status !== undefined ? { status } : {}),
     ...(numero !== undefined ? { numero } : {}),
   };
