@@ -173,18 +173,28 @@ export default function MarketingAdminPage() {
     fd.append("tipo", form.tipo);
     fd.append("isFixo", String(form.isFixo));
     setUploadProgress(30);
-    const res = await fetch("/api/app/marketing/upload", { method: "POST", body: fd });
-    setUploadProgress(80);
-    const data = await res.json();
-    setUploadProgress(100);
-    if (!res.ok) {
-      setUploadError(data.error || "Erro no upload.");
+    try {
+      const res = await fetch("/api/app/marketing/upload", { method: "POST", body: fd });
+      setUploadProgress(80);
+      const data = await res.json();
+      setUploadProgress(100);
+      if (!res.ok) {
+        setUploadError(data.error || "Erro no upload.");
+        return null;
+      }
+      return { url: data.url, tamanhoKb: data.tamanhoKb };
+    } catch (err: any) {
+      setUploadProgress(0);
+      setUploadError("Falha de conexão durante o upload. Verifique sua internet e tente novamente.");
       return null;
     }
-    return { url: data.url, tamanhoKb: data.tamanhoKb };
   }
 
   async function salvar() {
+    if (!form.titulo.trim()) {
+      setUploadError("Informe um título para o conteúdo.");
+      return;
+    }
     if (!form.descricao || (!uploadFile && !form.url)) return;
     setSaving(true);
     setUploadError("");
@@ -192,28 +202,38 @@ export default function MarketingAdminPage() {
     let url       = form.url;
     let tamanhoKb: number | undefined;
 
-    // Se tem arquivo novo para upload
-    if (uploadFile) {
-      const result = await fazerUpload();
-      if (!result) { setSaving(false); return; }
-      url       = result.url;
-      tamanhoKb = result.tamanhoKb;
+    try {
+      // Se tem arquivo novo para upload
+      if (uploadFile) {
+        const result = await fazerUpload();
+        if (!result) return; // fazerUpload já definiu uploadError; finally reseta saving
+        url       = result.url;
+        tamanhoKb = result.tamanhoKb;
+      }
+
+      const payload: any = { ...form, url, tags: form.tags };
+      delete payload.tagInput;
+      if (tamanhoKb !== undefined) payload.tamanhoKb = tamanhoKb;
+
+      const apiUrl  = editId ? `/api/app/marketing/conteudos/${editId}` : "/api/app/marketing/conteudos";
+      const method  = editId ? "PUT" : "POST";
+      const res = await fetch(apiUrl, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setUploadError((data as any).error || "Erro ao salvar conteúdo. Tente novamente.");
+        return;
+      }
+      setModalOpen(false);
+      load();
+    } catch (err: any) {
+      setUploadError("Erro de conexão. Verifique sua internet e tente novamente.");
+    } finally {
+      setSaving(false);
     }
-
-    const payload: any = { ...form, url, tags: form.tags };
-    delete payload.tagInput;
-    if (tamanhoKb !== undefined) payload.tamanhoKb = tamanhoKb;
-
-    const apiUrl  = editId ? `/api/app/marketing/conteudos/${editId}` : "/api/app/marketing/conteudos";
-    const method  = editId ? "PUT" : "POST";
-    await fetch(apiUrl, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setSaving(false);
-    setModalOpen(false);
-    load();
   }
 
   async function excluir(id: string) {
@@ -626,7 +646,7 @@ export default function MarketingAdminPage() {
                 className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50">
                 Cancelar
               </button>
-              <button onClick={salvar} disabled={!form.descricao || (!uploadFile && !form.url) || saving}
+              <button onClick={salvar} disabled={!form.titulo.trim() || !form.descricao || (!uploadFile && !form.url) || saving}
                 className="flex-1 px-4 py-2 bg-[#0D2B5C] text-white rounded-xl text-sm font-bold hover:bg-[#1a4080] disabled:opacity-50 flex items-center justify-center gap-2">
                 {saving
                   ? (uploadFile && uploadProgress < 100 ? `Enviando ${uploadProgress}%...` : "Salvando...")

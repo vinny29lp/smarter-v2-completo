@@ -22,9 +22,14 @@ export async function GET(req: Request) {
   const campanhaId = searchParams.get("campanhaId") || "";
   const favoritos  = searchParams.get("favoritos") === "true";
 
-  const where: any = { ativo: true };
+  // Admin (FRANQUEADORA ou EQUIPE com marketing) vê todos os conteúdos, incluindo inativos
+  const isAdmin = role === "FRANQUEADORA" ||
+    (role === "EQUIPE" && Array.isArray((session.user as any).permissoes) &&
+     (session.user as any).permissoes.includes("marketing"));
 
-  // Franqueado só vê conteúdos TODOS ou FRANQUEADO
+  const where: any = isAdmin ? {} : { ativo: true };
+
+  // Franqueado e Funcionário só veem conteúdos públicos para eles
   if (role === "FRANQUEADO" || role === "FUNCIONARIO") {
     where.publicoPara = { in: ["TODOS", "FRANQUEADO"] };
   }
