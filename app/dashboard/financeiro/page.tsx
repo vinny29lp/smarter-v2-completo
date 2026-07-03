@@ -122,6 +122,13 @@ export default function FinanceiroPage() {
   const load = () =>
     fetch("/api/app/financeiro").then(r => r.json()).then(d => setLancamentos(d.lancamentos || []));
 
+  // Auto-marca itens vencidos ao carregar; recarrega se algum foi atualizado
+  const marcarVencidosAuto = () =>
+    fetch("/api/app/financeiro/marcar-vencidos", { method: "PATCH" })
+      .then(r => r.json())
+      .then(d => { if (d.updated > 0) load(); })
+      .catch(() => {});
+
   const loadConfig = () =>
     fetch("/api/app/config-pagamento").then(r => r.json()).then(d => {
       setConfig(d.config);
@@ -142,7 +149,7 @@ export default function FinanceiroPage() {
       .catch(() => {});
   };
 
-  useEffect(() => { load(); loadConfig(); }, []);
+  useEffect(() => { marcarVencidosAuto(); load(); loadConfig(); }, []);
   useEffect(() => { if (isFranqueadora) loadFranquiasPreview(); }, [isFranqueadora]);
   // Carrega taxa de gestão salva no localStorage (por unidade)
   useEffect(() => {
@@ -236,12 +243,38 @@ export default function FinanceiroPage() {
     )).reduce((a, b) => a + b.valor, 0);
   const caixa = totalEntradasPago - totalSaidasPago;
 
+  // ─── Atrasados (VENCIDO) ─────────────────────────────────────────────────
+  // Totais de lançamentos marcados como VENCIDO (auto-marcados no carregamento)
+  const atrasadosReceber = lancamentos
+    .filter(l => l.status === "VENCIDO" && (
+      isFranqueadora
+        ? (l.tipo === "entrada" || isFranquia(l))
+        : (l.tipo === "entrada" && !isFranquia(l))
+    ))
+    .reduce((a, b) => a + b.valor, 0);
+
+  const atrasadosPagar = lancamentos
+    .filter(l => l.status === "VENCIDO" && (
+      isFranqueadora
+        ? (l.tipo === "saida" && !isFranquia(l))
+        : (l.tipo === "saida" || isFranquia(l))
+    ))
+    .reduce((a, b) => a + b.valor, 0);
+
+  const totalAtrasados  = atrasadosReceber + atrasadosPagar;
+  const qtdAtrasados    = lancamentos.filter(l => l.status === "VENCIDO").length;
+
   // Split para exibição
   const lancamentosFranquia = lancamentos.filter(l => l.categoria === "Franquia");
   const lancamentosGerais   = lancamentos.filter(l => l.categoria !== "Franquia");
+
+  // "TODOS" exclui VENCIDO para não misturar atrasados com o mês atual
+  // "VENCIDO" (⚠️ Atrasados) mostra TODOS os vencidos inclusive de franquia
   const filtrados = filtro === "TODOS"
-    ? lancamentosGerais
-    : lancamentosGerais.filter(l => l.status === filtro);
+    ? lancamentosGerais.filter(l => l.status !== "VENCIDO")
+    : filtro === "VENCIDO"
+      ? lancamentos.filter(l => l.status === "VENCIDO")
+      : lancamentosGerais.filter(l => l.status === filtro);
 
   // ─── Relatório — Dados (Ponto 4) ─────────────────────────────────────────
   // Gráfico: receitas dos últimos 6 meses
@@ -472,7 +505,7 @@ export default function FinanceiroPage() {
   // Ações inline reutilizáveis
   const RowActions = ({ l }: { l: any }) => (
     <div className="flex gap-1 flex-wrap">
-      {l.status === "PENDENTE" && !l.cancelado && (
+      {(l.status === "PENDENTE" || l.status === "VENCIDO") && !l.cancelado && (
         <>
           <Button size="sm" variant="secondary" onClick={() => darBaixa(l.id)}>✓ Baixa</Button>
           {l.tipo === "entrada" && (
@@ -534,6 +567,30 @@ export default function FinanceiroPage() {
         </div>
       </div>
 
+      {/* ── Alerta de Atrasados ─────────────────────────────────────────────── */}
+      {totalAtrasados > 0 && (
+        <div className="mb-4 p-4 bg-red-50 border-2 border-red-300 rounded-xl flex items-start gap-3">
+          <span className="text-2xl leading-none mt-0.5">🔴</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-black text-red-700">
+              {qtdAtrasados} lançamento{qtdAtrasados !== 1 ? "s" : ""} atrasado{qtdAtrasados !== 1 ? "s" : ""} de meses anteriores
+            </p>
+            <p className="text-xs text-red-600 mt-0.5">
+              {atrasadosReceber > 0 && <span>A receber: <strong>{fmt(atrasadosReceber)}</strong></span>}
+              {atrasadosReceber > 0 && atrasadosPagar > 0 && <span className="mx-2 opacity-40">|</span>}
+              {atrasadosPagar > 0 && <span>A pagar: <strong>{fmt(atrasadosPagar)}</strong></span>}
+              {" "}— esses valores não estão misturados com o mês atual.
+            </p>
+          </div>
+          <button
+            onClick={() => setFiltro("VENCIDO")}
+            className="shrink-0 text-xs font-bold text-red-600 underline hover:text-red-800 whitespace-nowrap"
+          >
+            Ver atrasados →
+          </button>
+        </div>
+      )}
+
       {/* ── KPIs — 5 cards ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
         {/* ENTRADAS */}
@@ -551,13 +608,13 @@ export default function FinanceiroPage() {
         {/* CONTAS A PAGAR */}
         <Card className={`p-5 border-l-4 ${contasAPagar > 0 ? "border-orange-400" : "border-slate-200"}`}>
           <p className="text-xs font-semibold text-slate-500">📋 Contas a Pagar</p>
-          <p className="text-[10px] text-slate-400 mb-1">saídas pendentes</p>
+          <p className="text-[10px] text-slate-400 mb-1">saídas pendentes — mês atual</p>
           <p className={`text-2xl font-black ${contasAPagar > 0 ? "text-orange-600" : "text-slate-400"}`}>{fmt(contasAPagar)}</p>
         </Card>
         {/* A RECEBER */}
         <Card className="p-5 border-l-4 border-amber-400">
           <p className="text-xs font-semibold text-slate-500">⏳ A Receber</p>
-          <p className="text-[10px] text-slate-400 mb-1">entradas pendentes</p>
+          <p className="text-[10px] text-slate-400 mb-1">entradas pendentes — mês atual</p>
           <p className="text-2xl font-black text-amber-600">{fmt(aReceber)}</p>
         </Card>
         {/* CAIXA */}
@@ -567,6 +624,48 @@ export default function FinanceiroPage() {
           <p className={`text-2xl font-black ${caixa >= 0 ? "text-[#0f2a5e]" : "text-red-600"}`}>{fmt(caixa)}</p>
         </Card>
       </div>
+
+      {/* ── Painel de Atrasados ───────────────────────────────────────────────── */}
+      {totalAtrasados > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+          <Card className="p-5 border-l-4 border-red-500 bg-red-50">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-bold text-red-700">🔴 A Receber Atrasado</p>
+                <p className="text-[10px] text-red-500 mb-1">meses anteriores · não recebido</p>
+                <p className="text-2xl font-black text-red-700">{fmt(atrasadosReceber)}</p>
+              </div>
+              {atrasadosReceber > 0 && (
+                <button
+                  onClick={() => setFiltro("VENCIDO")}
+                  className="text-[10px] font-bold text-red-500 underline hover:text-red-700"
+                >
+                  cobrar →
+                </button>
+              )}
+            </div>
+            {atrasadosReceber === 0 && <p className="text-[11px] text-red-400 mt-1">Nenhum valor a receber atrasado.</p>}
+          </Card>
+          <Card className="p-5 border-l-4 border-red-500 bg-red-50">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-bold text-red-700">🔴 A Pagar Atrasado</p>
+                <p className="text-[10px] text-red-500 mb-1">meses anteriores · não pago</p>
+                <p className="text-2xl font-black text-red-700">{fmt(atrasadosPagar)}</p>
+              </div>
+              {atrasadosPagar > 0 && (
+                <button
+                  onClick={() => setFiltro("VENCIDO")}
+                  className="text-[10px] font-bold text-red-500 underline hover:text-red-700"
+                >
+                  ver →
+                </button>
+              )}
+            </div>
+            {atrasadosPagar === 0 && <p className="text-[11px] text-red-400 mt-1">Nenhum valor a pagar atrasado.</p>}
+          </Card>
+        </div>
+      )}
 
       {/* ── Taxa de Desenvolvimento (só FRANQUEADO) ─────────────────────────── */}
       {!isFranqueadora && lancamentosFranquia.length > 0 && (
@@ -799,17 +898,41 @@ export default function FinanceiroPage() {
 
       {/* ── Filtros ──────────────────────────────────────────────────────────── */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-4 w-fit flex-wrap">
-        {[["TODOS","Todos"],["PENDENTE","Pendentes"],["PAGO","Pagos"],["VENCIDO","Vencidos"],["CANCELADO","Cancelados"]].map(([k,lbl]) => (
+        {[["TODOS","Todos"],["PENDENTE","Pendentes"],["PAGO","Pagos"],["VENCIDO","⚠️ Atrasados"],["CANCELADO","Cancelados"]].map(([k,lbl]) => (
           <button key={k} onClick={() => setFiltro(k)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filtro === k ? "bg-[#0f2a5e] text-white shadow-sm" : "text-slate-500 hover:bg-white"}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              filtro === k
+                ? k === "VENCIDO" ? "bg-red-600 text-white shadow-sm" : "bg-[#0f2a5e] text-white shadow-sm"
+                : k === "VENCIDO" && qtdAtrasados > 0
+                  ? "text-red-600 bg-red-50 hover:bg-red-100"
+                  : "text-slate-500 hover:bg-white"
+            }`}>
             {lbl}
-            {k !== "TODOS" && <span className="ml-1 opacity-60">({lancamentosGerais.filter(l => l.status === k).length})</span>}
+            {k === "VENCIDO"
+              ? <span className="ml-1 opacity-80">({qtdAtrasados})</span>
+              : k !== "TODOS" && <span className="ml-1 opacity-60">({lancamentosGerais.filter(l => l.status === k).length})</span>
+            }
           </button>
         ))}
       </div>
 
       {/* ── Tabela principal ─────────────────────────────────────────────────── */}
-      <Card>
+      <Card className={filtro === "VENCIDO" ? "border-2 border-red-200" : ""}>
+        {/* Header especial para aba de atrasados */}
+        {filtro === "VENCIDO" && (
+          <div className="px-5 py-3 bg-red-50 border-b border-red-200 rounded-t-xl flex items-center justify-between">
+            <div>
+              <p className="text-sm font-black text-red-700">⚠️ Lançamentos Atrasados — Meses Anteriores</p>
+              <p className="text-xs text-red-500 mt-0.5">
+                Esses itens venceram e não foram baixados. Eles <strong>não</strong> aparecem na aba "Todos" para não misturar com o mês atual.
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[10px] text-red-500 font-semibold">TOTAL ATRASADO</p>
+              <p className="text-lg font-black text-red-700">{fmt(totalAtrasados)}</p>
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -821,14 +944,22 @@ export default function FinanceiroPage() {
             </thead>
             <tbody>
               {filtrados.length === 0
-                ? <tr><td colSpan={6} className="text-center py-12 text-slate-400">Nenhum lançamento.</td></tr>
+                ? <tr><td colSpan={6} className="text-center py-12 text-slate-400">
+                    {filtro === "VENCIDO" ? "✅ Nenhum lançamento atrasado! Tudo em dia." : "Nenhum lançamento."}
+                  </td></tr>
                 : filtrados.map(l => {
-                  const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
+                  const isVencido = l.status === "VENCIDO";
                   return (
-                    <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado?"opacity-40":""}`}>
+                    <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado?"opacity-40":""} ${isVencido?"bg-red-50/30":""}`}>
                       <td className="px-4 py-2.5 text-sm font-medium max-w-xs">
                         <span>{l.descricao}</span>
                         {l.company?.name && <p className="text-[10px] text-slate-400 mt-0.5">🏭 {l.company.name}</p>}
+                        {l.franchise?.name && <p className="text-[10px] text-slate-400 mt-0.5">🏢 {l.franchise.name}</p>}
+                        {isVencido && l.vencimentoAt && (
+                          <p className="text-[10px] text-red-500 font-semibold mt-0.5">
+                            Venceu há {Math.floor((Date.now() - new Date(l.vencimentoAt).getTime()) / 86400000)} dia(s)
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-2.5">
                         <Badge variant={l.tipo==="entrada"?"green":"red"}>{l.tipo==="entrada"?"↑ Entrada":"↓ Saída"}</Badge>
@@ -838,12 +969,14 @@ export default function FinanceiroPage() {
                           {l.tipo==="entrada"?"+":"-"} {fmt(l.valor)}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">
-                        {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : l.diaVencimento ? `Dia ${l.diaVencimento}` : "—"}
-                        {vencido && <span className="ml-1 text-red-500 font-bold">⚠️</span>}
+                      <td className="px-4 py-2.5 text-xs whitespace-nowrap">
+                        <span className={isVencido ? "text-red-600 font-bold" : "text-slate-400"}>
+                          {l.vencimentoAt ? new Date(l.vencimentoAt).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : l.diaVencimento ? `Dia ${l.diaVencimento}` : "—"}
+                        </span>
+                        {isVencido && <span className="ml-1">⚠️</span>}
                       </td>
                       <td className="px-4 py-2.5">
-                        <Badge variant={STATUS_V[l.status]||"gray"}>{l.status}</Badge>
+                        <Badge variant={STATUS_V[l.status]||"gray"}>{l.status === "VENCIDO" ? "ATRASADO" : l.status}</Badge>
                       </td>
                       <td className="px-4 py-2.5">
                         <RowActions l={l} />
