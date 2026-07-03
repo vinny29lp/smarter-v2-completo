@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 const statusCor: Record<string, string> = {
   FIRMADO: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -20,6 +21,8 @@ const statusLabel: Record<string, string> = {
 export default function IESDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { data: session } = useSession();
+  const isFranqueadora = session?.user?.role === "FRANQUEADORA";
   const [ies, setIes] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [linkCopiado, setLinkCopiado] = useState(false);
@@ -76,13 +79,29 @@ export default function IESDetalhePage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push("/dashboard/ies")} className="text-slate-400 hover:text-slate-600 text-sm">← Portal IES</button>
-        <span className="text-slate-300">/</span>
-        <h1 className="text-2xl font-black text-slate-800">{ies.name}</h1>
-        <span className={`ml-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${statusCor[ies.convenioStatus] || "bg-slate-100 text-slate-600 border-slate-200"}`}>
-          {statusLabel[ies.convenioStatus] || ies.convenioStatus}
-        </span>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={() => router.push("/dashboard/ies")} className="text-slate-400 hover:text-slate-600 text-sm">← Portal IES</button>
+          <span className="text-slate-300">/</span>
+          <h1 className="text-2xl font-black text-slate-800">{ies.name}</h1>
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${statusCor[ies.convenioStatus] || "bg-slate-100 text-slate-600 border-slate-200"}`}>
+            {statusLabel[ies.convenioStatus] || ies.convenioStatus}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Novo convite pré-preenchido com os dados desta IES */}
+          <Link
+            href={`/dashboard/ies/novo?iesId=${id}`}
+            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border-2 border-[#0f2a5e] text-[#0f2a5e] hover:bg-[#0f2a5e]/5 transition-colors">
+            ✉️ Reenviar convite
+          </Link>
+          {/* Acompanhar Convênio: vai para a aba de acompanhamento na lista */}
+          <Link
+            href="/dashboard/ies?aba=acompanhamento"
+            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors">
+            📊 {isFranqueadora ? "Acompanhar rede" : "Acompanhar convênios"}
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

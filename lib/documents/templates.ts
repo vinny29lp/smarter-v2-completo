@@ -170,14 +170,16 @@ function pageFooter(tceNum: string, did: string, smarter: ContratoData["smarter"
     </div>
   </div>`;
 }
-function schTable(horarios: Array<{dia:string;inicio:string;fim:string;ativo?:boolean}>, chDiaria: number): string {
+function schTable(horarios: Array<{dia:string;inicio:string;fim:string;ativo?:boolean;chDiaria?:number}>, chDiariaDefault: number): string {
   const rows = horarios.map(h => {
     const ativo = h.inicio !== "—" && h.inicio;
+    const ch = ativo ? (h.chDiaria !== undefined ? h.chDiaria : chDiariaDefault) : null;
+    const chStr = ch !== null ? (Number.isInteger(ch) ? `${ch}h` : `${ch.toFixed(1)}h`) : "—";
     return `<tr class="${ativo ? "ativo" : ""}">
       <td>${h.dia}</td>
       <td>${h.inicio || "—"}</td>
       <td>${h.fim || "—"}</td>
-      <td>${ativo ? `${chDiaria}h` : "—"}</td>
+      <td>${chStr}</td>
     </tr>`;
   }).join("");
   return `<table class="sch-table">

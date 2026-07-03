@@ -159,13 +159,35 @@ export function ContratoForm({ franchiseId }: Props) {
   const [menorDeIdade, setMenorDeIdade] = useState(false);
   const [nomeResponsavel, setNomeResponsavel] = useState("");
 
-  // Turnos personalizados — usado quando diasSemana = "Personalizado"
-  // Permite múltiplos blocos de horário para dias diferentes (ex: Seg-Sex 09:50-16:00 + Sáb 10:00-14:00)
-  const [turnos, setTurnos] = useState([{ dias: "", inicio: "08:00", fim: "14:00" }]);
-  const setTurno = (i: number, k: "dias"|"inicio"|"fim", v: string) =>
-    setTurnos(p => p.map((t, idx) => idx === i ? { ...t, [k]: v } : t));
-  const addTurno = () => setTurnos(p => [...p, { dias: "", inicio: "08:00", fim: "14:00" }]);
-  const removeTurno = (i: number) => setTurnos(p => p.filter((_, idx) => idx !== i));
+  // ── Blocos de horário personalizados ─────────────────────────────────────────
+  // Cada bloco cobre um range de dias (De/Até) com horários e intervalo próprios
+  interface Bloco { de: number; ate: number; inicio: string; fim: string; intervalo: number; }
+  const DIAS_LABELS = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"];
+
+  const getDiasCount = (de: number, ate: number): number =>
+    de <= ate ? ate - de + 1 : 7 - de + ate + 1;
+
+  const calcBlocoCh = (b: Bloco): number => {
+    const [h1s, m1s] = b.inicio.split(":");
+    const [h2s, m2s] = b.fim.split(":");
+    const h1 = parseInt(h1s), m1 = parseInt(m1s ?? "0");
+    const h2 = parseInt(h2s), m2 = parseInt(m2s ?? "0");
+    if (isNaN(h1) || isNaN(h2)) return 0;
+    const totalMin = (h2 * 60 + m2) - (h1 * 60 + m1) - b.intervalo;
+    return Math.max(0, totalMin / 60);
+  };
+
+  const [blocos, setBlocos] = useState<Bloco[]>([
+    { de: 0, ate: 4, inicio: "08:00", fim: "14:00", intervalo: 0 }
+  ]);
+  const updateBloco = (i: number, k: keyof Bloco, v: string | number) =>
+    setBlocos(p => p.map((b, idx) => idx === i ? { ...b, [k]: v } : b));
+  const addBloco = () => setBlocos(p => [...p, { de: 5, ate: 5, inicio: "08:00", fim: "14:00", intervalo: 0 }]);
+  const removeBloco = (i: number) => setBlocos(p => p.filter((_, idx) => idx !== i));
+
+  // Calcula totais do personalizado em tempo real (parcial — hasExcessDiario depende de isDiasPersonalizado)
+  const chTotalPersonalizado = blocos.reduce((s, b) => s + calcBlocoCh(b) * getDiasCount(b.de, b.ate), 0);
+  const chDiariaMaxPersonalizado = blocos.length > 0 ? Math.max(...blocos.map(calcBlocoCh)) : 0;
 
   const [form, setForm] = useState({
     studentId: "", companyId: "", institutionId: "",
@@ -185,6 +207,8 @@ export function ContratoForm({ franchiseId }: Props) {
   // Controla o select de dias: preset vs personalizado
   const selectDiasValue = DIAS_PRESETS.includes(form.diasSemana) ? form.diasSemana : "Personalizado";
   const isDiasPersonalizado = selectDiasValue === "Personalizado";
+  // Aviso por excesso diário — depende de isDiasPersonalizado, declarado aqui
+  const hasExcessDiario = isDiasPersonalizado && blocos.some(b => calcBlocoCh(b) > 6);
 
   // ── Calcula CH diária real a partir dos horários e intervalo ────────────────
   // Lei 11.788/2008: máx 6h/dia e 30h/semana
@@ -203,11 +227,13 @@ export function ContratoForm({ franchiseId }: Props) {
     ? calcChDiariaFromTimes(form.horarioInicio, form.horarioFim, parseInt(form.intervalo || "0"))
     : parseFloat(form.chDiaria || "0");
 
-  // Calcula CH total: chDiária × dias (modo preset) ou manual (personalizado)
+  // Calcula CH total: chDiária × dias (modo preset) ou soma dos blocos (personalizado)
   const diasCount = DIAS_MAP[form.diasSemana];
-  const chTotal = diasCount !== undefined
-    ? chDiariaCalc * diasCount
-    : parseInt(form.chSemanal || "0");
+  const chTotal = isDiasPersonalizado
+    ? chTotalPersonalizado
+    : diasCount !== undefined
+      ? chDiariaCalc * diasCount
+      : 0;
 
   // Payload para IA de atividades TCE
   const aiAtividadesPayload = {
@@ -226,6 +252,10 @@ export function ContratoForm({ franchiseId }: Props) {
   const handleSubmit = async () => {
     if (!form.studentId || !form.companyId || !form.bolsa || !form.dataInicio || !form.dataFim) {
       setError("Preencha: Estudante, Empresa, Bolsa e Datas."); return;
+    }
+    if (isDiasPersonalizado && hasExcessDiario) {
+      setError(`⚠️ Um ou mais blocos excedem 6h/dia líquidas (Lei 11.788/2008, art. 10). Ajuste os horários ou o intervalo de descanso.`);
+      setEtapa(2); return;
     }
     if (!isDiasPersonalizado && chDiariaCalc > 6) {
       setError(`⚠️ C.H. diária (${chDiariaCalc.toFixed(1)}h) excede o limite legal de 6h/dia (Lei 11.788/2008, art. 10). Ajuste os horários ou o intervalo de descanso.`);
@@ -251,12 +281,13 @@ export function ContratoForm({ franchiseId }: Props) {
           }),
         });
       }
-      // Serializa turnos personalizados em diasSemana como JSON para a TCE gerar corretamente
+      // Serializa blocos personalizados como JSON estruturado para a TCE gerar corretamente
       const diasSemanaFinal = isDiasPersonalizado
-        ? JSON.stringify(turnos.filter(t => t.dias.trim()))
+        ? JSON.stringify(blocos.map(b => ({ de: b.de, ate: b.ate, inicio: b.inicio, fim: b.fim, intervalo: b.intervalo })))
         : form.diasSemana;
-      const horarioInicioFinal = isDiasPersonalizado ? (turnos[0]?.inicio || "08:00") : form.horarioInicio;
-      const horarioFimFinal    = isDiasPersonalizado ? (turnos[0]?.fim    || "14:00") : form.horarioFim;
+      const horarioInicioFinal = isDiasPersonalizado ? (blocos[0]?.inicio || "08:00") : form.horarioInicio;
+      const horarioFimFinal    = isDiasPersonalizado ? (blocos[0]?.fim    || "14:00") : form.horarioFim;
+      const intervaloFinal = isDiasPersonalizado ? (blocos[0]?.intervalo ?? 0) : parseInt(form.intervalo || "0");
 
       await createContract({
         ...form,
@@ -271,9 +302,9 @@ export function ContratoForm({ franchiseId }: Props) {
         vencimento: parseInt(form.vencimento),
         dataInicio: new Date(form.dataInicio),
         dataFim: new Date(form.dataFim),
-        chDiaria: isDiasPersonalizado ? parseInt(form.chDiaria) : Math.round(chDiariaCalc),
+        chDiaria: isDiasPersonalizado ? Math.round(chDiariaMaxPersonalizado) : Math.round(chDiariaCalc),
         chSemanal: Math.round(chTotal * 10) / 10,
-        intervalo: parseInt(form.intervalo),
+        intervalo: intervaloFinal,
         institutionId: form.institutionId || null,
       });
       router.push("/dashboard/contratos"); router.refresh();
@@ -408,7 +439,7 @@ export function ContratoForm({ franchiseId }: Props) {
             <Input label="Benefícios" value={form.beneficios} onChange={e => set("beneficios", e.target.value)} placeholder="Auxílio Transporte" />
             <Input label="Data de Início *" type="date" value={form.dataInicio} onChange={e => set("dataInicio", e.target.value)} />
             <Input label="Data de Término *" type="date" value={form.dataFim} onChange={e => set("dataFim", e.target.value)} />
-            {!isDiasPersonalizado ? (
+            {!isDiasPersonalizado && (
               <div>
                 <label className="text-xs font-bold text-slate-600 block mb-1">C.H. Diária (calculada)</label>
                 <div className={`w-full border-2 rounded-xl px-3 py-2.5 text-sm font-semibold ${chDiariaCalc > 6 ? "border-red-300 bg-red-50 text-red-700" : "border-slate-100 bg-slate-50 text-slate-700"}`}>
@@ -416,13 +447,6 @@ export function ContratoForm({ franchiseId }: Props) {
                   {chDiariaCalc > 6 && <span className="ml-2 text-xs font-bold">⚠️ Excede 6h (limite legal)</span>}
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">Calculado: (horário fim − início) − intervalo</p>
-              </div>
-            ) : (
-              <div>
-                <label className="text-xs font-bold text-slate-600 block mb-1">C.H. Diária (máx. 6h)</label>
-                <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.chDiaria} onChange={e => set("chDiaria", e.target.value)}>
-                  {["4", "5", "6"].map(h => <option key={h} value={h}>{h}h/dia</option>)}
-                </select>
               </div>
             )}
             <div>
@@ -433,15 +457,15 @@ export function ContratoForm({ franchiseId }: Props) {
                 <option value="Home Office">Home Office</option>
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-600 block">Dias da Semana</label>
+            <div className={isDiasPersonalizado ? "col-span-2" : ""}>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Dias da Semana</label>
               <select
                 className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
                 value={selectDiasValue}
                 onChange={e => {
                   const v = e.target.value;
                   if (v === "Personalizado") {
-                    set("diasSemana", ""); // limpa para o usuário digitar
+                    set("diasSemana", "");
                   } else {
                     set("diasSemana", v);
                   }
@@ -451,74 +475,116 @@ export function ContratoForm({ franchiseId }: Props) {
                   <option key={o.label} value={o.label}>{o.label}</option>
                 ))}
               </select>
-              {isDiasPersonalizado && (
-                <div className="space-y-3 border border-blue-200 bg-blue-50 rounded-xl p-3">
-                  <p className="text-xs font-bold text-blue-700">Turnos personalizados — adicione um bloco por faixa de horário</p>
-                  {turnos.map((t, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 block mb-1">Dias</label>
-                        <input
-                          type="text"
-                          value={t.dias}
-                          onChange={e => setTurno(i, "dias", e.target.value)}
-                          placeholder="Ex: Segunda a Sexta"
-                          className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 block mb-1">Início</label>
-                        <input type="time" value={t.inicio} onChange={e => setTurno(i, "inicio", e.target.value)}
-                          className="border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e]" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 block mb-1">Fim</label>
-                        <input type="time" value={t.fim} onChange={e => setTurno(i, "fim", e.target.value)}
-                          className="border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e]" />
-                      </div>
-                      {turnos.length > 1 && (
-                        <button type="button" onClick={() => removeTurno(i)}
-                          className="text-red-400 hover:text-red-600 text-lg font-bold pb-1">×</button>
-                      )}
-                    </div>
-                  ))}
-                  <button type="button" onClick={addTurno}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800">+ Adicionar turno</button>
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 block mb-1">CH Semanal total (horas/semana)</label>
-                    <input
-                      type="number"
-                      value={form.chSemanal}
-                      onChange={e => set("chSemanal", e.target.value)}
-                      min="1" max="40"
-                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
+
+            {/* ── Horário Personalizado: blocos interativos ── */}
+            {isDiasPersonalizado && (
+              <div className="col-span-2 space-y-3 border-2 border-blue-200 bg-blue-50 rounded-xl p-4">
+                <p className="text-xs font-bold text-blue-700">🗓 Horário personalizado — configure um bloco por faixa de dias</p>
+
+                {blocos.map((b, i) => {
+                  const chDia = calcBlocoCh(b);
+                  const nDias = getDiasCount(b.de, b.ate);
+                  const totalBloco = chDia * nDias;
+                  const excede = chDia > 6;
+                  return (
+                    <div key={i} className={`bg-white rounded-xl p-3 border-2 ${excede ? "border-red-200" : "border-slate-100"}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-bold text-slate-700">Bloco {i + 1}</p>
+                        {blocos.length > 1 && (
+                          <button type="button" onClick={() => removeBloco(i)}
+                            className="text-xs text-red-400 hover:text-red-600 font-bold">Remover</button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 block mb-1">De</label>
+                          <select value={b.de} onChange={e => updateBloco(i, "de", parseInt(e.target.value))}
+                            className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white">
+                            {DIAS_LABELS.map((d, idx) => <option key={idx} value={idx}>{d}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 block mb-1">Até</label>
+                          <select value={b.ate} onChange={e => updateBloco(i, "ate", parseInt(e.target.value))}
+                            className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white">
+                            {DIAS_LABELS.map((d, idx) => <option key={idx} value={idx}>{d}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 block mb-1">Início</label>
+                          <input type="time" value={b.inicio} onChange={e => updateBloco(i, "inicio", e.target.value)}
+                            className="w-full border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e]" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 block mb-1">Fim</label>
+                          <input type="time" value={b.fim} onChange={e => updateBloco(i, "fim", e.target.value)}
+                            className="w-full border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e]" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 block mb-1">Intervalo</label>
+                          <select value={b.intervalo} onChange={e => updateBloco(i, "intervalo", parseInt(e.target.value))}
+                            className="w-full border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white">
+                            <option value={0}>Sem</option>
+                            <option value={15}>15min</option>
+                            <option value={30}>30min</option>
+                            <option value={45}>45min</option>
+                            <option value={60}>1h</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className={`mt-2 text-xs px-2 py-1 rounded-lg font-semibold ${excede ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-600"}`}>
+                        {excede ? "⚠️ " : "→ "}
+                        {chDia % 1 === 0 ? chDia.toFixed(0) : chDia.toFixed(1)}h/dia × {nDias} dia{nDias !== 1 ? "s" : ""} = {totalBloco % 1 === 0 ? totalBloco.toFixed(0) : totalBloco.toFixed(1)}h/semana
+                        {excede && " — excede 6h/dia (limite legal)"}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <button type="button" onClick={addBloco}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800">
+                  + Adicionar bloco de horário
+                </button>
+
+                {/* Totalizador */}
+                <div className={`rounded-xl px-3 py-2.5 text-sm font-bold border-2 ${(chTotalPersonalizado > 30 || hasExcessDiario) ? "bg-red-50 border-red-200 text-red-700" : "bg-emerald-50 border-emerald-200 text-emerald-700"}`}>
+                  ⏱ Total semanal: {chTotalPersonalizado % 1 === 0 ? chTotalPersonalizado.toFixed(0) : chTotalPersonalizado.toFixed(1)}h/semana
+                  {chTotalPersonalizado > 30 && <span className="ml-2">— ⚠️ Excede limite legal de 30h</span>}
+                  {hasExcessDiario && !chTotalPersonalizado && <span className="ml-2">— ⚠️ Bloco excede 6h/dia</span>}
+                </div>
+              </div>
+            )}
+
+            {/* Horário início/fim e intervalo — só para modo preset */}
             {!isDiasPersonalizado && <Input label="Horário Início" type="time" value={form.horarioInicio} onChange={e => set("horarioInicio", e.target.value)} />}
             {!isDiasPersonalizado && <Input label="Horário Fim" type="time" value={form.horarioFim} onChange={e => set("horarioFim", e.target.value)} />}
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Intervalo (minutos)</label>
-              <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.intervalo} onChange={e => set("intervalo", e.target.value)}>
-                <option value="0">Sem intervalo</option>
-                <option value="15">15 min</option>
-                <option value="30">30 min</option>
-                <option value="45">45 min</option>
-                <option value="60">60 min (1h)</option>
-              </select>
-            </div>
-            <div className={`col-span-2 p-3 rounded-xl text-sm font-bold border-2 ${(chTotal > 30 || (!isDiasPersonalizado && chDiariaCalc > 6)) ? "bg-red-50 border-red-200 text-red-700" : "bg-blue-50 border-blue-200 text-blue-700"}`}>
-              ⏱ C.H. Semanal: {chTotal % 1 === 0 ? chTotal.toFixed(0) : chTotal.toFixed(1)}h/semana
-              {!isDiasPersonalizado && diasCount && (
-                <span className="ml-2 font-normal text-xs opacity-75">
-                  ({chDiariaCalc % 1 === 0 ? chDiariaCalc.toFixed(0) : chDiariaCalc.toFixed(1)}h/dia × {diasCount} dias)
-                </span>
-              )}
-              {chTotal > 30 && <span className="ml-2">⚠️ Excede limite legal de 30h/semana</span>}
-              {!isDiasPersonalizado && chDiariaCalc > 6 && chTotal <= 30 && <span className="ml-2">⚠️ C.H. diária excede 6h/dia (limite legal)</span>}
-            </div>
+            {!isDiasPersonalizado && (
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Intervalo (minutos)</label>
+                <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.intervalo} onChange={e => set("intervalo", e.target.value)}>
+                  <option value="0">Sem intervalo</option>
+                  <option value="15">15 min</option>
+                  <option value="30">30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="60">60 min (1h)</option>
+                </select>
+              </div>
+            )}
+            {!isDiasPersonalizado && (
+              <div className={`col-span-2 p-3 rounded-xl text-sm font-bold border-2 ${(chTotal > 30 || chDiariaCalc > 6) ? "bg-red-50 border-red-200 text-red-700" : "bg-blue-50 border-blue-200 text-blue-700"}`}>
+                ⏱ C.H. Semanal: {chTotal % 1 === 0 ? chTotal.toFixed(0) : chTotal.toFixed(1)}h/semana
+                {diasCount && (
+                  <span className="ml-2 font-normal text-xs opacity-75">
+                    ({chDiariaCalc % 1 === 0 ? chDiariaCalc.toFixed(0) : chDiariaCalc.toFixed(1)}h/dia × {diasCount} dias)
+                  </span>
+                )}
+                {chTotal > 30 && <span className="ml-2">⚠️ Excede limite legal de 30h/semana</span>}
+                {chDiariaCalc > 6 && chTotal <= 30 && <span className="ml-2">⚠️ C.H. diária excede 6h/dia (limite legal)</span>}
+              </div>
+            )}
             <Input label="Vencimento (dia do mês)" type="number" value={form.vencimento} onChange={e => set("vencimento", e.target.value)} placeholder="5" />
             <Input label="Cidade do Estágio" value={form.cidade} onChange={e => set("cidade", e.target.value)} placeholder="São Paulo" />
             <div className="col-span-2">

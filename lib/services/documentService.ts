@@ -122,14 +122,14 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
     "domingo a sexta":   [6,0,1,2,3,4],
   };
 
-  // Individual day detection (fallback for custom selections)
+  // Individual day detection (fallback for legacy text input)
   const DAY_KEYWORDS: [string, number][] = [
     ["segunda", 0], ["terça", 1], ["terca", 1],
     ["quarta", 2], ["quinta", 3], ["sexta", 4],
     ["sábado", 5], ["sabado", 5], ["domingo", 6],
   ];
 
-  // Helper: resolve which day indices a "dias" string covers
+  // Helper: resolve which day indices a legacy text "dias" string covers
   function resolveDias(raw: string): Set<number> {
     const s = raw.trim().toLowerCase();
     const active = new Set<number>();
@@ -142,26 +142,66 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
     return active;
   }
 
-  // horariosMap: dayIndex → {inicio, fim}
-  const horariosMap = new Map<number, {inicio: string; fim: string}>();
+  // Helper: expand a numeric De→Até range (supports wrap-around e.g. Sex(4)→Ter(1))
+  function getDaysInRange(de: number, ate: number): number[] {
+    const days: number[] = [];
+    if (de <= ate) {
+      for (let i = de; i <= ate; i++) days.push(i);
+    } else {
+      for (let i = de; i <= 6; i++) days.push(i);
+      for (let i = 0; i <= ate; i++) days.push(i);
+    }
+    return days;
+  }
 
-  // Detect multi-turno JSON (format stored by personalizado UI)
+  // Helper: calculates net daily hours from HH:MM strings and intervalo in minutes
+  function calcChDiariaFromTimes(inicio: string, fim: string, intervalo: number): number {
+    const [h1, m1] = inicio.split(":").map(Number);
+    const [h2, m2] = fim.split(":").map(Number);
+    if (isNaN(h1) || isNaN(h2)) return 0;
+    const totalMin = (h2 * 60 + m2) - (h1 * 60 + m1) - intervalo;
+    return Math.max(0, Math.round(totalMin / 60 * 10) / 10);
+  }
+
+  // horariosMap: dayIndex → {inicio, fim, chDiaria}
+  const horariosMap = new Map<number, {inicio: string; fim: string; chDiaria?: number}>();
+
+  // ── Detect stored format ─────────────────────────────────────────────────────
+  // Format A (new): [{de:number, ate:number, inicio, fim, intervalo}]
+  // Format B (legacy v1): [{dias:string, inicio, fim}]
+  // Format C (single preset string): "Segunda a Sexta" etc.
+  let parsedBlocos: Array<{de:number; ate:number; inicio:string; fim:string; intervalo?:number}> | null = null;
   let parsedTurnos: Array<{dias: string; inicio: string; fim: string}> | null = null;
   try {
     const parsed = JSON.parse(contract.diasSemana || "");
-    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0]?.dias === "string") {
-      parsedTurnos = parsed;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      if (typeof parsed[0]?.de === "number") {
+        // Format A: new structured blocos
+        parsedBlocos = parsed;
+      } else if (typeof parsed[0]?.dias === "string") {
+        // Format B: legacy free-text turnos
+        parsedTurnos = parsed;
+      }
     }
-  } catch { /* not JSON — use legacy text parsing */ }
+  } catch { /* Format C: plain text preset */ }
 
-  if (parsedTurnos) {
-    // Multi-turno mode: each turno can cover different days with its own schedule
+  if (parsedBlocos) {
+    // New format: each bloco has numeric De/Até day indices + horários + intervalo
+    for (const bloco of parsedBlocos) {
+      const { de, ate, inicio, fim, intervalo = 0 } = bloco;
+      const chDiaria = calcChDiariaFromTimes(inicio, fim, intervalo);
+      getDaysInRange(de, ate).forEach(i =>
+        horariosMap.set(i, { inicio: inicio || "—", fim: fim || "—", chDiaria })
+      );
+    }
+  } else if (parsedTurnos) {
+    // Legacy format B: free-text dias field (old personalizado UI)
     for (const turno of parsedTurnos) {
       const dias = resolveDias(turno.dias);
       dias.forEach(i => horariosMap.set(i, { inicio: turno.inicio || "—", fim: turno.fim || "—" }));
     }
   } else {
-    // Legacy single-schedule mode
+    // Format C: single preset string or plain text
     const activeDays = resolveDias(contract.diasSemana || "Segunda a Sexta");
     activeDays.forEach(i => horariosMap.set(i, {
       inicio: contract.horarioInicio ?? "—",
@@ -176,6 +216,7 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
       inicio: h?.inicio ?? "—",
       fim: h?.fim ?? "—",
       ativo: horariosMap.has(i),
+      chDiaria: h?.chDiaria,
     };
   });
 

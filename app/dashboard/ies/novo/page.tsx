@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function NovaIESPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [prefillLoading, setPrefillLoading] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState<{ies: any; portalUrl: string; emailEnviado: boolean; emailErro?: string} | null>(null);
   const [form, setForm] = useState({
@@ -15,6 +17,41 @@ export default function NovaIESPage() {
     cidade: "", uf: "", endereco: "", cep: "", site: "",
   });
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  // ── Auto-preenchimento via ?iesId=<id> (vindo do detail page da IES) ─────────
+  const [prefillNome, setPrefillNome] = useState<string | null>(null);
+  useEffect(() => {
+    const iesId = searchParams?.get("iesId");
+    if (!iesId) return;
+    setPrefillLoading(true);
+    fetch(`/api/app/instituicoes/${iesId}`)
+      .then(r => r.json())
+      .then(data => {
+        const inst = data.instituicao;
+        if (inst) {
+          setForm({
+            name: inst.name || "",
+            razaoSocial: inst.razaoSocial || "",
+            cnpj: inst.cnpj || "",
+            tipo: inst.tipo || "SUPERIOR",
+            email: inst.email || "",
+            telefone: inst.telefone || "",
+            coordenador: inst.coordenador || "",
+            cargoCoord: inst.cargoCoord || "",
+            cidade: inst.cidade || "",
+            uf: inst.uf || "",
+            endereco: inst.endereco || "",
+            cep: inst.cep || "",
+            site: inst.site || "",
+          });
+          setPrefillNome(inst.name || null);
+          setBusca(inst.name || "");
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPrefillLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Autocomplete de busca de IES cadastradas ──────────────────────────────
   const [busca, setBusca] = useState("");
@@ -164,6 +201,18 @@ export default function NovaIESPage() {
       </div>
 
       {erro && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{erro}</div>}
+
+      {prefillLoading && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700">
+          Carregando dados da IES...
+        </div>
+      )}
+
+      {prefillNome && !prefillLoading && (
+        <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 flex items-center gap-2">
+          ✅ Dados de <strong>{prefillNome}</strong> carregados automaticamente. Revise e ajuste se necessário antes de criar o convite.
+        </div>
+      )}
 
       <div className="max-w-2xl space-y-5">
 

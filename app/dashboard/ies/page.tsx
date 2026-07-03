@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 const statusCor: Record<string, string> = {
   FIRMADO: "bg-emerald-100 text-emerald-700",
@@ -21,13 +22,16 @@ type Aba = "lista" | "acompanhamento";
 
 export default function IESListPage() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [filtroUnidade, setFiltroUnidade] = useState("todas");
   const [linkCopiado, setLinkCopiado] = useState<string | null>(null);
-  const [aba, setAba] = useState<Aba>("lista");
+  // Suporta ?aba=acompanhamento via URL (vindo da página de detalhe da IES)
+  const abaParam = searchParams?.get("aba");
+  const [aba, setAba] = useState<Aba>((abaParam === "acompanhamento" ? "acompanhamento" : "lista") as Aba);
 
   const isFranqueadora = session?.user?.role === "FRANQUEADORA";
 
