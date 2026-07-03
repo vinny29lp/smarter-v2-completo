@@ -244,7 +244,7 @@ export async function PATCH(
     where: { id: params.docId },
     data: {
       status: body.status as any,
-      ...(safeMetaData !== undefined ? { metaData: safeMetaData } : {}),
+      ...(safeMetaData !== undefined ? { metaData: safeMetaData as any } : {}),
       signedAt: body.status === "ASSINADO" ? new Date() : undefined,
     },
   });
