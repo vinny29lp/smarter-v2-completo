@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,19 @@ const COTAS: Record<string, number> = {
   POST_FEED: 5,
   STORY:     5,
 };
+
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error("Supabase não configurado. Adicione NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nas variáveis de ambiente.");
+  }
+
+  return createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
+}
 
 // POST /api/app/marketing/upload
 // Recebe multipart/form-data com os campos:
@@ -31,14 +45,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Sem permissão para fazer upload." }, { status: 403 });
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json(
-      { error: "Supabase não configurado. Adicione SUPABASE_SERVICE_ROLE_KEY nas variáveis de ambiente." },
-      { status: 500 }
-    );
+  let supabase: ReturnType<typeof createClient>;
+  try {
+    supabase = getSupabaseAdmin();
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 
   try {
@@ -93,28 +104,25 @@ export async function POST(req: Request) {
     const uuid = crypto.randomUUID();
     const path = `${tipo}/${uuid}.${ext}`;
 
-    // Upload para Supabase Storage via REST API
+    // Upload para Supabase Storage via cliente oficial
     const buffer = await file.arrayBuffer();
-    const uploadRes = await fetch(
-      `${supabaseUrl}/storage/v1/object/marketing-assets/${path}`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${serviceKey}`,
-          "Content-Type": file.type,
-          "x-upsert": "false",
-        },
-        body: buffer,
-      }
-    );
+    const { error: uploadError } = await supabase.storage
+      .from("marketing-assets")
+      .upload(path, buffer, {
+        contentType: file.type,
+        upsert: false,
+      });
 
-    if (!uploadRes.ok) {
-      const err = await uploadRes.text();
-      console.error("[marketing/upload] Supabase Storage error:", err);
-      return NextResponse.json({ error: "Falha no upload para o Storage." }, { status: 500 });
+    if (uploadError) {
+      console.error("[marketing/upload] Supabase Storage error:", uploadError.message);
+      return NextResponse.json({ error: `Falha no upload para o Storage: ${uploadError.message}` }, { status: 500 });
     }
 
-    const url       = `${supabaseUrl}/storage/v1/object/public/marketing-assets/${path}`;
+    const { data: publicUrlData } = supabase.storage
+      .from("marketing-assets")
+      .getPublicUrl(path);
+
+    const url       = publicUrlData.publicUrl;
     const tamanhoKb = Math.ceil(file.size / 1024);
 
     return NextResponse.json({ url, tamanhoKb, path });
@@ -144,15 +152,9 @@ export async function DELETE(req: Request) {
   const path = searchParams.get("path");
   if (!path) return NextResponse.json({ error: "path obrigatório." }, { status: 400 });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) return NextResponse.json({ ok: true }); // silently ok if not configured
-
   try {
-    await fetch(`${supabaseUrl}/storage/v1/object/marketing-assets/${path}`, {
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${serviceKey}` },
-    });
+    const supabase = getSupabaseAdmin();
+    await supabase.storage.from("marketing-assets").remove([path]);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("[marketing/upload] DELETE:", e?.message);
