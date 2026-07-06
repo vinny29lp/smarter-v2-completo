@@ -75,7 +75,8 @@ const PUBLICO = [
 const COTAS: Record<string, number> = {
   REELS:     3,
   POST_FEED: 5,
-  STORY:     5,
+  STORY:     20,
+  CARROSSEL: 20,
 };
 
 const FORM_INICIAL = {
@@ -223,9 +224,9 @@ export default function MarketingAdminPage() {
 
     // Limite de 4 MB para arquivos não-vídeo (limite do Vercel é 4,5 MB)
     const isVideo = uploadFile.type.startsWith("video/");
-    const MAX_BYTES = isVideo ? 100 * 1024 * 1024 : 4 * 1024 * 1024;
+    const MAX_BYTES = isVideo ? 100 * 1024 * 1024 : 8 * 1024 * 1024;
     if (uploadFile.size > MAX_BYTES) {
-      const limitMsg = isVideo ? "100 MB" : "4 MB";
+      const limitMsg = isVideo ? "100 MB" : "8 MB";
       setUploadError(
         `Arquivo muito grande (${(uploadFile.size / 1024 / 1024).toFixed(1)} MB). ` +
         `O limite é ${limitMsg}. Reduza o tamanho e tente novamente.`

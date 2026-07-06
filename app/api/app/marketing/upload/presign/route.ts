@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic";
 const COTAS: Record<string, number> = {
   REELS:     3,
   POST_FEED: 5,
-  STORY:     5,
+  STORY:     20,
+  CARROSSEL: 20,
 };
 
 export async function GET(req: Request) {
