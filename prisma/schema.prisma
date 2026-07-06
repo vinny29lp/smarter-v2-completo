@@ -333,6 +333,7 @@ model Contract {
   apoliceSeguro    String?
   seguradora       String?
   tipoEstagio      String?              @default("Nao Obrigatorio")
+  modalidade       String?              @default("Presencial")
   status           ContractStatus?      @default(PENDENTE)
   origem           String?              @default("NORMAL")
   ativadoEm        DateTime?            @db.Timestamptz(6)
