@@ -1,15 +1,18 @@
 /**
  * GET /api/cron/lembretes-atraso
- * Cron diário — envia lembretes de atraso para unidades com boleto vencido.
+ * Cron diário — pipeline de atraso:
+ *  1. Marca PENDENTE → VENCIDO (global, servidor) para vencimentos passados
+ *  2. Envia lembrete de cobrança a cada 5 dias após o vencimento (5, 10, 15...)
+ *  3. Detecta inadimplência 30+ dias (bloqueio automático atrás de feature flag —
+ *     ver lib/financeiro/bloqueio.ts; padrão: só detecta e notifica a Franqueadora)
  *
- * Regras:
- *  - Dia 3 de atraso: primeiro lembrete
- *  - Dia 5, 7, 9... (a cada 2 dias após o dia 3): novos lembretes
+ * ?dryRun=true → executa a seleção sem marcar, enviar e-mails ou bloquear.
  *
- * Configurado em vercel.json: "0 8 * * *" (08h00 BRT = 11h00 UTC)
+ * Configurado em vercel.json: "0 11 * * *" (11h00 UTC = 08h00 BRT)
  */
 import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/email";
+import { processarBloqueiosAutomaticos } from "@/lib/financeiro/bloqueio";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -69,20 +72,45 @@ body{font-family:Arial,sans-serif;background:#f1f5f9;margin:0;padding:0}
 
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || req.headers.get("authorization") !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const isCron = !!cronSecret && req.headers.get("authorization") === `Bearer ${cronSecret}`;
+  if (!isCron) {
+    // Permite também FRANQUEADORA autenticada (para testes/execução manual)
+    const { getServerSession } = await import("next-auth");
+    const { authOptions } = await import("@/lib/auth");
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "FRANQUEADORA") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
+
+  const { searchParams } = new URL(req.url);
+  const dryRun = searchParams.get("dryRun") === "true";
 
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
-  // Busca lançamentos PENDENTES com boleto Cora emitido e vencidos
+  // 1. Marca vencidos no servidor (antes dependia de alguém abrir o painel,
+  //    e o lembrete só olhava PENDENTE — itens auto-marcados VENCIDO paravam
+  //    de receber cobrança)
+  let marcados = 0;
+  if (!dryRun) {
+    const r = await prisma.financial.updateMany({
+      where: { status: "PENDENTE", cancelado: { not: true }, vencimentoAt: { lt: hoje } },
+      data: { status: "VENCIDO" },
+    });
+    marcados = r.count;
+  }
+
+  // 2. Lançamentos vencidos e não pagos: com boleto Cora OU cobrança de Franquia
   const vencidos: any[] = await (prisma.financial as any).findMany({
     where: {
-      status: "PENDENTE",
-      cancelado: false,
-      coraInvoiceId: { not: null },
+      status: { in: ["PENDENTE", "VENCIDO"] },
+      cancelado: { not: true },
       vencimentoAt: { lt: hoje },
+      OR: [
+        { coraInvoiceId: { not: null } },
+        { categoria: "Franquia" },
+      ],
     },
     include: { franchise: true },
   });
@@ -99,9 +127,11 @@ export async function GET(req: Request) {
     vencDt.setHours(0, 0, 0, 0);
     const diasAtraso = Math.round((hoje.getTime() - vencDt.getTime()) / 86400000);
 
-    // Enviar no dia 3 e depois a cada 2 dias (5, 7, 9...)
-    const shouldSend = diasAtraso === 3 || (diasAtraso > 3 && (diasAtraso - 3) % 2 === 0);
+    // Item 6: checagem/lembrete a cada 5 dias após o vencimento (5, 10, 15...)
+    const shouldSend = diasAtraso >= 5 && diasAtraso % 5 === 0;
     if (!shouldSend) { pulados++; continue; }
+
+    if (dryRun) { enviados++; continue; }
 
     const vencStr = vencDt.toLocaleDateString("pt-BR");
     const html = lembreteHtml(
@@ -142,11 +172,26 @@ export async function GET(req: Request) {
     }
   }
 
+  // 3. Inadimplência 30+ dias — bloqueio automático atrás de feature flag
+  //    (BLOQUEIO_INADIMPLENCIA_ATIVO; padrão OFF = apenas detecta e notifica)
+  let bloqueio: any = null;
+  if (!dryRun) {
+    try {
+      bloqueio = await processarBloqueiosAutomaticos();
+    } catch (e: any) {
+      console.error("[lembretes-atraso] Erro no passo de bloqueio:", e.message);
+      bloqueio = { error: e.message };
+    }
+  }
+
   return NextResponse.json({
     ok: true,
+    dryRun,
+    marcadosVencidos: marcados,
     vencidos: vencidos.length,
     enviados,
     pulados,
     erros,
+    bloqueio,
   });
 }

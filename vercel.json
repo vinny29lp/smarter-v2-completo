@@ -20,6 +20,10 @@
     {
       "path": "/api/cron/fechar-mes",
       "schedule": "0 8 23 * *"
+    },
+    {
+      "path": "/api/cron/emitir-boletos",
+      "schedule": "0 11 2 * *"
     }
   ]
 }

@@ -63,6 +63,37 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ active: newActive });
   }
 
+  // Bloqueio por inadimplência: bloqueia o acesso da unidade (página /bloqueado)
+  if (body.action === "bloquear_inadimplencia") {
+    const franchise = await prisma.franchise.update({
+      where: { id: params.id },
+      data: {
+        acessoBloqueado: true,
+        bloqueadoEm: new Date(),
+        bloqueioMotivo: `MANUAL: ${String(body.motivo || "Bloqueado pela Franqueadora").slice(0, 300)}`,
+        bloqueioLiberadoAte: null,
+      } as any,
+    });
+    return NextResponse.json({ ok: true, franchise });
+  }
+
+  // Válvula de escape: libera o acesso mesmo sem pagamento (negociação/tolerância).
+  // toleranciaDias > 0 → o cron de inadimplência não volta a bloquear até essa data.
+  if (body.action === "liberar_inadimplencia") {
+    const dias = parseInt(String(body.toleranciaDias || 0)) || 0;
+    const liberadoAte = dias > 0 ? new Date(Date.now() + dias * 86400000) : null;
+    const franchise = await prisma.franchise.update({
+      where: { id: params.id },
+      data: {
+        acessoBloqueado: false,
+        bloqueadoEm: null,
+        bloqueioMotivo: null,
+        bloqueioLiberadoAte: liberadoAte,
+      } as any,
+    });
+    return NextResponse.json({ ok: true, franchise, toleranciaAte: liberadoAte });
+  }
+
   // Alterar email de login
   if (body.action === "change_email" && body.userId && body.email) {
     const user = await prisma.user.update({
@@ -186,8 +217,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       cidade: body.cidade, uf: body.uf, endereco: body.endereco, cep: body.cep || undefined,
       mensalidade: body.mensalidade ? parseFloat(body.mensalidade) : undefined,
       cobrarMensalidade: body.cobrarMensalidade !== undefined ? body.cobrarMensalidade : undefined,
+      // Dia de vencimento da Taxa de Desenvolvimento (1–28) — fica fixo e recorrente
+      diaVencimentoTaxa: body.diaVencimentoTaxa !== undefined
+        ? Math.min(Math.max(parseInt(String(body.diaVencimentoTaxa)) || 10, 1), 28)
+        : undefined,
       status: body.status,
-    },
+    } as any,
   });
   return NextResponse.json({ franchise });
   } catch (e) {

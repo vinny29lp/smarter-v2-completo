@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { logAudit, getClientIP } from "@/lib/audit";
 import { authOptions } from "@/lib/auth";
 import { handleApiError } from "@/lib/api-response";
+import { reavaliarBloqueioAposPagamento } from "@/lib/financeiro/bloqueio";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -68,6 +69,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...("vencimentoAt" in body ? { vencimentoAt: body.vencimentoAt ? new Date(body.vencimentoAt) : null } : {}),
     },
   });
+
+  // Baixa de Taxa de Desenvolvimento pode desfazer bloqueio automático da unidade
+  if (body.status === "PAGO" && fin.categoria === "Franquia") {
+    await reavaliarBloqueioAposPagamento(fin.franchiseId);
+  }
 
   // Audit log
   const acao = body.action === "reverter" ? "FINANCEIRO_REVERTIDO"

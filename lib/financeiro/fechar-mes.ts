@@ -2,6 +2,12 @@
  * Lógica de fechamento mensal — extraída para ser reutilizada tanto pela rota
  * autenticada (app/api/app/financeiro/fechar-mes) quanto pelo cron
  * (app/api/cron/fechar-mes).
+ *
+ * Conceito central: COMPETÊNCIA ("YYYY-MM") — o mês que a cobrança referencia.
+ * O fechamento do dia 23 do mês M gera as cobranças de competência M+1,
+ * com vencimento no dia configurado da unidade (diaVencimentoTaxa, padrão 10).
+ * A deduplicação é por franchiseId + competencia — assim um fechamento forçado
+ * fora do dia 23 não bloqueia nem duplica o fechamento seguinte.
  */
 import { prisma } from "@/lib/prisma";
 
@@ -20,6 +26,16 @@ async function processInBatches<T, R>(
   return results;
 }
 
+// Competência cobrada pelo fechamento executado em `hoje`: sempre o mês seguinte.
+export function competenciaDoFechamento(hoje: Date): { ano: number; mes0: number; chave: string; label: string } {
+  const ano = hoje.getFullYear();
+  const mes0 = hoje.getMonth() + 1; // mês seguinte (0-based, pode ser 12 → Date normaliza)
+  const ref = new Date(ano, mes0, 1);
+  const chave = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, "0")}`;
+  const label = ref.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  return { ano: ref.getFullYear(), mes0: ref.getMonth(), chave, label };
+}
+
 export async function fecharMes(force: boolean) {
   const hoje = new Date();
   const dia = hoje.getDate();
@@ -30,10 +46,9 @@ export async function fecharMes(force: boolean) {
     };
   }
 
-  // Próximo mês (vencimento dia 5)
-  const proximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 5);
-  const mesRef = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
-    .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  // Competência do mês seguinte (ex.: fechamento em 23/07 → competência 2026-08)
+  const comp = competenciaDoFechamento(hoje);
+  const mesRef = comp.label;
 
   // Regra do dia 23: estagiário ativado até o dia 23 → cobrado no fechamento atual
   const dataCorte23 = new Date(hoje.getFullYear(), hoje.getMonth(), 23, 23, 59, 59);
@@ -53,19 +68,19 @@ export async function fecharMes(force: boolean) {
     },
   });
 
-  // ⚡ ESC-001: Pré-checar duplicidade em lote (1 query para todos os franqueados)
-  const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const fimDia    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-
-  const jaFechadosNesteMes = await prisma.financial.findMany({
+  // Dedup por competência: franqueado que já tem cobrança desta competência é pulado.
+  // (Antes era por createdAt no mês corrente — um fechamento forçado no início do mês
+  //  fazia o cron do dia 23 pular todo mundo e não gerar o mês seguinte.)
+  const jaFechados = await prisma.financial.findMany({
     where: {
       franchiseId: { in: franchises.map(f => f.id) },
       categoria: "Franquia",
-      createdAt: { gte: inicioDia, lte: fimDia },
+      competencia: comp.chave,
+      cancelado: { not: true },
     },
     select: { franchiseId: true },
   });
-  const jaFechadosSet = new Set(jaFechadosNesteMes.map(j => j.franchiseId));
+  const jaFechadosSet = new Set(jaFechados.map(j => j.franchiseId));
 
   // ⚡ ESC-001: Processar em paralelo com batches de 10 (evita timeout de 30s da Vercel)
   const resultados = await processInBatches(franchises, 10, async (f) => {
@@ -80,10 +95,15 @@ export async function fecharMes(force: boolean) {
     }
 
     if (jaFechadosSet.has(f.id)) {
-      return { franchise: f.name, total, skipped: true, reason: "Já fechado este mês" };
+      return { franchise: f.name, total, skipped: true, reason: `Já existe cobrança de ${mesRef}` };
     }
 
-    // Monta descrição detalhada: "Sistema R$200 + 3 estag. (R$39) — Unidade X — junho 2026"
+    // Vencimento: dia configurado da unidade (padrão 10) no mês da competência.
+    // Clamp 1–28 para nunca estourar o mês (ex.: dia 31 em fevereiro).
+    const diaVenc = Math.min(Math.max((f as any).diaVencimentoTaxa ?? 10, 1), 28);
+    const vencimento = new Date(Date.UTC(comp.ano, comp.mes0, diaVenc));
+
+    // Monta descrição detalhada: "Sistema R$200 + 3 estag. (R$39) — Unidade X — agosto 2026"
     const partes: string[] = [];
     if (cobrarMens && mensalidade > 0)
       partes.push(`Sistema R$${mensalidade.toFixed(0).replace(".", ",")}`);
@@ -98,7 +118,8 @@ export async function fecharMes(force: boolean) {
         valor: total,
         categoria: "Franquia",
         status: "PENDENTE",
-        vencimentoAt: proximoMes,
+        competencia: comp.chave,
+        vencimentoAt: vencimento,
         franchiseId: f.id,
         recorrente: false,
       } as any,
@@ -111,6 +132,7 @@ export async function fecharMes(force: boolean) {
       mensalidade,
       taxaAdmin,
       total,
+      vencimento: vencimento.toLocaleDateString("pt-BR", { timeZone: "UTC" }),
       lancamentoId: lancamento.id,
     };
   });
@@ -123,16 +145,17 @@ export async function fecharMes(force: boolean) {
   return {
     ok: true as const,
     mesRef,
-    vencimento: proximoMes.toLocaleDateString("pt-BR"),
+    competencia: comp.chave,
     totalGeral,
     results,
-    message: `Fechamento realizado para ${results.filter((r: any) => !r.skipped).length} franqueado(s). Total: R$ ${totalGeral.toFixed(2).replace(".", ",")}`,
+    message: `Fechamento de ${mesRef} realizado para ${results.filter((r: any) => !r.skipped).length} franqueado(s). Total: R$ ${totalGeral.toFixed(2).replace(".", ",")}`,
   };
 }
 
 export async function previewFechamento() {
   const hoje = new Date();
   const dataCorte23Preview = new Date(hoje.getFullYear(), hoje.getMonth(), 23, 23, 59, 59);
+  const comp = competenciaDoFechamento(hoje);
 
   const franchises = await prisma.franchise.findMany({
     where: { status: "ATIVO" },
@@ -154,6 +177,7 @@ export async function previewFechamento() {
     const taxaAdmin = ativos * 13;
     const mensalidade = (f.cobrarMensalidade ?? true) ? (f.mensalidade ?? 200) : 0;
     const total = mensalidade + taxaAdmin;
+    const diaVenc = Math.min(Math.max((f as any).diaVencimentoTaxa ?? 10, 1), 28);
     return {
       franchiseId: f.id,
       nome: f.name,
@@ -161,9 +185,15 @@ export async function previewFechamento() {
       taxaAdmin,
       mensalidade,
       cobrarMensalidade: f.cobrarMensalidade ?? true,
+      diaVencimento: diaVenc,
       total,
     };
   });
 
-  return { preview, totalGeral: preview.reduce((a, b) => a + b.total, 0) };
+  return {
+    preview,
+    totalGeral: preview.reduce((a, b) => a + b.total, 0),
+    competencia: comp.chave,
+    mesRef: comp.label,
+  };
 }

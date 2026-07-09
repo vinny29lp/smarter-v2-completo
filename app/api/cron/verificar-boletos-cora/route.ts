@@ -7,6 +7,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { consultarBoleto } from "@/lib/cora/boleto";
+import { reavaliarBloqueioAposPagamento } from "@/lib/financeiro/bloqueio";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
       status: { not: "PAGO" },
       cancelado: false,
     },
-    select: { id: true, coraInvoiceId: true, valor: true, descricao: true },
+    select: { id: true, coraInvoiceId: true, valor: true, descricao: true, franchiseId: true, categoria: true },
   });
 
   console.log(`[verificar-boletos-cora] ${pendentes.length} boleto(s) pendente(s) para verificar`);
@@ -50,6 +51,10 @@ export async function GET(req: Request) {
         });
         console.log(`[verificar-boletos-cora] ✅ PAGO: ${lanc.id} — R$${lanc.valor} — ${lanc.descricao}`);
         pagos++;
+        // Pagamento de Taxa de Desenvolvimento pode desfazer bloqueio automático
+        if (lanc.categoria === "Franquia") {
+          await reavaliarBloqueioAposPagamento(lanc.franchiseId);
+        }
       }
     } catch (e: any) {
       console.error(`[verificar-boletos-cora] Erro ao verificar ${lanc.coraInvoiceId}:`, e.message);

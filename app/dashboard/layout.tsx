@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MesGate } from "@/components/MesGate";
@@ -13,6 +14,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (role === "EMPRESA")   redirect("/portal-empresa");
   if (role === "ESTUDANTE") redirect("/portal-estudante");
   // FUNCIONARIO (colaborador) é permitido — o Sidebar filtra os itens pelas permissoes
+
+  // Bloqueio por inadimplência: unidade com acessoBloqueado (e sem tolerância vigente)
+  // não acessa o dashboard. Só afeta FRANQUEADO/FUNCIONARIO da unidade — nunca a
+  // FRANQUEADORA. O campo acessoBloqueado só é setado manualmente pelo admin ou pelo
+  // cron quando a flag BLOQUEIO_INADIMPLENCIA_ATIVO estiver ligada (hoje: desligada).
+  const franchiseId = session.user.franchiseId;
+  if ((role === "FRANQUEADO" || role === "FUNCIONARIO") && franchiseId && franchiseId !== "FRANQUEADORA") {
+    let bloqueada = false;
+    try {
+      const franchise: any = await prisma.franchise.findUnique({
+        where: { id: franchiseId },
+        select: { acessoBloqueado: true, bloqueioLiberadoAte: true } as any,
+      });
+      const emTolerancia = franchise?.bloqueioLiberadoAte && new Date(franchise.bloqueioLiberadoAte) > new Date();
+      bloqueada = !!franchise?.acessoBloqueado && !emTolerancia;
+    } catch (e) {
+      // Erro de DB não pode derrubar o dashboard de toda a rede — segue sem bloquear
+      console.error("[layout] Erro ao checar bloqueio:", (e as any)?.message);
+    }
+    if (bloqueada) redirect("/bloqueado");
+  }
 
   return (
     <div className="flex h-screen bg-[#f0f4f8] overflow-hidden">

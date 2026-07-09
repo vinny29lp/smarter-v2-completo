@@ -184,6 +184,30 @@ export default function FinanceiroPage() {
   // Isso garante compatibilidade com registros antigos (tipo:"entrada") e novos (tipo:"saida")
   const isFranquia = (l: any) => l.categoria === "Franquia";
 
+  // ─── Separação estrita por mês de vencimento (Pontos 1 e 3) ──────────────
+  // Vencimentos são gravados como meia-noite UTC → comparar em UTC.
+  // Sem vencimento definido → considera o mês de criação (local).
+  const mesAtualKey = anoAtual * 12 + mesAtual;
+  const mesKeyDe = (l: any): number | null => {
+    if (l.vencimentoAt) {
+      const d = new Date(l.vencimentoAt);
+      return d.getUTCFullYear() * 12 + d.getUTCMonth();
+    }
+    if (l.createdAt) {
+      const d = new Date(l.createdAt);
+      return d.getFullYear() * 12 + d.getMonth();
+    }
+    return null;
+  };
+  const isMesAtual = (l: any) => { const k = mesKeyDe(l); return k === null || k === mesAtualKey; };
+  const isFuturo   = (l: any) => { const k = mesKeyDe(l); return k !== null && k > mesAtualKey; };
+  const isPassado  = (l: any) => { const k = mesKeyDe(l); return k !== null && k < mesAtualKey; };
+  // Atrasado: marcado VENCIDO, ou ainda PENDENTE mas de mês passado (rede de segurança)
+  const isAtrasado = (l: any) => l.status === "VENCIDO" || (l.status === "PENDENTE" && isPassado(l));
+  // Pendente do mês corrente: nem atrasado, nem de mês futuro
+  const isPendenteMesAtual = (l: any) => l.status === "PENDENTE" && isMesAtual(l);
+  const isPendenteFuturo   = (l: any) => l.status === "PENDENTE" && isFuturo(l);
+
   // ENTRADAS MÊS (receitas recebidas)
   // Franqueado:    entradas pagas no mês, exceto Franquia (Franquia = despesa, não receita)
   // Franqueadora:  suas próprias entradas + cobranças de Franquia coletadas (= receita da rede)
@@ -206,27 +230,32 @@ export default function FinanceiroPage() {
     ))
     .reduce((a, b) => a + b.valor, 0);
 
-  // A RECEBER (pendentes a receber)
-  // Franqueado:    entradas pendentes normais — Franquia é despesa (contas a pagar), não receita
-  // Franqueadora:  suas entradas + cobranças de Franquia pendentes (são recebíveis da rede)
+  // Classificadores de papel (recebível × despesa) — dependem de quem olha
+  const isRecebivel = (l: any) => isFranqueadora
+    ? (l.tipo === "entrada" || isFranquia(l))
+    : (l.tipo === "entrada" && !isFranquia(l));
+  const isDespesa = (l: any) => isFranqueadora
+    ? (l.tipo === "saida" && !isFranquia(l))
+    : (l.tipo === "saida" || isFranquia(l));
+
+  // A RECEBER — SOMENTE mês corrente (atrasados e futuros ficam em telas próprias)
   const aReceber = lancamentos
-    .filter(l => l.status === "PENDENTE" && (
-      isFranqueadora
-        ? (l.tipo === "entrada" || isFranquia(l))
-        : (l.tipo === "entrada" && !isFranquia(l))
-    ))
+    .filter(l => isPendenteMesAtual(l) && isRecebivel(l))
     .reduce((a, b) => a + b.valor, 0);
 
-  // CONTAS A PAGAR (pendentes a pagar)
-  // Franqueado:    saídas normais + Franquia pendente (qualquer tipo — cobra de rede é despesa da unidade)
-  // Franqueadora:  apenas saídas próprias (Franquia = recebível, não despesa)
+  // CONTAS A PAGAR — SOMENTE mês corrente
   const contasAPagar = lancamentos
-    .filter(l => l.status === "PENDENTE" && (
-      isFranqueadora
-        ? (l.tipo === "saida" && !isFranquia(l))
-        : (l.tipo === "saida" || isFranquia(l))
-    ))
+    .filter(l => isPendenteMesAtual(l) && isDespesa(l))
     .reduce((a, b) => a + b.valor, 0);
+
+  // FUTUROS — vencimentos de meses seguintes (não misturam com o mês atual)
+  const futurosReceber = lancamentos
+    .filter(l => isPendenteFuturo(l) && isRecebivel(l))
+    .reduce((a, b) => a + b.valor, 0);
+  const futurosPagar = lancamentos
+    .filter(l => isPendenteFuturo(l) && isDespesa(l))
+    .reduce((a, b) => a + b.valor, 0);
+  const qtdFuturos = lancamentos.filter(l => isPendenteFuturo(l)).length;
 
   // CAIXA: total receitas recebidas − total despesas pagas (acumulado)
   const totalEntradasPago = lancamentos
@@ -243,38 +272,58 @@ export default function FinanceiroPage() {
     )).reduce((a, b) => a + b.valor, 0);
   const caixa = totalEntradasPago - totalSaidasPago;
 
-  // ─── Atrasados (VENCIDO) ─────────────────────────────────────────────────
-  // Totais de lançamentos marcados como VENCIDO (auto-marcados no carregamento)
+  // ─── Atrasados (VENCIDO ou pendente de mês anterior) ─────────────────────
   const atrasadosReceber = lancamentos
-    .filter(l => l.status === "VENCIDO" && (
-      isFranqueadora
-        ? (l.tipo === "entrada" || isFranquia(l))
-        : (l.tipo === "entrada" && !isFranquia(l))
-    ))
+    .filter(l => isAtrasado(l) && isRecebivel(l))
     .reduce((a, b) => a + b.valor, 0);
 
   const atrasadosPagar = lancamentos
-    .filter(l => l.status === "VENCIDO" && (
-      isFranqueadora
-        ? (l.tipo === "saida" && !isFranquia(l))
-        : (l.tipo === "saida" || isFranquia(l))
-    ))
+    .filter(l => isAtrasado(l) && isDespesa(l))
     .reduce((a, b) => a + b.valor, 0);
 
   const totalAtrasados  = atrasadosReceber + atrasadosPagar;
-  const qtdAtrasados    = lancamentos.filter(l => l.status === "VENCIDO").length;
+  const qtdAtrasados    = lancamentos.filter(l => isAtrasado(l)).length;
 
   // Split para exibição
   const lancamentosFranquia = lancamentos.filter(l => l.categoria === "Franquia");
   const lancamentosGerais   = lancamentos.filter(l => l.categoria !== "Franquia");
 
-  // "TODOS" exclui VENCIDO para não misturar atrasados com o mês atual
-  // "VENCIDO" (⚠️ Atrasados) mostra TODOS os vencidos inclusive de franquia
+  // Cobranças de franquia separadas por mês (Ponto 3 — não misturar)
+  const franquiaMesAtual  = lancamentosFranquia.filter(l => !isAtrasado(l) && !isPendenteFuturo(l) && (l.status !== "PAGO" ? isMesAtual(l) : isPaidMes(l)));
+  const franquiaAtrasadas = lancamentosFranquia.filter(l => isAtrasado(l));
+  const franquiaFuturas   = lancamentosFranquia.filter(l => isPendenteFuturo(l));
+
+  // 🚨 Inadimplência 30+ dias por unidade (só franqueadora) — base do bloqueio automático
+  const CORTE_30D = Date.now() - 30 * 86400000;
+  const inadimplentes30d: { nome: string; franchiseId: string; total: number; dias: number; bloqueada: boolean }[] = [];
+  if (isFranqueadora) {
+    const porFranquia = new Map<string, any>();
+    for (const l of lancamentosFranquia) {
+      if (!isAtrasado(l) || !l.vencimentoAt || !l.franchiseId) continue;
+      const vencMs = new Date(l.vencimentoAt).getTime();
+      if (vencMs > CORTE_30D) continue;
+      const dias = Math.floor((Date.now() - vencMs) / 86400000);
+      const atual = porFranquia.get(l.franchiseId) || {
+        nome: l.franchise?.name || "—", franchiseId: l.franchiseId, total: 0, dias: 0,
+        bloqueada: !!l.franchise?.acessoBloqueado,
+      };
+      atual.total += l.valor;
+      atual.dias = Math.max(atual.dias, dias);
+      porFranquia.set(l.franchiseId, atual);
+    }
+    inadimplentes30d.push(...Array.from(porFranquia.values()));
+  }
+
+  // "TODOS" = mês corrente (exclui atrasados E futuros — cada um tem sua tela)
+  // "VENCIDO" (⚠️ Atrasados) mostra TODOS os atrasados inclusive de franquia
+  // "FUTUROS" mostra pendências de meses seguintes inclusive de franquia
   const filtrados = filtro === "TODOS"
-    ? lancamentosGerais.filter(l => l.status !== "VENCIDO")
+    ? lancamentosGerais.filter(l => !isAtrasado(l) && !isPendenteFuturo(l))
     : filtro === "VENCIDO"
-      ? lancamentos.filter(l => l.status === "VENCIDO")
-      : lancamentosGerais.filter(l => l.status === filtro);
+      ? lancamentos.filter(l => isAtrasado(l))
+      : filtro === "FUTUROS"
+        ? lancamentos.filter(l => isPendenteFuturo(l))
+        : lancamentosGerais.filter(l => l.status === filtro);
 
   // ─── Relatório — Dados (Ponto 4) ─────────────────────────────────────────
   // Gráfico: receitas dos últimos 6 meses
@@ -667,6 +716,35 @@ export default function FinanceiroPage() {
         </div>
       )}
 
+      {/* ── Inadimplência 30+ dias (só FRANQUEADORA) — base do bloqueio automático ── */}
+      {isFranqueadora && inadimplentes30d.length > 0 && (
+        <Card className="mb-5 border-2 border-red-300 overflow-hidden">
+          <div className="px-5 py-3 bg-red-600 flex items-center justify-between">
+            <p className="text-sm font-black text-white">🚨 Unidades com 30+ dias de atraso na Taxa de Desenvolvimento</p>
+            <span className="text-xs text-red-100">Bloqueio automático: <strong>modo detecção</strong> (não bloqueia sozinho)</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {inadimplentes30d.map(u => (
+              <div key={u.franchiseId} className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{u.nome}</p>
+                  <p className="text-xs text-red-600">{u.dias} dias de atraso · {fmt(u.total)} em aberto</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {u.bloqueada
+                    ? <Badge variant="red">🔒 Bloqueada</Badge>
+                    : <Badge variant="yellow">Seria bloqueada</Badge>}
+                  <a href={`/dashboard/franqueados/${u.franchiseId}`}
+                     className="text-xs font-bold text-[#0f2a5e] underline whitespace-nowrap">
+                    Gerenciar →
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* ── Taxa de Desenvolvimento (só FRANQUEADO) ─────────────────────────── */}
       {!isFranqueadora && lancamentosFranquia.length > 0 && (
         <Card className="mb-5 overflow-hidden border-l-4 border-[#0f2a5e]">
@@ -681,12 +759,26 @@ export default function FinanceiroPage() {
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Total em aberto</p>
+                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Em aberto — mês atual</p>
                 <p className="text-xl font-black text-[#0f2a5e]">
-                  {fmt(lancamentosFranquia.filter(l => l.status === "PENDENTE").reduce((a,b) => a+b.valor,0))}
+                  {fmt(franquiaMesAtual.filter(l => l.status === "PENDENTE").reduce((a,b) => a+b.valor,0))}
                 </p>
               </div>
             </div>
+            {(franquiaAtrasadas.length > 0 || franquiaFuturas.length > 0) && (
+              <div className="mt-2 flex gap-2 flex-wrap">
+                {franquiaAtrasadas.length > 0 && (
+                  <button onClick={() => setFiltro("VENCIDO")} className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded-lg hover:bg-red-100">
+                    ⚠️ {franquiaAtrasadas.length} atrasada(s) de meses anteriores — {fmt(franquiaAtrasadas.reduce((a,b)=>a+b.valor,0))} →
+                  </button>
+                )}
+                {franquiaFuturas.length > 0 && (
+                  <button onClick={() => setFiltro("FUTUROS")} className="text-[11px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-1 rounded-lg hover:bg-blue-100">
+                    📅 {franquiaFuturas.length} de meses futuros →
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -698,7 +790,7 @@ export default function FinanceiroPage() {
                 </tr>
               </thead>
               <tbody>
-                {lancamentosFranquia.map(l => {
+                {franquiaMesAtual.map(l => {
                   const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
                   return (
                     <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado ? "opacity-40" : ""}`}>
@@ -751,9 +843,9 @@ export default function FinanceiroPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-xs text-slate-400">A receber de franquias</p>
+                <p className="text-xs text-slate-400">A receber de franquias — mês atual</p>
                 <p className="text-lg font-black text-[#0f2a5e]">
-                  {fmt(lancamentosFranquia.filter(l => l.status === "PENDENTE").reduce((a,b) => a+b.valor, 0))}
+                  {fmt(franquiaMesAtual.filter(l => l.status === "PENDENTE").reduce((a,b) => a+b.valor, 0))}
                 </p>
               </div>
               <div className="flex flex-col gap-1">
@@ -777,11 +869,21 @@ export default function FinanceiroPage() {
             </div>
           </div>
 
-          {/* Cobranças lançadas com ações */}
+          {/* Cobranças lançadas com ações — SOMENTE mês atual (atrasadas/futuras nas abas próprias) */}
           {lancamentosFranquia.length > 0 && (
             <>
-              <div className="px-5 py-2 bg-slate-50 border-b border-slate-100">
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Cobranças Lançadas</p>
+              <div className="px-5 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-3 flex-wrap">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Cobranças Lançadas — Mês Atual</p>
+                {franquiaAtrasadas.length > 0 && (
+                  <button onClick={() => setFiltro("VENCIDO")} className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-lg hover:bg-red-100">
+                    ⚠️ {franquiaAtrasadas.length} atrasada(s) — {fmt(franquiaAtrasadas.reduce((a,b)=>a+b.valor,0))} →
+                  </button>
+                )}
+                {franquiaFuturas.length > 0 && (
+                  <button onClick={() => setFiltro("FUTUROS")} className="text-[11px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-lg hover:bg-blue-100">
+                    📅 {franquiaFuturas.length} futura(s) →
+                  </button>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -793,7 +895,7 @@ export default function FinanceiroPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {lancamentosFranquia.map(l => {
+                    {franquiaMesAtual.map(l => {
                       const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
                       return (
                         <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado ? "opacity-40" : ""}`}>
@@ -898,7 +1000,7 @@ export default function FinanceiroPage() {
 
       {/* ── Filtros ──────────────────────────────────────────────────────────── */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-4 w-fit flex-wrap">
-        {[["TODOS","Todos"],["PENDENTE","Pendentes"],["PAGO","Pagos"],["VENCIDO","⚠️ Atrasados"],["CANCELADO","Cancelados"]].map(([k,lbl]) => (
+        {[["TODOS","Mês Atual"],["PENDENTE","Pendentes"],["PAGO","Pagos"],["VENCIDO","⚠️ Atrasados"],["FUTUROS","📅 Futuros"],["CANCELADO","Cancelados"]].map(([k,lbl]) => (
           <button key={k} onClick={() => setFiltro(k)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               filtro === k
@@ -910,7 +1012,9 @@ export default function FinanceiroPage() {
             {lbl}
             {k === "VENCIDO"
               ? <span className="ml-1 opacity-80">({qtdAtrasados})</span>
-              : k !== "TODOS" && <span className="ml-1 opacity-60">({lancamentosGerais.filter(l => l.status === k).length})</span>
+              : k === "FUTUROS"
+                ? <span className="ml-1 opacity-60">({qtdFuturos})</span>
+                : k !== "TODOS" && <span className="ml-1 opacity-60">({lancamentosGerais.filter(l => l.status === k).length})</span>
             }
           </button>
         ))}
@@ -924,12 +1028,26 @@ export default function FinanceiroPage() {
             <div>
               <p className="text-sm font-black text-red-700">⚠️ Lançamentos Atrasados — Meses Anteriores</p>
               <p className="text-xs text-red-500 mt-0.5">
-                Esses itens venceram e não foram baixados. Eles <strong>não</strong> aparecem na aba "Todos" para não misturar com o mês atual.
+                Esses itens venceram e não foram baixados. Eles <strong>não</strong> aparecem na aba "Mês Atual" para não misturar com o mês corrente. Inclui cobranças de franquia atrasadas.
               </p>
             </div>
             <div className="text-right shrink-0">
               <p className="text-[10px] text-red-500 font-semibold">TOTAL ATRASADO</p>
               <p className="text-lg font-black text-red-700">{fmt(totalAtrasados)}</p>
+            </div>
+          </div>
+        )}
+        {filtro === "FUTUROS" && (
+          <div className="px-5 py-3 bg-blue-50 border-b border-blue-200 rounded-t-xl flex items-center justify-between">
+            <div>
+              <p className="text-sm font-black text-blue-700">📅 Lançamentos Futuros — Meses Seguintes</p>
+              <p className="text-xs text-blue-500 mt-0.5">
+                Vencimentos de meses futuros (ex.: cobranças geradas no fechamento do dia 23). Não entram nos totais do mês atual.
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[10px] text-blue-500 font-semibold">A RECEBER / A PAGAR</p>
+              <p className="text-sm font-black text-blue-700">{fmt(futurosReceber)} / {fmt(futurosPagar)}</p>
             </div>
           </div>
         )}
@@ -1345,12 +1463,12 @@ export default function FinanceiroPage() {
                   ✅ {fechamentoResult.message}
                 </div>
                 <p className="text-xs text-slate-500">
-                  Vencimento: <strong>{fechamentoResult.vencimento}</strong> — Referência: <strong>{fechamentoResult.mesRef}</strong>
+                  Competência: <strong>{fechamentoResult.mesRef}</strong> — vencimento no dia configurado de cada unidade (padrão dia 10)
                 </p>
                 <div className="space-y-1 max-h-60 overflow-y-auto">
                   {(fechamentoResult.results || []).map((r: any, i: number) => (
                     <div key={i} className={`flex justify-between items-center p-2.5 rounded-lg text-sm ${r.skipped ? "bg-slate-50 text-slate-400" : "bg-emerald-50 text-emerald-800"}`}>
-                      <span className="font-medium">{r.franchise}</span>
+                      <span className="font-medium">{r.franchise}{!r.skipped && r.vencimento ? <span className="text-[10px] text-slate-400 ml-2">venc. {r.vencimento}</span> : null}</span>
                       <span className="font-bold">{r.skipped ? r.reason : fmt(r.total)}</span>
                     </div>
                   ))}

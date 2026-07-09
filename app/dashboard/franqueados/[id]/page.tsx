@@ -174,7 +174,8 @@ export default function FranqueadoDetailPage() {
               ["Endereço",data.endereco],
               ["Cidade",data.cidade+"/"+data.uf],
               ["Plano",data.plano],
-              ["Mensalidade",fmt(data.mensalidade)]
+              ["Mensalidade",fmt(data.mensalidade)],
+              ["Vencimento da Taxa", `Dia ${data.diaVencimentoTaxa ?? 10} de cada mês`]
             ].map(([l,v])=>(
               <div key={l} className="flex justify-between py-1.5 border-b border-slate-50 last:border-0 text-sm">
                 <span className="text-slate-400">{l}</span><span className="font-medium">{v||"—"}</span>
@@ -202,6 +203,40 @@ export default function FranqueadoDetailPage() {
                   <span className={`font-medium ${l==="Status"&&bloqueado?"text-red-500":""}`}>{v||"—"}</span>
                 </div>
               ))}
+            </div>
+            {/* Bloqueio por inadimplência (Taxa de Desenvolvimento 30+ dias) */}
+            <div className={`mt-4 p-3 rounded-xl border ${data.acessoBloqueado ? "bg-red-50 border-red-200" : data.bloqueioLiberadoAte && new Date(data.bloqueioLiberadoAte) > new Date() ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-100"}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-slate-600">Bloqueio por inadimplência</p>
+                  {data.acessoBloqueado ? (
+                    <>
+                      <p className="text-sm font-black text-red-600 mt-0.5">🔒 Unidade bloqueada</p>
+                      {data.bloqueadoEm && <p className="text-[11px] text-red-500">desde {new Date(data.bloqueadoEm).toLocaleDateString("pt-BR")}</p>}
+                      {data.bloqueioMotivo && <p className="text-[11px] text-slate-500 mt-0.5">{data.bloqueioMotivo}</p>}
+                    </>
+                  ) : data.bloqueioLiberadoAte && new Date(data.bloqueioLiberadoAte) > new Date() ? (
+                    <p className="text-sm font-bold text-amber-600 mt-0.5">🤝 Tolerância até {new Date(data.bloqueioLiberadoAte).toLocaleDateString("pt-BR")}</p>
+                  ) : (
+                    <p className="text-sm font-bold text-emerald-600 mt-0.5">✓ Acesso normal</p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1 shrink-0">
+                  {data.acessoBloqueado ? (
+                    <Button size="sm" variant="primary" onClick={()=>{
+                      const dias = prompt("Liberar acesso. Dias de tolerância antes de novo bloqueio automático (0 = sem tolerância):", "15");
+                      if (dias === null) return;
+                      action({action:"liberar_inadimplencia", toleranciaDias: parseInt(dias)||0}).then(()=>setMsg("Acesso liberado! ✓"));
+                    }}>🔓 Liberar acesso</Button>
+                  ) : (
+                    <Button size="sm" variant="danger" onClick={()=>{
+                      const motivo = prompt("Motivo do bloqueio da unidade:", "Taxa de Desenvolvimento em atraso");
+                      if (motivo === null) return;
+                      action({action:"bloquear_inadimplencia", motivo}).then(()=>setMsg("Unidade bloqueada!"));
+                    }}>🔒 Bloquear unidade</Button>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="mt-4 p-3 bg-slate-50 rounded-xl">
               <p className="text-xs text-slate-400">Pontuação gamificação</p>
@@ -371,7 +406,7 @@ export default function FranqueadoDetailPage() {
 
       <Modal open={editModal} onClose={()=>setEditModal(false)} title="Editar Dados da Franquia" size="lg">
         <div className="grid grid-cols-2 gap-3">
-          {[["name","Nome"],["razaoSocial","Razão Social"],["cnpj","CNPJ (14 dígitos, só números)"],["cpf","CPF do Responsável"],["responsavel","Responsável"],["email","E-mail"],["telefone","Telefone"],["endereco","Endereço"],["cep","CEP (8 dígitos)"],["cidade","Cidade"],["uf","UF"],["mensalidade","Mensalidade (R$)"]].map(([k,l])=>(
+          {[["name","Nome"],["razaoSocial","Razão Social"],["cnpj","CNPJ (14 dígitos, só números)"],["cpf","CPF do Responsável"],["responsavel","Responsável"],["email","E-mail"],["telefone","Telefone"],["endereco","Endereço"],["cep","CEP (8 dígitos)"],["cidade","Cidade"],["uf","UF"],["mensalidade","Mensalidade (R$)"],["diaVencimentoTaxa","Dia Venc. Taxa (1–28, fixo recorrente)"]].map(([k,l])=>(
             <Input key={k} label={l} value={editForm[k]||""} onChange={e=>setEditForm((p:any)=>({...p,[k]:e.target.value}))}/>
           ))}
           <div>

@@ -52,6 +52,11 @@ model Franchise {
   status               FranchiseStatus?     @default(ATIVO)
   mensalidade          Float?               @default(200)
   cobrarMensalidade    Boolean              @default(true)
+  diaVencimentoTaxa    Int?                 @default(10)
+  acessoBloqueado      Boolean              @default(false)
+  bloqueadoEm          DateTime?            @db.Timestamptz(6)
+  bloqueioMotivo       String?
+  bloqueioLiberadoAte  DateTime?            @db.Timestamptz(6)
   plano                String?              @default("completo")
   pontuacao            Int?                 @default(0)
   chavePix             String?
@@ -516,6 +521,7 @@ model Financial {
   updatedAt          DateTime?        @default(now()) @updatedAt @db.Timestamptz(6)
   recorrente         Boolean?         @default(false)
   diaVencimento      Int?
+  competencia        String?
   linkPagamento      String?
   chavePix           String?
   instrucaoPagamento String?
@@ -530,6 +536,7 @@ model Financial {
   @@index([contractId])
   @@index([companyId])
   @@index([vencimentoAt])
+  @@index([competencia])
   @@map("financials")
 }
 

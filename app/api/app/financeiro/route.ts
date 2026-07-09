@@ -48,11 +48,11 @@ export async function GET(req: Request) {
       select: {
         id: true, descricao: true, tipo: true, valor: true, categoria: true,
         status: true, recorrente: true, diaVencimento: true, vencimentoAt: true,
-        cancelado: true, paidAt: true, createdAt: true,
+        cancelado: true, paidAt: true, createdAt: true, competencia: true,
         franchiseId: true, companyId: true, contractId: true,
         coraInvoiceId: true, linkPagamento: true,
         company:   { select: { id: true, name: true, email: true, emailFinanceiro: true } },
-        franchise: { select: { id: true, name: true, email: true } },
+        franchise: { select: { id: true, name: true, email: true, acessoBloqueado: true } as any },
         contract:  { select: { id: true, numero: true, student: { select: { id: true, name: true } } } },
       },
       orderBy: { createdAt: "desc" },
