@@ -96,8 +96,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   // Alterar email de login
   if (body.action === "change_email" && body.userId && body.email) {
+    // SEC: o userId alvo TEM que pertencer a esta unidade (params.id) — impede alterar
+    // conta arbitrária via body.userId, mesmo sendo rota FRANQUEADORA-only (defesa em profundidade).
+    const alvo = await prisma.user.findFirst({ where: { id: body.userId, franchiseId: params.id }, select: { id: true } });
+    if (!alvo) return NextResponse.json({ error: "Usuário não encontrado para esta unidade." }, { status: 404 });
     const user = await prisma.user.update({
-      where: { id: body.userId },
+      where: { id: alvo.id },
       data: { email: body.email },
     });
     return NextResponse.json({ user });
@@ -105,8 +109,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   // Alterar senha
   if (body.action === "change_password" && body.userId && body.password) {
+    const alvo = await prisma.user.findFirst({ where: { id: body.userId, franchiseId: params.id }, select: { id: true } });
+    if (!alvo) return NextResponse.json({ error: "Usuário não encontrado para esta unidade." }, { status: 404 });
     const hash = await bcrypt.hash(body.password, 10);
-    await prisma.user.update({ where: { id: body.userId }, data: { password: hash } });
+    await prisma.user.update({ where: { id: alvo.id }, data: { password: hash } });
     return NextResponse.json({ ok: true });
   }
 

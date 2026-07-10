@@ -60,8 +60,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!body.userId || !body.password) {
       return NextResponse.json({ error: "userId e password são obrigatórios" }, { status: 400 });
     }
+    // SEC: o userId alvo TEM que ser o usuário desta empresa (params.id). Sem esta amarração,
+    // um body.userId arbitrário permitiria trocar a senha de qualquer conta (account takeover).
+    const alvo = await prisma.user.findFirst({ where: { id: body.userId, companyId: params.id }, select: { id: true } });
+    if (!alvo) {
+      return NextResponse.json({ error: "Usuário não encontrado para esta empresa." }, { status: 404 });
+    }
     const hash = await bcrypt.hash(body.password, 10);
-    await prisma.user.update({ where: { id: body.userId }, data: { password: hash } });
+    await prisma.user.update({ where: { id: alvo.id }, data: { password: hash } });
     return NextResponse.json({ ok: true });
   }
 
@@ -73,7 +79,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!body.userId || !body.email) {
       return NextResponse.json({ error: "userId e email são obrigatórios" }, { status: 400 });
     }
-    await prisma.user.update({ where: { id: body.userId }, data: { email: body.email } });
+    // SEC: mesma amarração do change_password — vincula o alvo ao usuário desta empresa.
+    const alvo = await prisma.user.findFirst({ where: { id: body.userId, companyId: params.id }, select: { id: true } });
+    if (!alvo) {
+      return NextResponse.json({ error: "Usuário não encontrado para esta empresa." }, { status: 404 });
+    }
+    await prisma.user.update({ where: { id: alvo.id }, data: { email: body.email } });
     return NextResponse.json({ ok: true });
   }
 
