@@ -136,6 +136,12 @@ export async function GET(
   });
   if (!empresa) return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
 
+  // SEC: escopo por franquia — unidade só gera CPS de empresa da própria franquia.
+  const role = session.user.role || "";
+  if (role !== "FRANQUEADORA" && empresa.franchiseId !== session.user.franchiseId) {
+    return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
+  }
+
   const valorGestao = (empresa as any).valorGestao || 0;
   if (!valorGestao) {
     return NextResponse.json({ error: "Defina o valor de gestão por estagiário antes de gerar o contrato." }, { status: 400 });
@@ -166,6 +172,14 @@ export async function PATCH(
   const { valorGestao } = await req.json();
   if (!valorGestao || isNaN(Number(valorGestao))) {
     return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
+  }
+
+  // SEC: escopo por franquia — FRANQUEADO só altera empresa da própria franquia.
+  if (session.user.role !== "FRANQUEADORA") {
+    const alvo = await prisma.company.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!alvo || alvo.franchiseId !== session.user.franchiseId) {
+      return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
+    }
   }
 
   const updated = await prisma.company.update({

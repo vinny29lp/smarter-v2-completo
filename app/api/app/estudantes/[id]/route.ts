@@ -35,11 +35,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session?.user?.role || "")) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
-    if (!body.userId || !body.password) {
-      return NextResponse.json({ error: "userId e password são obrigatórios" }, { status: 400 });
+    if (!body.password || String(body.password).length < 6) {
+      return NextResponse.json({ error: "Senha obrigatória (mínimo 6 caracteres)." }, { status: 400 });
+    }
+    // SEC: resolve o userId a partir do estudante da URL — NUNCA confia em body.userId.
+    // Sem isso, qualquer papel autorizado poderia trocar a senha de QUALQUER usuário
+    // do sistema (inclusive FRANQUEADORA) enviando um userId arbitrário (IDOR / account takeover).
+    const alvo = await prisma.student.findUnique({ where: { id: params.id }, select: { userId: true } });
+    if (!alvo?.userId) {
+      return NextResponse.json({ error: "Estudante não encontrado." }, { status: 404 });
     }
     const hash = await bcrypt.hash(body.password, 10);
-    await prisma.user.update({ where: { id: body.userId }, data: { password: hash } });
+    await prisma.user.update({ where: { id: alvo.userId }, data: { password: hash } });
     return NextResponse.json({ ok: true });
   }
 
@@ -48,10 +55,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session?.user?.role || "")) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
-    if (!body.userId || !body.email) {
-      return NextResponse.json({ error: "userId e email são obrigatórios" }, { status: 400 });
+    if (!body.email) {
+      return NextResponse.json({ error: "email é obrigatório" }, { status: 400 });
     }
-    await prisma.user.update({ where: { id: body.userId }, data: { email: body.email } });
+    // SEC: mesmo raciocínio do change_password — vincula a alteração ao estudante da URL,
+    // ignorando body.userId para impedir alteração de e-mail de contas arbitrárias.
+    const alvo = await prisma.student.findUnique({ where: { id: params.id }, select: { userId: true } });
+    if (!alvo?.userId) {
+      return NextResponse.json({ error: "Estudante não encontrado." }, { status: 404 });
+    }
+    await prisma.user.update({ where: { id: alvo.userId }, data: { email: body.email } });
     return NextResponse.json({ ok: true });
   }
 

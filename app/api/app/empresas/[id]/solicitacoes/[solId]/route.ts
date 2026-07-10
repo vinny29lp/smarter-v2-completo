@@ -17,9 +17,14 @@ export async function GET(req: Request, { params }: { params: { id: string; solI
 
   const sol = await (prisma as any).vagaSolicitacao.findUnique({
     where: { id: params.solId },
-    include: { company: { select: { name: true, cnpj: true, cidade: true, uf: true, responsavel: true } } },
+    include: { company: { select: { name: true, cnpj: true, cidade: true, uf: true, responsavel: true, franchiseId: true } } },
   });
   if (!sol) return new Response("Não encontrado", { status: 404 });
+
+  // SEC: escopo por franquia — unidade só acessa solicitação de empresa da própria franquia.
+  if ((session.user.role || "") !== "FRANQUEADORA" && sol.company?.franchiseId !== session.user.franchiseId) {
+    return new Response("Não encontrado", { status: 404 });
+  }
 
   const hoje = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
   const generoLabel: Record<string, string> = { masculino: "Masculino", feminino: "Feminino", indiferente: "Indiferente" };
@@ -119,6 +124,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string; so
 
   const permCheck = checkPermission(session, "empresas");
   if (permCheck) return permCheck;
+
+  // SEC: escopo por franquia — unidade só altera solicitação de empresa da própria franquia.
+  if ((session.user.role || "") !== "FRANQUEADORA") {
+    const alvo = await (prisma as any).vagaSolicitacao.findUnique({
+      where: { id: params.solId },
+      select: { company: { select: { franchiseId: true } } },
+    });
+    if (!alvo || alvo.company?.franchiseId !== session.user.franchiseId) {
+      return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+    }
+  }
 
   const body = await req.json();
   const sol = await (prisma as any).vagaSolicitacao.update({

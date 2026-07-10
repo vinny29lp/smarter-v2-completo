@@ -17,6 +17,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const empresa = await prisma.company.findUnique({ where: { id: params.id } });
   if (!empresa) return NextResponse.json({ error: "Empresa não encontrada." }, { status: 404 });
+
+  // SEC: escopo por franquia — unidade só envia e-mail para empresa da própria franquia.
+  // FRANQUEADORA (admin global) tem acesso a todas.
+  const role = session.user.role || "";
+  if (role !== "FRANQUEADORA" && empresa.franchiseId !== session.user.franchiseId) {
+    return NextResponse.json({ error: "Empresa não encontrada." }, { status: 404 });
+  }
+
   if (!empresa.email) return NextResponse.json({ error: "Empresa não possui e-mail cadastrado." }, { status: 400 });
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;background:#f1f5f9;margin:0;padding:0">
