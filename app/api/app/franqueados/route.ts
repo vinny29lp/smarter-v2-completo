@@ -110,10 +110,25 @@ export async function POST(req: Request) {
       return { franchise: f, user: u };
     }));
   } catch (txErr: any) {
-    // Erro de unique constraint no e-mail (race condition) — mensagem amigável
+    // Erro de unique constraint — identificar QUAL campo colidiu antes de montar a mensagem
+    // (a transação cria Franchise.cnpj e User.email, que têm constraints únicas distintas;
+    // atribuir toda violação ao e-mail gera falso positivo quando o conflito é de CNPJ)
     if (txErr?.code === "P2002") {
+      const target: string[] = Array.isArray(txErr?.meta?.target) ? txErr.meta.target : [];
+      if (target.includes("cnpj")) {
+        return NextResponse.json(
+          { error: `O CNPJ "${body.cnpj}" já está cadastrado em outra unidade franqueada. Verifique se esta unidade já não foi cadastrada antes.` },
+          { status: 409 }
+        );
+      }
+      if (target.includes("email")) {
+        return NextResponse.json(
+          { error: `O e-mail "${emailLogin}" já está em uso. Verifique e tente novamente.` },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
-        { error: `O e-mail "${emailLogin}" já está em uso. Verifique e tente novamente.` },
+        { error: "Já existe um registro com um dos dados informados (e-mail ou CNPJ). Verifique e tente novamente." },
         { status: 409 }
       );
     }
