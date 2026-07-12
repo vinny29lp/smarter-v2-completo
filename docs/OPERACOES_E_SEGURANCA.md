@@ -5,7 +5,7 @@
 > nada que já funciona**, e conhecer as camadas de segurança que protegem os dados das unidades.
 >
 > **Leia isto ANTES de editar código, rodar migration ou fazer deploy.**
-> Última auditoria de segurança/escala: **10/07/2026**.
+> Última auditoria de segurança/escala: **10/07/2026** (hardening adicional aplicado em **11/07/2026** — ver seção 7).
 
 ---
 
@@ -73,8 +73,10 @@ crons falham com 403** — confira essa env antes de confiar na automação.
 
 **Idempotência:** `fechar-mes` deduplica por `franchiseId + competencia` (não roda duas cobranças
 para a mesma competência). **Sempre teste com `?dryRun=true` antes de rodar manualmente.**
-⚠️ A dedup é feita em código (lê-depois-escreve), sem constraint única no banco — evite rodar o
-fechamento manual e o cron ao mesmo tempo (janela de corrida). Ver seção 4 (recomendações).
+Desde 11/07/2026 essa dedup também é garantida por um índice único parcial no banco
+(`financials_franquia_competencia_unique`, categoria=Franquia e não cancelado) — mesmo em
+race condition ou reexecução simultânea do cron, a segunda tentativa falha por violação de
+constraint em vez de criar cobrança duplicada.
 
 ---
 
@@ -120,14 +122,15 @@ Rotas de referência que fazem certo: `empresas/[id]`, `contratos/[id]`, `crm/[i
 - O app acessa dados via Prisma (role `postgres`, que ignora RLS) — então a segurança dos dados
   no app vem da **seção 3.2**, não do RLS. O RLS protege contra acesso direto pela API REST do
   Supabase usando a `anon key` (que é pública, vai no bundle do browser).
-- **Ainda sem RLS (10/07/2026):** `user_session_logs` (vaza `userId`/`franchiseId`),
-  `marketing_conteudos`, `marketing_calendario`. As duas de marketing são conteúdo público (ok);
-  **`user_session_logs` deve receber RLS** (ver seção 4).
+- `user_session_logs` recebeu RLS em 10/07/2026 (aplicado no Supabase, ver seção 7). Restam
+  sem RLS: `marketing_conteudos`, `marketing_calendario` — conteúdo público, ok.
 
 ### 3.5 Uploads
 - `marketing/upload` → Supabase Storage (persistente). Valida tipo e tamanho. OK.
-- ⚠️ `upload-arquivo` grava em `public/uploads` no filesystem — **não persiste em serverless**.
-  Não use para dado que precisa durar; migre para Supabase Storage (ver seção 4).
+- `upload-arquivo` → migrado em 11/07/2026 para Supabase Storage (bucket `marketing-assets`,
+  pasta `sistema/`), mesmo padrão do `marketing/upload`. Antes gravava em `public/uploads`
+  (não persiste em serverless — arquivo sumia no próximo redeploy). Usado por Configurações
+  (assinatura do responsável + documentos de IES).
 
 ### 3.6 Segredos
 - Nenhum `.env` está no git (confirmado). `.gitignore` cobre `.env*`.
@@ -204,3 +207,22 @@ Recomendações que exigem aprovação/mudança em produção (ver relatório da
 RLS em `user_session_logs`; validação de assinatura/consulta do webhook Cora; constraint única
 para o fechamento mensal; migração de `upload-arquivo` para Supabase Storage; confirmação do
 plano de backup/PITR do Supabase.
+
+## 8. Hardening adicional (11/07/2026)
+
+Corrigido e commitado (aditivo, sem quebrar comportamento legítimo):
+- **Webhook Cora não confia mais no payload.** `app/api/webhooks/cora/route.ts` trata o corpo do
+  POST como gatilho; antes de alterar qualquer lançamento, reconsulta o status real do boleto na
+  Cora via `consultarBoleto()` (mTLS, mesma função do cron `verificar-boletos-cora`). Um webhook
+  forjado não consegue mais mudar estado financeiro. Não tocou em `lib/cora/`.
+- **Constraint única no banco para o fechamento mensal** — ver seção 2. Verificado 0 duplicatas
+  antes de aplicar; teste de inserção duplicada bloqueado corretamente pelo índice.
+- **`upload-arquivo` migrado para Supabase Storage** — ver seção 3.5.
+
+Pendente/decisão do usuário:
+- Confirmação do plano de backup/PITR do Supabase (envolve custo — não avaliado nesta rodada).
+- Stash local `temp-cora` com ~10 arquivos de mudanças não relacionadas (senha gerada com
+  `crypto.randomBytes`, escopo de `franquia-crm` restrito a FRANQUEADORA, cálculo de recesso
+  proporcional em rescisão, advisory lock em número de contrato, painel de alertas no dashboard)
+  ficou de uma sessão anterior travada — não avaliado nem aplicado nesta rodada, aguardando
+  decisão do usuário sobre o que fazer com ele.
