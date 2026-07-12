@@ -1,15 +1,16 @@
 // POST /api/app/upload-arquivo
-// Upload de imagens/PDFs para pasta public/uploads
-// Retorna a URL pública do arquivo
+// Upload de imagens/PDFs para o Supabase Storage (bucket marketing-assets, pasta sistema/)
+// Retorna a URL pública do arquivo.
+// Antes gravava em public/uploads — não persiste em serverless (some no redeploy).
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const ALLOWED_IMG = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
@@ -20,6 +21,12 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "FRANQUEADORA") {
     return NextResponse.json({ error: "Acesso restrito." }, { status: 403 });
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return NextResponse.json({ error: "Supabase não configurado." }, { status: 500 });
   }
 
   try {
@@ -38,16 +45,21 @@ export async function POST(req: Request) {
     }
 
     const ext = arquivo.name.split(".").pop()?.toLowerCase() || (isPdf ? "pdf" : "png");
-    const nomeArquivo = `${randomUUID()}.${ext}`;
+    const path = `sistema/${randomUUID()}.${ext}`;
 
-    // Salvar em /public/uploads/
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    await mkdir(uploadsDir, { recursive: true });
+    const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
     const buffer = Buffer.from(await arquivo.arrayBuffer());
-    await writeFile(path.join(uploadsDir, nomeArquivo), buffer);
+    const { error: uploadError } = await supabase.storage
+      .from("marketing-assets")
+      .upload(path, buffer, { contentType: arquivo.type, upsert: false });
 
-    const url = `/uploads/${nomeArquivo}`;
-    return NextResponse.json({ ok: true, url });
+    if (uploadError) {
+      console.error("[upload-arquivo] Supabase Storage error:", uploadError.message);
+      return NextResponse.json({ error: `Falha no upload para o Storage: ${uploadError.message}` }, { status: 500 });
+    }
+
+    const { data: publicUrlData } = supabase.storage.from("marketing-assets").getPublicUrl(path);
+    return NextResponse.json({ ok: true, url: publicUrlData.publicUrl });
   } catch (e: any) {
     console.error("upload-arquivo error:", e);
     return NextResponse.json({ error: "Erro ao salvar arquivo." }, { status: 500 });
