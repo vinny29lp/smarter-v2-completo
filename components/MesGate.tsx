@@ -1,8 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { MesAvisos } from "@/components/MesAvisos";
 import { MesBlockModal } from "@/components/MesBlockModal";
+
+// Página onde a unidade faz a abertura para se desbloquear — o modal de bloqueio
+// nunca pode cobrir essa página, senão a unidade fica presa sem conseguir se desbloquear.
+const ROTA_ABRIR_MES = "/dashboard/mes/abrir";
 
 const PING_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -20,6 +25,7 @@ const ROLES_COM_MES = ["FRANQUEADO", "FUNCIONARIO"];
 
 export function MesGate({ children }: { children: React.ReactNode }) {
   const { data: session, status: sessionStatus } = useSession();
+  const pathname = usePathname();
   const [mesStatus, setMesStatus] = useState<MesStatus | null>(null);
   const role = session?.user?.role;
   const ativo = sessionStatus === "authenticated" && !!role && ROLES_COM_MES.includes(role);
@@ -38,11 +44,16 @@ export function MesGate({ children }: { children: React.ReactNode }) {
       fetch("/api/app/sessao/ping", { method: "POST" }).catch(() => {});
     };
 
+    // Reconsulta ao navegar também — sem isso, depois de abrir o mês na
+    // tela de abertura, o modal de bloqueio (estado antigo em memória)
+    // continuaria aparecendo por até 5 minutos nas outras telas.
     carregarStatus();
     enviarPing();
     const interval = setInterval(() => { carregarStatus(); enviarPing(); }, PING_INTERVAL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [ativo]);
+  }, [ativo, pathname]);
+
+  const naPaginaDeAbrir = pathname === ROTA_ABRIR_MES;
 
   return (
     <>
@@ -50,7 +61,7 @@ export function MesGate({ children }: { children: React.ReactNode }) {
         <MesAvisos diasParaBloquear={mesStatus.diasParaBloquear} urgente={mesStatus.dia >= 3} />
       )}
       {children}
-      {ativo && mesStatus?.bloqueado && (
+      {ativo && mesStatus?.bloqueado && !naPaginaDeAbrir && (
         <MesBlockModal mes={mesStatus.mesAtual.mes} ano={mesStatus.mesAtual.ano} />
       )}
     </>
