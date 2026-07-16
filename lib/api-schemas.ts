@@ -129,6 +129,33 @@ export const criarLeadSchema = z.object({
   observacao:     z.string().max(2000).optional().nullable(),
 });
 
+// ── Partners API — CRM (escrita escopada por franquia) ────────────────────
+
+export const CRM_ETAPAS = ["novo_lead", "primeiro_contato", "apresentacao", "proposta", "negociacao", "fechado"] as const;
+export const CRM_SITUACOES = ["ativo", "vendido", "perdido", "pausado"] as const;
+
+export const partnerCriarLeadSchema = z.object({
+  empresa:        z.string().min(1, "Nome da empresa obrigatório.").max(200),
+  contato:        z.string().max(150).optional().nullable(),
+  email:          emailField,
+  telefone:       telField,
+  whatsapp:       telField,
+  cidade:         z.string().max(100).optional().nullable(),
+  uf:             z.string().max(2).optional().nullable(),
+  setor:          z.string().max(100).optional().nullable(),
+  prioridade:     z.enum(["baixa", "media", "alta"]).optional().default("media"),
+  anotacao:       z.string().max(2000).optional().nullable(),
+});
+
+export const partnerAtualizarLeadSchema = z.object({
+  etapa:          z.enum(CRM_ETAPAS).optional(),
+  situacao:       z.enum(CRM_SITUACOES).optional(),
+  proximaAcao:    z.string().max(500).optional().nullable(),
+  valorNegociado: z.union([z.number(), z.string()]).optional().nullable()
+                    .transform(v => (v !== null && v !== undefined && v !== "" ? parseFloat(String(v)) : null)),
+  anotacao:       z.string().max(2000).optional().nullable(),
+});
+
 // ── Helper de resposta de erro ────────────────────────────────────────────
 
 export function zodError(error: z.ZodError): { error: string } {

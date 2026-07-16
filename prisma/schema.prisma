@@ -77,6 +77,7 @@ model Franchise {
   aiUsageLogs          AIUsageLog[]
   vagaSolicitacoes     VagaSolicitacao[]
   monthOpenings        MonthOpening[]
+  partnerApiTokens     PartnerApiToken[]
 
   @@map("franchises")
 }
@@ -504,6 +505,20 @@ model CrmTask {
   lead        CrmLead   @relation(fields: [leadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("crm_tasks")
+}
+
+model PartnerApiToken {
+  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tokenHash   String    @unique
+  franchiseId String
+  descricao   String?
+  ativo       Boolean   @default(true)
+  createdAt   DateTime? @default(now()) @db.Timestamptz(6)
+  lastUsedAt  DateTime? @db.Timestamptz(6)
+  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([franchiseId])
+  @@map("partner_api_tokens")
 }
 
 model Financial {
