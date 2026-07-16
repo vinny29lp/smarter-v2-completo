@@ -228,6 +228,8 @@ model Student {
   experiencias      Json?
   formacoes         Json?
   objetivos         String?
+  partnerConsentStatus String?     @default("unknown")
+  partnerConsentAt     DateTime?   @db.Timestamptz(6)
   applications      Application[]
   contracts         Contract[]
   discTests         DiscTest[]
