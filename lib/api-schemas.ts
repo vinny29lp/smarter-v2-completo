@@ -156,6 +156,40 @@ export const partnerAtualizarLeadSchema = z.object({
   anotacao:       z.string().max(2000).optional().nullable(),
 });
 
+// ── Partners API — Tráfego Pago (escrita escopada por franquia) ───────────
+
+export const TRAFEGO_PAGO_PLATAFORMAS = ["meta", "google"] as const;
+export const TRAFEGO_PAGO_STATUS = ["ativa", "pausada", "encerrada"] as const;
+
+export const partnerCriarCampanhaSchema = z.object({
+  plataforma:         z.enum(TRAFEGO_PAGO_PLATAFORMAS),
+  nomeCampanha:       z.string().min(1, "Nome da campanha obrigatório.").max(200),
+  externalCampaignId: z.string().max(200).optional().nullable(),
+  objetivo:           z.string().max(100).optional().nullable(),
+  orcamentoDiario:    z.union([z.number(), z.string()]).optional().nullable()
+                        .transform(v => (v !== null && v !== undefined && v !== "" ? parseFloat(String(v)) : null)),
+  status:             z.enum(TRAFEGO_PAGO_STATUS).optional().default("ativa"),
+  dataInicio:         z.string().optional().nullable(),
+  dataFim:            z.string().optional().nullable(),
+});
+
+export const partnerAtualizarCampanhaSchema = z.object({
+  gastoTotal:    z.union([z.number(), z.string()]).optional()
+                   .transform(v => (v !== undefined && v !== "" ? parseFloat(String(v)) : undefined)),
+  impressoes:    z.union([z.number(), z.string()]).optional()
+                   .transform(v => (v !== undefined && v !== "" ? parseInt(String(v), 10) : undefined)),
+  cliques:       z.union([z.number(), z.string()]).optional()
+                   .transform(v => (v !== undefined && v !== "" ? parseInt(String(v), 10) : undefined)),
+  leadsGerados:  z.union([z.number(), z.string()]).optional()
+                   .transform(v => (v !== undefined && v !== "" ? parseInt(String(v), 10) : undefined)),
+  cpl:           z.union([z.number(), z.string()]).optional().nullable()
+                   .transform(v => (v !== null && v !== undefined && v !== "" ? parseFloat(String(v)) : v === null ? null : undefined)),
+  roas:          z.union([z.number(), z.string()]).optional().nullable()
+                   .transform(v => (v !== null && v !== undefined && v !== "" ? parseFloat(String(v)) : v === null ? null : undefined)),
+  status:        z.enum(TRAFEGO_PAGO_STATUS).optional(),
+  dataFim:       z.string().optional().nullable(),
+});
+
 // ── Helper de resposta de erro ────────────────────────────────────────────
 
 export function zodError(error: z.ZodError): { error: string } {

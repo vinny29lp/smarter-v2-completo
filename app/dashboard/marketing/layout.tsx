@@ -2,16 +2,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LayoutDashboard, Library, Megaphone, Newspaper, Lightbulb, CalendarDays, Settings2 } from "lucide-react";
+import { LayoutDashboard, Library, Megaphone, Newspaper, Lightbulb, CalendarDays, Settings2, Rocket } from "lucide-react";
 import clsx from "clsx";
 
 const NAV = [
-  { href: "/dashboard/marketing",            label: "Hub",          icon: LayoutDashboard },
-  { href: "/dashboard/marketing/biblioteca", label: "Biblioteca",   icon: Library },
-  { href: "/dashboard/marketing/campanhas",  label: "Campanhas",    icon: Megaphone },
-  { href: "/dashboard/marketing/calendario", label: "Calendário",   icon: CalendarDays },
-  { href: "/dashboard/marketing/sugestoes",  label: "Sugestões IA", icon: Lightbulb },
-  { href: "/dashboard/marketing/noticias",   label: "Notícias",     icon: Newspaper },
+  { href: "/dashboard/marketing",              label: "Hub",          icon: LayoutDashboard },
+  { href: "/dashboard/marketing/biblioteca",   label: "Biblioteca",   icon: Library },
+  { href: "/dashboard/marketing/campanhas",    label: "Campanhas",    icon: Megaphone },
+  { href: "/dashboard/marketing/trafego-pago", label: "Tráfego Pago", icon: Rocket },
+  { href: "/dashboard/marketing/calendario",   label: "Calendário",   icon: CalendarDays },
+  { href: "/dashboard/marketing/sugestoes",    label: "Sugestões IA", icon: Lightbulb },
+  { href: "/dashboard/marketing/noticias",     label: "Notícias",     icon: Newspaper },
 ];
 
 const ADMIN_NAV = { href: "/dashboard/marketing/admin", label: "Admin", icon: Settings2 };

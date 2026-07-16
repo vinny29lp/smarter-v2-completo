@@ -513,6 +513,7 @@ model PartnerApiToken {
   franchiseId String
   descricao   String?
   ativo       Boolean   @default(true)
+  scopes      String[]  @default(["crm"]) // capabilities autorizadas: "crm" | "marketing"
   createdAt   DateTime? @default(now()) @db.Timestamptz(6)
   lastUsedAt  DateTime? @db.Timestamptz(6)
   franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -979,6 +980,36 @@ model MarketingCalendario {
   @@index([data])
   @@index([tipo])
   @@map("marketing_calendario")
+}
+
+// Campanhas de tráfego pago (Meta/Google Ads) geridas pelo Alizo (AI Workforce OS)
+// e sincronizadas via API de parceiro escopada (token com scope "marketing").
+// franchiseId null = campanha da rede/franqueadora, igual ao padrão do CrmLead.
+model MarketingTrafegoPago {
+  id                String    @id @default(cuid())
+  franchiseId       String?
+  plataforma        String    // meta | google
+  nomeCampanha      String
+  externalCampaignId String?  // id da campanha na plataforma de anúncio (Meta/Google Ads)
+  objetivo          String?
+  orcamentoDiario   Float?
+  gastoTotal        Float     @default(0)
+  impressoes        Int       @default(0)
+  cliques           Int       @default(0)
+  leadsGerados      Int       @default(0)
+  cpl               Float?    // custo por lead
+  roas              Float?
+  status            String    @default("ativa") // ativa | pausada | encerrada
+  dataInicio        DateTime? @db.Timestamptz(6)
+  dataFim           DateTime? @db.Timestamptz(6)
+  lastSyncedAt      DateTime? @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([plataforma, externalCampaignId])
+  @@index([franchiseId])
+  @@index([status])
+  @@map("marketing_trafego_pago")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
