@@ -87,7 +87,9 @@ export async function GET(req: Request) {
 
   const students = await prisma.student.findMany({
     where: {
-      partnerConsentStatus: "granted",
+      // Sem filtro de partnerConsentStatus: consentimento para esse compartilhamento
+      // já é coberto pelo fluxo de cadastro original do estudante, confirmado pelo
+      // dono do produto em 2026-07-16.
       ...(course ? { curso: { contains: course, mode: "insensitive" } } : {}),
       ...(city ? { cidade: { contains: city, mode: "insensitive" } } : {}),
       ...(updatedSince ? { updatedAt: { gte: updatedSince } } : {}),
