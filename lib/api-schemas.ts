@@ -190,6 +190,40 @@ export const partnerAtualizarCampanhaSchema = z.object({
   dataFim:       z.string().optional().nullable(),
 });
 
+// ── Partners API — Recrutamento (escrita escopada por franquia) ───────────
+
+export const partnerCriarVagaSchema = z.object({
+  titulo:         z.string().min(1, "Título da vaga obrigatório.").max(200),
+  funcao:         z.string().max(150).optional().nullable(),
+  area:           z.string().max(150).optional().nullable(),
+  descricao:      z.string().max(5000).optional().nullable(),
+  requisitos:     z.string().max(5000).optional().nullable(),
+  beneficios:     z.string().max(2000).optional().nullable(),
+  modalidade:     z.string().max(50).optional().nullable(),
+  bolsa:          z.union([z.number(), z.string()])
+                    .transform(v => parseFloat(String(v)))
+                    .refine(v => Number.isFinite(v) && v >= 0, { message: "Bolsa deve ser um número válido." }),
+  auxTransporte:  z.union([z.number(), z.string()]).optional().nullable()
+                    .transform(v => (v !== null && v !== undefined && v !== "" ? parseFloat(String(v)) : null)),
+  cargaHoraria:   z.union([z.number(), z.string()]).optional().nullable()
+                    .transform(v => (v !== null && v !== undefined && v !== "" ? parseInt(String(v), 10) : null)),
+  chDiaria:       z.union([z.number(), z.string()]).optional().nullable()
+                    .transform(v => (v !== null && v !== undefined && v !== "" ? parseInt(String(v), 10) : null)),
+  horario:        z.string().max(100).optional().nullable(),
+  diasSemana:     z.string().max(100).optional().nullable(),
+  cidade:         z.string().max(100).optional().nullable(),
+  uf:             z.string().max(2).optional().nullable(),
+  discDesejado:   z.string().max(50).optional().nullable(),
+  nivel:          z.string().max(50).optional().nullable(),
+  cursoRequerido: z.string().max(150).optional().nullable(),
+  companyId:      z.string().min(1, "companyId obrigatório."),
+});
+
+export const partnerCriarApplicationSchema = z.object({
+  studentId: z.string().min(1, "studentId obrigatório."),
+  vacancyId: z.string().min(1, "vacancyId obrigatório."),
+});
+
 // ── Helper de resposta de erro ────────────────────────────────────────────
 
 export function zodError(error: z.ZodError): { error: string } {

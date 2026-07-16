@@ -10,7 +10,7 @@
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 
-export type PartnerScope = "crm" | "marketing";
+export type PartnerScope = "crm" | "marketing" | "recruitment";
 
 export function hashPartnerToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
