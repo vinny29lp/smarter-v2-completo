@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Building2, GraduationCap, Briefcase, FileText, DollarSign, Phone, Users, Star, Settings, Shield, LogOut, KanbanSquare, PenTool, BookOpen, Activity, Menu, X, MoreHorizontal, HeartPulse, TrendingUp, Megaphone, Calendar } from "lucide-react";
+import { LayoutDashboard, Building2, GraduationCap, Briefcase, FileText, DollarSign, Phone, Users, Star, Settings, Shield, LogOut, KanbanSquare, PenTool, BookOpen, Activity, Menu, X, MoreHorizontal, HeartPulse, TrendingUp, Megaphone, Calendar, LineChart } from "lucide-react";
 import clsx from "clsx";
 import { useState } from "react";
 
@@ -48,6 +48,7 @@ const mobileNavByRole: Record<string, {href:string;label:string;icon:any}[]> = {
 const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number}[][]> = {
   FRANQUEADORA: [[
     {href:"/dashboard",label:"Dashboard",icon:LayoutDashboard},
+    {href:"/dashboard/crescimento",label:"Crescimento 📈",icon:LineChart},
     {href:"/dashboard/franqueados",label:"Franqueados",icon:Users},
     {href:"/dashboard/engajamento",label:"Engajamento",icon:Activity},
   ],[
