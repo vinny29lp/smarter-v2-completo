@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 
 // ⚡ Otimizado: take reduzido de 500 → 200
 export async function getCompanies(franchiseId?: string) {
+  // Empresas migradas (origem=MIGRADO) são visíveis a todas as unidades, além das próprias
   return prisma.company.findMany({
-    where: franchiseId ? { franchiseId } : {},
+    where: franchiseId ? { OR: [{ franchiseId }, { origem: "MIGRADO" }] } : {},
     include: {
       franchise: { select: { name: true } },
       _count: { select: { contracts: true, vacancies: true } },

@@ -25,7 +25,8 @@ export async function GET(req: Request) {
 
   const role = session.user.role;
   const franchiseId = role === "FRANQUEADORA" ? undefined : (session.user.franchiseId || undefined);
-  const where = franchiseId ? { franchiseId } : {};
+  // Empresas migradas (origem=MIGRADO) são visíveis a todas as unidades, além das próprias
+  const where = franchiseId ? { OR: [{ franchiseId }, { origem: "MIGRADO" }] } : {};
 
   const [empresas, total] = await Promise.all([
     prisma.company.findMany({

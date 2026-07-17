@@ -22,16 +22,21 @@ export async function GET(req: Request) {
 
   const role = session.user.role;
   const franchiseId = role === "FRANQUEADORA" ? undefined : (session.user.franchiseId || undefined);
-  const franchiseWhere = franchiseId ? { franchiseId } : {};
+  // Empresas migradas (origem=MIGRADO) são visíveis a todas as unidades, além das próprias
+  const franchiseWhere = franchiseId ? { OR: [{ franchiseId }, { origem: "MIGRADO" }] } : {};
 
   try {
     const empresas = await prisma.company.findMany({
       where: {
-        ...franchiseWhere,
-        OR: [
-          { name:       { contains: q, mode: "insensitive" } },
-          { razaoSocial:{ contains: q, mode: "insensitive" } },
-          { cnpj:       { contains: q, mode: "insensitive" } },
+        AND: [
+          franchiseWhere,
+          {
+            OR: [
+              { name:       { contains: q, mode: "insensitive" } },
+              { razaoSocial:{ contains: q, mode: "insensitive" } },
+              { cnpj:       { contains: q, mode: "insensitive" } },
+            ],
+          },
         ],
       },
       select: {

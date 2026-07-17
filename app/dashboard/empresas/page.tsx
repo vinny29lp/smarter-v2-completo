@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { EmpresasFilters } from "./EmpresasFilters";
+import { ImportarEmpresasButton } from "@/components/empresas/ImportarEmpresasButton";
 
 const statusBadge: Record<string, "green"|"gray"|"yellow"|"red"> = {
   ATIVA:"green", INATIVA:"gray", ATENCAO:"yellow", PENDENTE:"yellow"
@@ -46,13 +47,16 @@ export default async function EmpresasPage({
             {empresas.length} empresas{searchParams.q || searchParams.status ? " (filtrado)" : ""}
           </p>
         </div>
-        {/* Botão Nova Empresa — sem onClick, apenas Link */}
-        <Link
-          href="/dashboard/empresas/nova"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f2a5e] text-white rounded-xl font-semibold text-sm hover:bg-[#1a3d8f] transition-colors"
-        >
-          + Nova Empresa
-        </Link>
+        <div className="flex gap-2">
+          <ImportarEmpresasButton />
+          {/* Botão Nova Empresa — sem onClick, apenas Link */}
+          <Link
+            href="/dashboard/empresas/nova"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f2a5e] text-white rounded-xl font-semibold text-sm hover:bg-[#1a3d8f] transition-colors"
+          >
+            + Nova Empresa
+          </Link>
+        </div>
       </div>
 
       {/* EmpresasFilters é Client Component — renderiza o botão de link e filtros */}
@@ -87,6 +91,11 @@ export default async function EmpresasPage({
                   {e.pendente && (
                     <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">
                       Auto cadastro
+                    </span>
+                  )}
+                  {(e as any).origem === "MIGRADO" && (
+                    <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold ml-1">
+                      Migrada — visível a todas unidades
                     </span>
                   )}
                 </td>

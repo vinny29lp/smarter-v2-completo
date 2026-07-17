@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { InstituicoesTable } from "./InstituicoesTable";
+import { ImportarInstituicoesButton } from "@/components/instituicoes/ImportarInstituicoesButton";
 
 export default async function InstituicoesPage() {
   const [session, instituicoes] = await Promise.all([
@@ -21,10 +22,13 @@ export default async function InstituicoesPage() {
           <h1 className="text-2xl font-black text-slate-800">Instituições de Ensino</h1>
           <p className="text-slate-500 text-sm mt-1">{instituicoes.length} instituições cadastradas</p>
         </div>
-        <Link href="/dashboard/instituicoes/nova"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f2a5e] text-white rounded-xl font-semibold text-sm hover:bg-[#1a3d8f] transition-colors">
-          + Nova Instituição
-        </Link>
+        <div className="flex gap-2">
+          <ImportarInstituicoesButton />
+          <Link href="/dashboard/instituicoes/nova"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f2a5e] text-white rounded-xl font-semibold text-sm hover:bg-[#1a3d8f] transition-colors">
+            + Nova Instituição
+          </Link>
+        </div>
       </div>
 
       <InstituicoesTable instituicoes={instituicoes as any} isFranqueadora={isFranqueadora} />

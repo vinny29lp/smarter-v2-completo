@@ -108,6 +108,10 @@ model Company {
   cpsStatus        String?        @default("NAO_GERADO")
   cpsAuthDocId     String?
   cpsSignedUrl     String?
+  origem           String?        @default("NORMAL") // NORMAL | MIGRADO — empresas migradas do sistema antigo são visíveis a todas as unidades
+  migradoEm        DateTime?      @db.Timestamptz(6)
+  migradoPor       String?
+  migradoPorNome   String?
   franchise           Franchise?        @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   contracts           Contract[]
   crmLeads            CrmLead[]
@@ -164,6 +168,12 @@ model Institution {
   // Credenciais de acesso ao portal IES (geradas após assinar convênio)
   portalSenha          String?   // bcrypt hash da senha enviada por email
   // ─────────────────────────────────────────────────────────────────────────────
+
+  // Migração do sistema antigo (IES já é global — usado apenas para auditoria/trilha)
+  origem         String?   @default("NORMAL") // NORMAL | MIGRADO
+  migradoEm      DateTime? @db.Timestamptz(6)
+  migradoPor     String?
+  migradoPorNome String?
 
   contracts   Contract[]
   students    Student[]

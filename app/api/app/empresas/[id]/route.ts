@@ -25,8 +25,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   });
   if (!empresa) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Ownership check for GET: FRANQUEADO can only see their own franchise companies
-  if (role !== "FRANQUEADORA" && empresa.franchiseId !== franchiseId) {
+  // Ownership check for GET: FRANQUEADO só vê empresas da própria unidade,
+  // exceto empresas migradas (origem=MIGRADO), que são visíveis a todas.
+  if (role !== "FRANQUEADORA" && empresa.franchiseId !== franchiseId && (empresa as any).origem !== "MIGRADO") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
