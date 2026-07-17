@@ -144,7 +144,16 @@
       "Bash(cp /private/tmp/claude-501/-Users-viniciusmiranda-Desktop-Sistema-smarter-smarter-v2-completo/a0e90e87-1930-406a-8f6f-f6f129fcb0fc/scratchpad/check-admin.mjs ./scratch-check-admin.mjs)",
       "Bash(node scratch-check-admin.mjs)",
       "Bash(rm -f scratch-check-admin.mjs)",
-      "Bash(node scratch-sanity.mjs)"
+      "Bash(node scratch-sanity.mjs)",
+      "Bash(git commit *)",
+      "Bash(rm -f \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo/app/api/_dev-login/route.ts\")",
+      "Bash(rmdir \"/Users/viniciusmiranda/Desktop/Sistema smarter/smarter-v2-completo/app/api/_dev-login\")",
+      "Bash(echo \"EXIT_CODE:$?\")",
+      "Bash(curl -s -o /dev/null -w \"login: %{http_code}\\\\n\" http://localhost:3000/login)",
+      "Bash(curl -s -o /dev/null -w \"crescimento \\(no auth, expect redirect 307/302\\): %{http_code}\\\\n\" http://localhost:3000/dashboard/crescimento)",
+      "Bash(curl -s -o /dev/null -w \"api crescimento \\(no auth, expect 401\\): %{http_code}\\\\n\" \"http://localhost:3000/api/app/crescimento?from=2026-06-01&to=2026-07-01\")",
+      "Bash(curl -sv http://localhost:3000/login)",
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }
