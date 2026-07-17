@@ -800,6 +800,26 @@ model AIUsageLog {
   @@index([createdAt])
 }
 
+// Histórico de conversas com a Lia (assistente de suporte de IA).
+// actorType/actorId identificam quem está falando com a Lia: para usuários
+// logados via NextAuth (FRANQUEADO, EMPRESA, ESTUDANTE), actorId = session.user.id;
+// para IES (portal por token, sem sessão NextAuth), actorId = Institution.id.
+// franchiseId é só para fins de escopo/relatório — sem FK, pois FRANQUEADORA usa
+// sentinel e nem toda IES tem franchiseId (mesmo padrão do AIUsageLog acima).
+model LiaMessage {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  franchiseId String?
+  actorType   String   // "FRANQUEADO" | "EMPRESA" | "ESTUDANTE" | "IES"
+  actorId     String
+  role        String   // "user" | "assistant"
+  content     String
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("lia_messages")
+  @@index([actorId, createdAt])
+  @@index([franchiseId])
+}
+
 // ─── CRM DE VENDA DE FRANQUIAS ────────────────────────────────────────────────
 // Separado do CrmLead (que é para parcerias empresariais).
 // Leads captados de tráfego pago (Meta Ads), indicações ou orgânico.

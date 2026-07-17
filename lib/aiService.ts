@@ -15,7 +15,8 @@ export type AITipoUso =
   | "parecer"
   | "sugestao_testes"
   | "sugestao_requisitos"
-  | "disc_perfil";
+  | "disc_perfil"
+  | "lia_chat";
 
 export interface AICallOptions {
   franchiseId: string;
@@ -240,6 +241,139 @@ export async function callAI(opts: AICallOptions): Promise<AICallResult> {
                        + (completionTokens / 1000) * CUSTO_OUTPUT_PER_1K;
 
   // Registrar uso com sucesso
+  await registrarLog({
+    franchiseId: opts.franchiseId,
+    userId: opts.userId,
+    userEmail: opts.userEmail,
+    tipoUso: opts.tipoUso,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    custoEstimado,
+    modelo: MODELO,
+    sucesso: true,
+  });
+
+  return {
+    content,
+    tokensUsed: { prompt: promptTokens, completion: completionTokens, total: totalTokens },
+    custoEstimado,
+  };
+}
+
+// ── CHAMADA CONVERSACIONAL (multi-turno) ──────────────────────────────────
+// Usada pela Lia. Reaproveita os mesmos limites, custo e log de callAI acima,
+// mas envia um histórico de mensagens em vez de um único par system/user.
+
+export interface AIChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AIChatOptions {
+  franchiseId: string;
+  userId?: string;
+  userEmail?: string;
+  tipoUso: AITipoUso;
+  systemPrompt: string;
+  messages: AIChatMessage[];
+  maxTokens?: number;
+  temperature?: number;
+}
+
+export async function callAIChat(opts: AIChatOptions): Promise<AICallResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY não configurada no ambiente.");
+  }
+
+  const limite = await verificarLimite(opts.franchiseId, opts.userId);
+  if (!limite.ok) {
+    await registrarLog({
+      franchiseId: opts.franchiseId,
+      userId: opts.userId,
+      userEmail: opts.userEmail,
+      tipoUso: opts.tipoUso,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      custoEstimado: 0,
+      modelo: MODELO,
+      sucesso: false,
+      erro: limite.motivo,
+    });
+    throw new Error(limite.motivo);
+  }
+
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let content = "";
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODELO,
+        max_tokens: opts.maxTokens || 800,
+        temperature: opts.temperature ?? 0.7,
+        messages: [
+          { role: "system", content: opts.systemPrompt },
+          ...opts.messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+      }),
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 429) {
+      throw new Error("Limite de requisições de IA atingido. Aguarde alguns segundos e tente novamente.");
+    }
+
+    if (!response.ok) {
+      throw new Error(`A IA encontrou um problema (erro ${response.status}). Tente novamente em instantes.`);
+    }
+
+    const data = await response.json();
+    content = data.choices?.[0]?.message?.content || "";
+    promptTokens     = data.usage?.prompt_tokens     || 0;
+    completionTokens = data.usage?.completion_tokens || 0;
+
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === "AbortError") {
+      err.message = "A IA demorou mais de 30 segundos para responder. Tente novamente.";
+    } else if (err.message?.includes("fetch failed") || err.message?.includes("ECONNREFUSED")) {
+      err.message = "Não foi possível conectar à IA. Verifique sua conexão e tente novamente.";
+    }
+    await registrarLog({
+      franchiseId: opts.franchiseId,
+      userId: opts.userId,
+      userEmail: opts.userEmail,
+      tipoUso: opts.tipoUso,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      custoEstimado: 0,
+      modelo: MODELO,
+      sucesso: false,
+      erro: err.message,
+    });
+    throw err;
+  }
+
+  const totalTokens    = promptTokens + completionTokens;
+  const custoEstimado  = (promptTokens / 1000) * CUSTO_INPUT_PER_1K
+                       + (completionTokens / 1000) * CUSTO_OUTPUT_PER_1K;
+
   await registrarLog({
     franchiseId: opts.franchiseId,
     userId: opts.userId,

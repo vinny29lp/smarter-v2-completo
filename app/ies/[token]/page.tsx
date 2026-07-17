@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import MinutaConvenio from "@/components/ies/MinutaConvenio";
+import { LiaWidget } from "@/components/lia/LiaWidget";
 
 type Etapa = "landing" | "documentos" | "minuta" | "assinatura" | "concluido" | "login" | "portal";
 type TipoMinuta = "smarter" | "propria";
@@ -827,6 +828,7 @@ export default function IESPortalPage() {
           </div>
         </div>
       )}
+      {etapa === "portal" && <LiaWidget contexto="IES" iesToken={token} />}
     </div>
   );
 }
