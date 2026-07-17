@@ -107,7 +107,23 @@ export async function GET() {
       take: 20,
     });
 
-    // ─── 6. CRM de Parcerias — leads com retorno vencido ─────────────────────
+    // ─── 6a. Feedback da Lia — bugs relatados (não resolvidos) ───────────────
+    const liaFeedbackBugs = await prisma.liaFeedback.findMany({
+      where: { ...fwhere, tipo: "bug", resolvido: false },
+      select: { id: true, resumo: true, sentimento: true, actorType: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+    });
+
+    // ─── 6b. Feedback da Lia — elogios, críticas e sugestões (não resolvidos) ─
+    const liaFeedbackGeral = await prisma.liaFeedback.findMany({
+      where: { ...fwhere, tipo: { in: ["elogio", "critica", "sugestao"] }, resolvido: false },
+      select: { id: true, tipo: true, resumo: true, sentimento: true, actorType: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+    });
+
+    // ─── 7. CRM de Parcerias — leads com retorno vencido ─────────────────────
     const leadsCrmVencidos = await prisma.crmLead.findMany({
       where: {
         ...fwhere,
@@ -201,8 +217,8 @@ export async function GET() {
 
     // ─── Totais por severidade ────────────────────────────────────────────────
     const critico = contratosPendentes2Mes.length + contratosVencidosSemFinalizar.length + unidadesComPendentes2Mes.length + franquiaTarefasVencidas.length;
-    const atencao = contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length;
-    const info    = franquiaLeadsParados.length;
+    const atencao = contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length + liaFeedbackBugs.length;
+    const info    = franquiaLeadsParados.length + liaFeedbackGeral.length;
 
     return NextResponse.json({
       alertas: {
@@ -212,6 +228,8 @@ export async function GET() {
         contratosPendentes2Mes:      contratosPendentes2Mes.map(c => ({ ...c, diasPendente: DIAS(c.createdAt ?? new Date()) })),
         avaliacoesDevidas:           avaliacoesDevidas.map(c => ({ ...c, mesesAtivo: Math.floor(DIAS(c.dataInicio ?? new Date()) / 30) })),
         leadsCrmVencidos,
+        liaFeedbackBugs,
+        liaFeedbackGeral,
         // FRANQUEADORA:
         unidadesComPendentes2Mes,
         franquiaTarefasVencidas,

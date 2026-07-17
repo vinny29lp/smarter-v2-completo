@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { callAIChat } from "@/lib/aiService";
 import { buildLiaSystemPrompt, LiaContexto } from "@/lib/lia/systemPrompt";
+import { extrairFeedback } from "@/lib/lia/feedback";
 
 // Papéis com acesso à Lia dentro do sistema logado (a versão IES fica em /api/ies/[token]/lia).
 const ROLES_PERMITIDOS: Record<string, LiaContexto> = {
@@ -82,18 +83,33 @@ export async function POST(req: Request) {
       temperature: 0.7,
     });
 
+    const { texto: respostaLimpa, feedback } = extrairFeedback(result.content);
+
     await prisma.liaMessage.create({
       data: {
         franchiseId,
         actorType: contexto,
         actorId: session.user.id,
         role: "assistant",
-        content: result.content,
+        content: respostaLimpa,
       },
     });
 
+    if (feedback) {
+      await prisma.liaFeedback.create({
+        data: {
+          franchiseId,
+          tipo: feedback.tipo,
+          sentimento: feedback.sentimento,
+          resumo: feedback.resumo,
+          actorType: contexto,
+          actorId: session.user.id,
+        },
+      }).catch((e) => console.error("[AI/lia] Erro ao registrar feedback:", e));
+    }
+
     return NextResponse.json({
-      resposta: result.content,
+      resposta: respostaLimpa,
       tokens: result.tokensUsed,
       custo: result.custoEstimado,
     });

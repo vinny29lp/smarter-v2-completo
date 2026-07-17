@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { callAIChat } from "@/lib/aiService";
 import { buildLiaSystemPrompt } from "@/lib/lia/systemPrompt";
+import { extrairFeedback } from "@/lib/lia/feedback";
 
 const HISTORICO_MAX = 20;
 const MENSAGEM_MAX_CHARS = 4000;
@@ -81,18 +82,33 @@ export async function POST(req: Request, { params }: { params: { token: string }
       temperature: 0.7,
     });
 
+    const { texto: respostaLimpa, feedback } = extrairFeedback(result.content);
+
     await prisma.liaMessage.create({
       data: {
         franchiseId: institution.franchiseId,
         actorType: "IES",
         actorId: institution.id,
         role: "assistant",
-        content: result.content,
+        content: respostaLimpa,
       },
     });
 
+    if (feedback) {
+      await prisma.liaFeedback.create({
+        data: {
+          franchiseId: institution.franchiseId,
+          tipo: feedback.tipo,
+          sentimento: feedback.sentimento,
+          resumo: feedback.resumo,
+          actorType: "IES",
+          actorId: institution.id,
+        },
+      }).catch((e) => console.error("[AI/lia/ies] Erro ao registrar feedback:", e));
+    }
+
     return NextResponse.json({
-      resposta: result.content,
+      resposta: respostaLimpa,
       tokens: result.tokensUsed,
       custo: result.custoEstimado,
     });

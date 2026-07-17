@@ -820,6 +820,29 @@ model LiaMessage {
   @@index([franchiseId])
 }
 
+// Feedback (bug/elogio/critica/sugestao) capturado automaticamente pela Lia durante
+// uma conversa — extraído de um marcador oculto que o próprio modelo anexa à resposta
+// (ver lib/lia/feedback.ts). Puramente aditivo, sem FK, mesmo padrão do LiaMessage
+// acima (franchiseId sem FK porque FRANQUEADORA usa sentinel e nem toda IES tem
+// franchiseId preenchido). Consumido pelo painel de Alertas do dashboard.
+model LiaFeedback {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  franchiseId String?
+  tipo        String   // "bug" | "elogio" | "critica" | "sugestao"
+  sentimento  String   // "positivo" | "neutro" | "negativo"
+  resumo      String
+  actorType   String   // "FRANQUEADO" | "EMPRESA" | "ESTUDANTE" | "IES"
+  actorId     String
+  resolvido   Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("lia_feedback")
+  @@index([franchiseId])
+  @@index([tipo])
+  @@index([resolvido])
+  @@index([createdAt])
+}
+
 // ─── CRM DE VENDA DE FRANQUIAS ────────────────────────────────────────────────
 // Separado do CrmLead (que é para parcerias empresariais).
 // Leads captados de tráfego pago (Meta Ads), indicações ou orgânico.

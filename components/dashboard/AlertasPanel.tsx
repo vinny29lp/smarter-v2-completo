@@ -11,6 +11,7 @@ interface LeadCrmItem   { id: string; empresa: string; contato: string; retornoA
 interface UnidadeItem   { franchiseId: string; franchiseName: string; total: number; }
 interface TarefaItem    { id: string; leadId: string; nomeCompleto: string; descricao: string; dueAt: string; }
 interface LeadParadoItem{ id: string; nomeCompleto: string; etapa: string; ultimoContato: string | null; dias: number; }
+interface LiaFeedbackItem { id: string; tipo?: string; resumo: string; sentimento: string; actorType: string; createdAt: string; }
 
 interface Alertas {
   contratosVencendo: ContratItem[];
@@ -19,6 +20,8 @@ interface Alertas {
   contratosPendentes2Mes: ContratItem[];
   avaliacoesDevidas: ContratItem[];
   leadsCrmVencidos: LeadCrmItem[];
+  liaFeedbackBugs: LiaFeedbackItem[];
+  liaFeedbackGeral: LiaFeedbackItem[];
   unidadesComPendentes2Mes: UnidadeItem[];
   franquiaTarefasVencidas: TarefaItem[];
   franquiaLeadsParados: LeadParadoItem[];
@@ -48,6 +51,23 @@ function AlertRow({ href, children }: { href: string; children: React.ReactNode 
     </Link>
   );
 }
+
+// Sem link de destino (o feedback da Lia não tem uma tela de detalhe própria ainda) —
+// mesmo visual do AlertRow, sem navegação.
+function StaticRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 py-2 px-3 text-sm text-gray-700 border-b border-gray-100 last:border-0">
+      {children}
+    </div>
+  );
+}
+
+const ATOR_LABEL: Record<string, string> = {
+  FRANQUEADO: "Franqueado", EMPRESA: "Empresa", ESTUDANTE: "Estudante", IES: "IES",
+};
+const TIPO_FEEDBACK_LABEL: Record<string, string> = {
+  bug: "🐛 Bug", elogio: "⭐ Elogio", critica: "⚠️ Crítica", sugestao: "💡 Sugestão",
+};
 
 function Section({ title, tipo, count, children }: { title: string; tipo: "critico" | "atencao" | "info"; count: number; children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
@@ -220,6 +240,32 @@ export default function AlertasPanel({ isMaster }: { isMaster: boolean }) {
               <p className="text-xs text-gray-500">{l.contato} · Retorno previsto: {fmt(l.retornoAt)} · Etapa: {l.etapa}</p>
             </div>
           </AlertRow>
+        ))}
+      </Section>
+
+      <Section title="Bugs relatados pela Lia" tipo="atencao" count={alertas.liaFeedbackBugs.length}>
+        {alertas.liaFeedbackBugs.map(f => (
+          <StaticRow key={f.id}>
+            <span className="text-yellow-500 mt-0.5">🐛</span>
+            <div>
+              <p className="font-medium">{f.resumo}</p>
+              <p className="text-xs text-gray-500">Relatado por {ATOR_LABEL[f.actorType] ?? f.actorType} · {fmt(f.createdAt)}</p>
+            </div>
+          </StaticRow>
+        ))}
+      </Section>
+
+      {/* ─── INFO ──────────────────────────────────────────────────── */}
+
+      <Section title="Feedback recebido pela Lia (elogios, críticas e sugestões)" tipo="info" count={alertas.liaFeedbackGeral.length}>
+        {alertas.liaFeedbackGeral.map(f => (
+          <StaticRow key={f.id}>
+            <span className="text-blue-500 mt-0.5">{TIPO_FEEDBACK_LABEL[f.tipo ?? ""]?.split(" ")[0] ?? "💬"}</span>
+            <div>
+              <p className="font-medium">{f.resumo}</p>
+              <p className="text-xs text-gray-500">{TIPO_FEEDBACK_LABEL[f.tipo ?? ""] ?? f.tipo} · {ATOR_LABEL[f.actorType] ?? f.actorType} · {fmt(f.createdAt)}</p>
+            </div>
+          </StaticRow>
         ))}
       </Section>
 
