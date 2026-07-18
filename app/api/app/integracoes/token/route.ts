@@ -26,6 +26,7 @@ export const dynamic = "force-dynamic";
 const SCOPE_LABEL: Record<string, string> = {
   crm: "CRM de Vendas",
   recruitment: "Recrutamento",
+  marketing: "Tráfego Pago",
 };
 
 export async function POST(req: Request) {
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
 
   const scope = body.scope as PartnerScope;
-  if (scope !== "crm" && scope !== "recruitment") {
+  if (scope !== "crm" && scope !== "recruitment" && scope !== "marketing") {
     return apiErr("Escopo inválido.", 400, "INVALID_SCOPE");
   }
 

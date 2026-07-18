@@ -39,7 +39,7 @@ function CopyButton({ value, label = "Copiar" }: { value: string; label?: string
 interface Props {
   titulo: string;
   descricao: string;
-  scope: "crm" | "recruitment";
+  scope: "crm" | "recruitment" | "marketing";
   franchiseId: string;
   status: TokenStatus;
   onChanged: () => void;

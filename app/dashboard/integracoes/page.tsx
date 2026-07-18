@@ -17,6 +17,7 @@ interface StatusData {
   franchise: { id: string; name: string };
   crm: TokenStatus;
   recruitment: TokenStatus;
+  marketing: TokenStatus;
   empresas: EmpresaOpcao[];
 }
 
@@ -127,6 +128,15 @@ export default function IntegracoesPage() {
           >
             <EmpresaIdList empresas={data.empresas} />
           </ScopeTokenCard>
+
+          <ScopeTokenCard
+            titulo="Tráfego Pago"
+            descricao="Cole este token no campo de integração de Tráfego Pago dentro da Alizo. Ele autoriza o agente de tráfego a registrar e atualizar campanhas (Meta/Google Ads) desta unidade."
+            scope="marketing"
+            franchiseId={data.franchise.id}
+            status={data.marketing}
+            onChanged={() => carregarStatus(data.franchise.id)}
+          />
         </div>
       ) : null}
     </div>

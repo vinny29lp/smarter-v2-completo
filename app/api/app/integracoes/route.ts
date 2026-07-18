@@ -56,6 +56,7 @@ export async function GET(req: Request) {
     franchise,
     crm: tokenStatus(tokens, "crm"),
     recruitment: tokenStatus(tokens, "recruitment"),
+    marketing: tokenStatus(tokens, "marketing"),
     empresas,
   });
 }
