@@ -36,8 +36,9 @@ export async function POST(req: Request) {
 
   const origem = body.origem || "link_publico";
   const origemLabel =
-    origem === "trafego_pago"      ? "tráfego pago"
-    : origem === "equipe_comercial" ? "equipe comercial"
+    origem === "trafego_pago"           ? "tráfego pago"
+    : origem === "equipe_comercial"      ? "equipe comercial"
+    : origem === "apresentacao_empresas" ? "apresentação comercial (aba Empresas)"
     : "link público";
 
   const lead = await prisma.crmLead.create({

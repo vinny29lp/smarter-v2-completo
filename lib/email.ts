@@ -356,6 +356,79 @@ export async function enviarBoasVindasFranqueado(params: {
   );
 }
 
+// ── Apresentação Comercial para Empresas (aba Empresas) ─────────
+// E-mail de prospecção enviado pela unidade para uma empresa-alvo,
+// com CTA para a landing pública /parceria?ref=<franchiseId>.
+export async function enviarApresentacaoEmpresas(params: {
+  email: string;
+  nomeContato?: string;
+  nomeUnidade: string;      // ex: "Smarter Campinas" ou "Smarter Estágios"
+  responsavel?: string;
+  cidade?: string;          // "Campinas/SP"
+  whatsapp?: string | null;
+  refId?: string | null;    // franchiseId — ausente = lead vai para a franqueadora
+}): Promise<boolean> {
+  const link = `${APP_URL}/parceria${params.refId ? `?ref=${encodeURIComponent(params.refId)}` : ""}`;
+  const saudacao = params.nomeContato ? `Olá, <strong>${params.nomeContato}</strong>!` : "Olá!";
+  const assinatura = [params.responsavel, params.nomeUnidade, params.cidade].filter(Boolean).join(" · ");
+
+  const corpo = `
+    <p style="color:#475569;margin-bottom:16px">${saudacao}</p>
+    <p style="color:#475569;margin-bottom:16px">
+      Contratar bons profissionais está cada vez mais <strong>caro e demorado</strong>.
+      A <strong>Smarter Estágios</strong> ajuda empresas como a sua a contratar
+      <strong>estagiários selecionados com tecnologia</strong> — com custo muito menor
+      que uma contratação CLT e <strong>zero burocracia</strong> para você.
+    </p>
+
+    <div class="box">
+      <p style="font-size:13px;margin:0 0 12px;font-weight:700;color:#0f2a5e">Por que empresas contratam com a Smarter?</p>
+      <p style="margin:4px 0;font-size:13px">🎯 Triagem inteligente — só os candidatos alinhados ao seu perfil</p>
+      <p style="margin:4px 0;font-size:13px">📑 TCE, plano de atividades e seguro: tudo por nossa conta</p>
+      <p style="margin:4px 0;font-size:13px">⚖️ 100% conforme a Lei nº 11.788/2008 — sem vínculo empregatício</p>
+      <p style="margin:4px 0;font-size:13px">🏫 Convênio com instituições de ensino já incluído</p>
+      <p style="margin:4px 0;font-size:13px">🤝 Atendimento humanizado, com especialista da sua região</p>
+      <p style="margin:4px 0;font-size:13px">⚡ Em média 7 a 15 dias úteis para o estagiário começar</p>
+    </div>
+
+    <p style="color:#475569;margin:16px 0">
+      Preparamos uma <strong>apresentação completa</strong> mostrando como funciona na prática.
+      Leva menos de 3 minutos para conhecer:
+    </p>
+
+    <div style="text-align:center;margin:28px 0">
+      <a href="${link}" style="background:#0f2a5e;color:white;font-weight:900;font-size:15px;padding:14px 36px;border-radius:12px;text-decoration:none;display:inline-block">
+        Ver a apresentação da Smarter →
+      </a>
+    </div>
+
+    <p style="color:#64748b;font-size:12px;text-align:center">
+      Ou copie e cole este link no navegador:<br/>
+      <a href="${link}" style="color:#0f2a5e">${link}</a>
+    </p>
+
+    <div class="box" style="background:#fef9ec;border-color:#f5c400">
+      <p style="margin:0;font-size:12px;color:#92400e">
+        💡 Na apresentação você pode deixar seus dados e receber uma
+        <strong> proposta gratuita e sem compromisso</strong> para a sua empresa.
+      </p>
+    </div>
+
+    ${assinatura ? `
+    <p style="color:#475569;font-size:13px;margin-top:20px">
+      Atenciosamente,<br/>
+      <strong>${assinatura}</strong>
+      ${params.whatsapp ? `<br/><span style="color:#64748b;font-size:12px">📱 WhatsApp: ${params.whatsapp}</span>` : ""}
+    </p>` : ""}
+  `;
+
+  return sendMail(
+    params.email,
+    "Contratar estagiários sem burocracia — conheça a Smarter Estágios",
+    base("Talentos para a sua empresa, sem complicação", corpo),
+  );
+}
+
 // ── Convite IES — Portal de Adesão ──────────────────────────────
 export async function enviarConviteIES(params: {
   email: string;

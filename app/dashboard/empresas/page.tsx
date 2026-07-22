@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { EmpresasFilters } from "./EmpresasFilters";
 import { ImportarEmpresasButton } from "@/components/empresas/ImportarEmpresasButton";
+import { ProspeccaoEmpresas } from "@/components/empresas/ProspeccaoEmpresas";
 
 const statusBadge: Record<string, "green"|"gray"|"yellow"|"red"> = {
   ATIVA:"green", INATIVA:"gray", ATENCAO:"yellow", PENDENTE:"yellow"
@@ -58,6 +59,10 @@ export default async function EmpresasPage({
           </Link>
         </div>
       </div>
+
+      {/* Prospecção: link da apresentação comercial + envio por e-mail.
+          FRANQUEADORA usa sentinel "FRANQUEADORA" no franchiseId → link sem ref (lead vai para a matriz) */}
+      <ProspeccaoEmpresas franchiseRef={franchiseRef !== "FRANQUEADORA" ? franchiseRef : undefined} />
 
       {/* EmpresasFilters é Client Component — renderiza o botão de link e filtros */}
       <EmpresasFilters franchiseRef={franchiseRef} />
