@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
+
 interface Props {
   /** franchiseId da unidade logada — undefined para FRANQUEADORA (link sem ref) */
   franchiseRef?: string;
@@ -20,8 +22,7 @@ export function ProspeccaoEmpresas({ franchiseRef }: Props) {
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const getLink = () => {
-    const base = typeof window !== "undefined" ? window.location.origin : "";
-    return `${base}/parceria${franchiseRef ? `?ref=${franchiseRef}` : ""}`;
+    return `${APP_URL}/parceria${franchiseRef ? `?ref=${franchiseRef}` : ""}`;
   };
 
   const copy = () => {
