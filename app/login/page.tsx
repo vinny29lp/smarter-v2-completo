@@ -38,7 +38,7 @@ function LoginContent() {
   const callbackUrl = searchParams.get("callbackUrl");
 
   useEffect(() => {
-    fetch("/api/app/config")
+    fetch("/api/public/branding")
       .then(r => r.json())
       .then(d => { if (d.config) setCfg({ ...DEFAULT_CFG, ...d.config }); })
       .catch(() => {});
