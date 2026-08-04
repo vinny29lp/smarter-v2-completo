@@ -107,6 +107,18 @@ export async function POST(req: Request) {
     }
 
     if (etapa === "financeiro") {
+      // Antes de aceitar mes/ano arbitrários, esta rota só alcançava o mês corrente —
+      // uma vez virado o mês, o fechamento ficava naturalmente imutável por aqui. Agora
+      // que qualquer mês passado pendente pode ser fechado, é preciso a mesma trava
+      // explícita: um fechamento já confirmado (leituraConfirmada) não pode ser reaberto
+      // e sobrescrito silenciosamente.
+      if (abertura.fechamento?.leituraConfirmada) {
+        return NextResponse.json(
+          { error: "Este mês já foi fechado e confirmado — não pode ser reaberto." },
+          { status: 409 }
+        );
+      }
+
       const pagos: string[] = Array.isArray(body.pagos) ? body.pagos : [];
       const atrasados: string[] = Array.isArray(body.atrasados) ? body.atrasados : [];
 
