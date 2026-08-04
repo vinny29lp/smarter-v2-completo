@@ -10,11 +10,37 @@ const NOMES_MES = [
 interface Props {
   mes: number;
   ano: number;
+  // Quando presente, o mês anterior foi aberto e nunca fechado — essa é a
+  // ação que precisa acontecer primeiro, senão a unidade nunca consegue
+  // abrir o mês atual (o backend rejeita a abertura até o anterior fechar).
+  mesAnteriorPendente?: { mes: number; ano: number } | null;
 }
 
-export function MesBlockModal({ mes, ano }: Props) {
+export function MesBlockModal({ mes, ano, mesAnteriorPendente }: Props) {
   const router = useRouter();
   const nomeMes = NOMES_MES[mes - 1] || mes;
+
+  if (mesAnteriorPendente) {
+    const nomeMesAnterior = NOMES_MES[mesAnteriorPendente.mes - 1] || mesAnteriorPendente.mes;
+    return (
+      <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 text-center">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h1 className="text-xl font-black text-slate-800 mb-3">Fechamento do Mês Anterior Pendente</h1>
+          <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+            Você abriu o mês de <strong>{nomeMesAnterior}/{mesAnteriorPendente.ano}</strong> mas nunca o
+            fechou. Feche-o primeiro — só depois será possível abrir {nomeMes}/{ano}.
+          </p>
+          <button
+            onClick={() => router.push(`/dashboard/mes/fechar?mes=${mesAnteriorPendente.mes}&ano=${mesAnteriorPendente.ano}`)}
+            className="inline-flex items-center justify-center gap-2 bg-[#0f2a5e] text-white font-bold px-6 py-3 rounded-xl hover:bg-[#1a3d8f] transition-colors w-full"
+          >
+            Fechar {nomeMesAnterior}/{mesAnteriorPendente.ano} Agora <ArrowRight size={18} />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4">

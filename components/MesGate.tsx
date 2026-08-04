@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation";
 import { MesAvisos } from "@/components/MesAvisos";
 import { MesBlockModal } from "@/components/MesBlockModal";
 
-// Página onde a unidade faz a abertura para se desbloquear — o modal de bloqueio
-// nunca pode cobrir essa página, senão a unidade fica presa sem conseguir se desbloquear.
-const ROTA_ABRIR_MES = "/dashboard/mes/abrir";
+// Páginas onde a unidade resolve o bloqueio — o modal nunca pode cobrir essas
+// rotas, senão a unidade fica presa sem conseguir se desbloquear. Inclui a de
+// fechar (não só a de abrir) porque, com mês anterior pendente, é lá que a
+// unidade precisa estar para sair do estado bloqueado.
+const ROTAS_DESBLOQUEIO = ["/dashboard/mes/abrir", "/dashboard/mes/fechar"];
 
 const PING_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -17,6 +19,8 @@ interface MesStatus {
   bloqueado: boolean;
   deveAbrir: boolean;
   diasParaBloquear: number;
+  mesAnteriorPendente?: boolean;
+  mesAnterior?: { mes: number; ano: number } | null;
 }
 
 // Abertura/fechamento de mês é exclusivo de unidades franqueadas (FRANQUEADO/FUNCIONARIO).
@@ -53,7 +57,7 @@ export function MesGate({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; clearInterval(interval); };
   }, [ativo, pathname]);
 
-  const naPaginaDeAbrir = pathname === ROTA_ABRIR_MES;
+  const naPaginaDeDesbloqueio = ROTAS_DESBLOQUEIO.some(r => pathname === r);
 
   return (
     <>
@@ -61,8 +65,12 @@ export function MesGate({ children }: { children: React.ReactNode }) {
         <MesAvisos diasParaBloquear={mesStatus.diasParaBloquear} urgente={mesStatus.dia >= 3} />
       )}
       {children}
-      {ativo && mesStatus?.bloqueado && !naPaginaDeAbrir && (
-        <MesBlockModal mes={mesStatus.mesAtual.mes} ano={mesStatus.mesAtual.ano} />
+      {ativo && mesStatus?.bloqueado && !naPaginaDeDesbloqueio && (
+        <MesBlockModal
+          mes={mesStatus.mesAtual.mes}
+          ano={mesStatus.mesAtual.ano}
+          mesAnteriorPendente={mesStatus.mesAnteriorPendente ? mesStatus.mesAnterior : null}
+        />
       )}
     </>
   );

@@ -32,8 +32,27 @@ export default async function MesPage() {
       <h1 className="text-2xl font-black text-slate-800 mb-1">Mês Atual</h1>
       <p className="text-slate-500 text-sm mb-6">{nomeMes} de {status.mesAtual.ano}</p>
 
-      {/* Não abriu */}
-      {!status.abertura && (
+      {/* Mês anterior pendente — precisa ser resolvido antes de qualquer coisa, então
+          aparece primeiro e substitui o CTA de abrir o mês atual (que o backend rejeitaria). */}
+      {status.mesAnteriorPendente && status.mesAnterior && (
+        <Card className="p-6 border-l-4 border-amber-400 bg-amber-50/40">
+          <p className="font-bold text-slate-800 mb-1">
+            ⚠️ Você abriu {NOMES_MES[status.mesAnterior.mes - 1]}/{status.mesAnterior.ano} e nunca fechou
+          </p>
+          <p className="text-sm text-slate-600 mb-4">
+            Feche o mês anterior primeiro — a abertura de {nomeMes}/{status.mesAtual.ano} só fica disponível depois disso.
+          </p>
+          <Link
+            href={`/dashboard/mes/fechar?mes=${status.mesAnterior.mes}&ano=${status.mesAnterior.ano}`}
+            className="inline-flex bg-[#0f2a5e] text-white font-bold px-5 py-2.5 rounded-xl hover:bg-[#1a3d8f] transition-colors"
+          >
+            Fechar {NOMES_MES[status.mesAnterior.mes - 1]}/{status.mesAnterior.ano} Agora →
+          </Link>
+        </Card>
+      )}
+
+      {/* Não abriu (e não há mês anterior pendente) */}
+      {!status.abertura && !status.mesAnteriorPendente && (
         <Card className="p-6 border-l-4 border-red-400 bg-red-50/40">
           <p className="font-bold text-slate-800 mb-1">📅 Você ainda não abriu o mês de {nomeMes}/{status.mesAtual.ano}</p>
           <p className="text-sm text-slate-600 mb-4">

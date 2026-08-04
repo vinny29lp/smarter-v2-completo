@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +22,15 @@ type Lancamento = { id: string; descricao: string; valor: number; tipo: string; 
 
 export default function FecharMesPage() {
   const router = useRouter();
+  // ?mes=&ano= direcionam o fechamento para um mês PASSADO pendente (ex.: a unidade
+  // abriu julho e nunca fechou; agosto já começou). Sem query string, fecha o mês corrente
+  // — mesmo comportamento de sempre.
+  const searchParams = useSearchParams();
+  const mesParam = searchParams.get("mes");
+  const anoParam = searchParams.get("ano");
+  const alvoQs = mesParam && anoParam ? `?mes=${mesParam}&ano=${anoParam}` : "";
+  const fechandoMesPassado = !!alvoQs;
+
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -45,6 +55,24 @@ export default function FecharMesPage() {
   useEffect(() => {
     (async () => {
       try {
+        if (fechandoMesPassado) {
+          // Alvo explícito (mês pendente) — não depende do status do mês corrente,
+          // que já mudou. Se não houver abertura para esse mês, não há o que fechar.
+          setMesAtual({ mes: parseInt(mesParam!), ano: parseInt(anoParam!) });
+          const res = await fetch(`/api/app/mes/fechar${alvoQs}`);
+          const data = await res.json();
+          if (!res.ok) { setErro(data.error || "Erro ao carregar o mês informado."); return; }
+          if (data.fechamento) {
+            setJaConfirmado(!!data.fechamento.leituraConfirmada);
+            await carregarRelatorio();
+            setStep(3);
+          } else {
+            setMetricas(data.metricas);
+            setScore(data.score);
+          }
+          return;
+        }
+
         const statusRes = await fetch("/api/app/mes/status");
         const statusData = await statusRes.json();
         if (!statusRes.ok) { setErro(statusData.error || "Erro ao carregar status do mês."); return; }
@@ -68,17 +96,17 @@ export default function FecharMesPage() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [alvoQs]);
 
   const carregarPreview = async () => {
-    const res = await fetch("/api/app/mes/fechar");
+    const res = await fetch(`/api/app/mes/fechar${alvoQs}`);
     const data = await res.json();
     if (res.ok) { setMetricas(data.metricas); setScore(data.score); }
     else setErro(data.error || "Erro ao calcular prévia do mês.");
   };
 
   const carregarRelatorio = async () => {
-    const res = await fetch("/api/app/mes/relatorio");
+    const res = await fetch(`/api/app/mes/relatorio${alvoQs}`);
     const data = await res.json();
     if (res.ok) setRelatorio(data);
     else setErro(data.error || "Erro ao carregar relatório.");
@@ -109,7 +137,7 @@ export default function FecharMesPage() {
       const res = await fetch("/api/app/mes/fechar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ etapa: "financeiro", pagos, atrasados }),
+        body: JSON.stringify({ etapa: "financeiro", pagos, atrasados, mes: mesAtual?.mes, ano: mesAtual?.ano }),
       });
       const data = await res.json();
       if (!res.ok) { setErro(data.error || "Erro ao confirmar reconciliação financeira."); return; }
@@ -137,7 +165,7 @@ export default function FecharMesPage() {
       const res = await fetch("/api/app/mes/fechar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ etapa: "confirmar-leitura" }),
+        body: JSON.stringify({ etapa: "confirmar-leitura", mes: mesAtual?.mes, ano: mesAtual?.ano }),
       });
       const data = await res.json();
       if (!res.ok) { setErro(data.error || "Erro ao confirmar leitura."); return; }
@@ -159,6 +187,11 @@ export default function FecharMesPage() {
 
   return (
     <div className="max-w-3xl">
+      {fechandoMesPassado && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold">
+          Este mês ficou pendente e está bloqueando a abertura do mês atual. Feche-o para liberar o sistema.
+        </div>
+      )}
       <h1 className="text-2xl font-black text-slate-800 mb-1">Fechamento do Mês — {nomeMes} {mesAtual?.ano}</h1>
       <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-6">
         <span className={step === 1 ? "text-[#0f2a5e]" : ""}>1. Resumo</span>
@@ -294,9 +327,19 @@ export default function FecharMesPage() {
             </button>
 
             {jaConfirmado ? (
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600">
-                <CheckCircle2 size={16} /> Leitura confirmada — mês fechado
-              </span>
+              <>
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600">
+                  <CheckCircle2 size={16} /> Leitura confirmada — mês fechado
+                </span>
+                {fechandoMesPassado && (
+                  <Link
+                    href="/dashboard/mes/abrir"
+                    className="inline-flex items-center gap-2 bg-[#0f2a5e] text-white text-sm font-bold px-4 py-2.5 rounded-xl hover:bg-[#1a3d8f]"
+                  >
+                    Abrir o mês atual agora →
+                  </Link>
+                )}
+              </>
             ) : podeConfirmar ? (
               <Button onClick={confirmarLeitura} disabled={confirmando} variant="yellow">
                 {confirmando ? "Confirmando..." : "Confirmar Leitura e Fechar Mês"}

@@ -3,6 +3,7 @@
  * Usado por app/api/app/mes/status e por app/dashboard/mes/page.tsx (RSC).
  */
 import { prisma } from "@/lib/prisma";
+import { mesAnteriorDe, computeMesStatusFlags } from "@/lib/mes/gate";
 
 export function mesAtual() {
   const now = new Date();
@@ -19,15 +20,25 @@ function ultimoDiaDoMes(): boolean {
 export async function getMesStatus(franchiseId: string) {
   const { mes, ano } = mesAtual();
   const dia = new Date().getDate();
+  const mesAnterior = mesAnteriorDe(mes, ano);
 
-  const abertura = await prisma.monthOpening.findUnique({
-    where: { franchiseId_mes_ano: { franchiseId, mes, ano } },
-    include: { fechamento: true },
-  });
+  const [abertura, aberturaAnterior] = await Promise.all([
+    prisma.monthOpening.findUnique({
+      where: { franchiseId_mes_ano: { franchiseId, mes, ano } },
+      include: { fechamento: true },
+    }),
+    prisma.monthOpening.findUnique({
+      where: { franchiseId_mes_ano: { franchiseId, mes: mesAnterior.mes, ano: mesAnterior.ano } },
+      include: { fechamento: true },
+    }),
+  ]);
 
   const fechamento = abertura?.fechamento ?? null;
-  const deveAbrir = !abertura;
-  const bloqueado = dia >= 5 && !abertura;
+  const { deveAbrir, bloqueado, mesAnteriorPendente } = computeMesStatusFlags({
+    dia,
+    aberturaAtualExiste: !!abertura,
+    aberturaAnterior: { existe: !!aberturaAnterior, fechada: !!aberturaAnterior?.fechamento },
+  });
   const deveFecha = ultimoDiaDoMes() && !!abertura && !fechamento;
   const diasParaBloquear = Math.max(0, 5 - dia);
 
@@ -40,5 +51,7 @@ export async function getMesStatus(franchiseId: string) {
     bloqueado,
     deveFecha,
     diasParaBloquear,
+    mesAnteriorPendente,
+    mesAnterior: mesAnteriorPendente ? mesAnterior : null,
   };
 }

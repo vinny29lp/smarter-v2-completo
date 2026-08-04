@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -18,8 +19,10 @@ export default function AbrirMesPage() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [erroMesAnterior, setErroMesAnterior] = useState<{ mes: number; ano: number } | null>(null);
   const [abertura, setAbertura] = useState<any>(null);
   const [mesAtual, setMesAtual] = useState<{ mes: number; ano: number } | null>(null);
+  const [mesAnteriorPendente, setMesAnteriorPendente] = useState<{ mes: number; ano: number } | null>(null);
 
   const [metaEmpresas, setMetaEmpresas] = useState("");
   const [metaLeads, setMetaLeads] = useState("");
@@ -35,6 +38,7 @@ export default function AbrirMesPage() {
       .then(data => {
         setAbertura(data.abertura || null);
         setMesAtual(data.mesAtual || null);
+        setMesAnteriorPendente(data.mesAnteriorPendente ? data.mesAnterior : null);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -47,6 +51,7 @@ export default function AbrirMesPage() {
   const submeter = async () => {
     setSalvando(true);
     setErro("");
+    setErroMesAnterior(null);
     try {
       const res = await fetch("/api/app/mes/abrir", {
         method: "POST",
@@ -62,7 +67,11 @@ export default function AbrirMesPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setErro(data.error || "Erro ao abrir o mês."); return; }
+      if (!res.ok) {
+        setErro(data.error || "Erro ao abrir o mês.");
+        if (data.mesAnterior) setErroMesAnterior(data.mesAnterior);
+        return;
+      }
       router.push("/dashboard/mes");
       router.refresh();
     } catch {
@@ -75,6 +84,32 @@ export default function AbrirMesPage() {
   if (loading) return <p className="text-slate-400 text-sm">Carregando...</p>;
 
   const nomeMes = mesAtual ? NOMES_MES[mesAtual.mes - 1] : "";
+  // Se há mês anterior pendente e ainda não foi aberto o atual, nem mostra o formulário —
+  // ele sempre seria rejeitado pelo backend. Manda direto fechar o mês anterior.
+  const bloqueadoPorMesAnterior = !abertura && (erroMesAnterior || mesAnteriorPendente);
+
+  if (bloqueadoPorMesAnterior) {
+    const alvo = erroMesAnterior || mesAnteriorPendente!;
+    const nomeMesAnterior = NOMES_MES[alvo.mes - 1];
+    return (
+      <div className="max-w-2xl">
+        <h1 className="text-2xl font-black text-slate-800 mb-1">Abertura do Mês — {nomeMes} {mesAtual?.ano}</h1>
+        <Card className="p-6 border-l-4 border-amber-400 bg-amber-50/40">
+          <p className="font-bold text-slate-800 mb-1">⚠️ Feche {nomeMesAnterior}/{alvo.ano} primeiro</p>
+          <p className="text-sm text-slate-600 mb-4">
+            Você abriu {nomeMesAnterior}/{alvo.ano} mas nunca o fechou. A abertura de {nomeMes}/{mesAtual?.ano} só
+            fica disponível depois que o mês anterior for fechado.
+          </p>
+          <Link
+            href={`/dashboard/mes/fechar?mes=${alvo.mes}&ano=${alvo.ano}`}
+            className="inline-flex bg-[#0f2a5e] text-white font-bold px-5 py-2.5 rounded-xl hover:bg-[#1a3d8f] transition-colors"
+          >
+            Fechar {nomeMesAnterior}/{alvo.ano} Agora →
+          </Link>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl">

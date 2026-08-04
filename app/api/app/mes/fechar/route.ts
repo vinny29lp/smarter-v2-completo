@@ -8,6 +8,12 @@
  *     calcula e salva os números reais do mês + score.
  *   - "confirmar-leitura": marca a leitura do relatório como confirmada,
  *     concluindo o fechamento.
+ *
+ * Aceita `mes`/`ano` opcionais (query string no GET, body no POST) para
+ * permitir fechar um mês PASSADO pendente — não só o mês corrente. Sem isso,
+ * uma unidade que abriu um mês e nunca fechou fica sem nenhuma rota capaz de
+ * fechá-lo assim que o mês vira (o mês corrente muda e esta rota, hardcoded
+ * em mesAtual(), passa a apontar para o mês novo).
  */
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -27,7 +33,15 @@ function getFranchiseIdOrFail(session: any) {
   return franchiseId as string;
 }
 
-export async function GET() {
+function resolverMesAno(mesParam: string | null, anoParam: string | null) {
+  const padrao = mesAtual();
+  const mes = mesParam ? parseInt(mesParam) : padrao.mes;
+  const ano = anoParam ? parseInt(anoParam) : padrao.ano;
+  if (!Number.isInteger(mes) || mes < 1 || mes > 12 || !Number.isInteger(ano)) return null;
+  return { mes, ano };
+}
+
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -37,7 +51,10 @@ export async function GET() {
       return NextResponse.json({ error: "Este recurso é exclusivo de unidades franqueadas." }, { status: 403 });
     }
 
-    const { mes, ano } = mesAtual();
+    const { searchParams } = new URL(req.url);
+    const alvo = resolverMesAno(searchParams.get("mes"), searchParams.get("ano"));
+    if (!alvo) return NextResponse.json({ error: "mes/ano inválidos." }, { status: 400 });
+    const { mes, ano } = alvo;
     const abertura = await prisma.monthOpening.findUnique({
       where: { franchiseId_mes_ano: { franchiseId, mes, ano } },
       include: { fechamento: true },
@@ -78,7 +95,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const etapa = body.etapa;
 
-    const { mes, ano } = mesAtual();
+    const alvo = resolverMesAno(body.mes != null ? String(body.mes) : null, body.ano != null ? String(body.ano) : null);
+    if (!alvo) return NextResponse.json({ error: "mes/ano inválidos." }, { status: 400 });
+    const { mes, ano } = alvo;
     const abertura = await prisma.monthOpening.findUnique({
       where: { franchiseId_mes_ano: { franchiseId, mes, ano } },
       include: { fechamento: true },

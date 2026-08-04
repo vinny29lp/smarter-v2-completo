@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { handleApiError } from "@/lib/api-response";
 import { logAudit, getClientIP } from "@/lib/audit";
 import { mesAtual } from "@/lib/mes/status";
+import { mesAnteriorDe, precisaFecharMesAnterior } from "@/lib/mes/gate";
 
 export const dynamic = "force-dynamic";
 
@@ -27,18 +28,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "O mês atual já foi aberto." }, { status: 409 });
     }
 
-    // Valida que o fechamento do mês anterior existe (se mês > janeiro)
-    if (mes > 1) {
-      const aberturaAnterior = await prisma.monthOpening.findUnique({
-        where: { franchiseId_mes_ano: { franchiseId, mes: mes - 1, ano } },
-        include: { fechamento: true },
-      });
-      if (aberturaAnterior && !aberturaAnterior.fechamento) {
-        return NextResponse.json(
-          { error: "Você precisa fechar o mês anterior antes de abrir o mês atual." },
-          { status: 409 }
-        );
-      }
+    // Valida que o fechamento do mês anterior existe. Usa mesAnteriorDe() para
+    // tratar corretamente a virada de ano (janeiro → dezembro do ano anterior);
+    // a checagem antiga só rodava quando mes > 1 e por isso nunca cobria dezembro.
+    const mesAnterior = mesAnteriorDe(mes, ano);
+    const aberturaAnterior = await prisma.monthOpening.findUnique({
+      where: { franchiseId_mes_ano: { franchiseId, mes: mesAnterior.mes, ano: mesAnterior.ano } },
+      include: { fechamento: true },
+    });
+    if (precisaFecharMesAnterior({ existe: !!aberturaAnterior, fechada: !!aberturaAnterior?.fechamento })) {
+      return NextResponse.json(
+        {
+          error: "Você precisa fechar o mês anterior antes de abrir o mês atual.",
+          mesAnterior,
+        },
+        { status: 409 }
+      );
     }
 
     const body = await req.json();
