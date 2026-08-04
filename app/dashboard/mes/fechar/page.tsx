@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Download, CheckCircle2, Clock } from "lucide-react";
+import { filtrarLancamentosParaReconciliacao } from "@/lib/mes/reconciliacao";
 
 const NOMES_MES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -117,9 +118,12 @@ export default function FecharMesPage() {
     try {
       const res = await fetch("/api/app/financeiro?limit=200");
       const data = await res.json();
-      const itens: Lancamento[] = (data.lancamentos || []).filter(
-        (l: any) => (l.status === "PENDENTE" || l.status === "VENCIDO") && !l.cancelado
-      );
+      // Só entram lançamentos com vencimento no mês sendo fechado ou antes dele
+      // (atrasados ainda não resolvidos). Lançamentos de meses seguintes — ex.:
+      // a cobrança do mês novo, já gerada — não têm relação com este fechamento.
+      const itens: Lancamento[] = mesAtual
+        ? filtrarLancamentosParaReconciliacao(data.lancamentos || [], mesAtual.mes, mesAtual.ano)
+        : [];
       setLancamentos(itens);
       setDecisoes(Object.fromEntries(itens.map(l => [l.id, "atrasado" as const])));
       setStep(2);
