@@ -127,6 +127,48 @@ function base(titulo: string, corpo: string): string {
 </body></html>`;
 }
 
+// ── Template mínimo para notificações INTERNAS (equipe/franqueado) ──
+// Sem logo, sem banner, sem botão grande de CTA e sem o texto "não responda".
+// Objetivo: parecer um email operacional/transacional, não uma peça de
+// marketing — reduz o risco de o Gmail classificar como "Promoções".
+function baseInterno(titulo: string, corpo: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:14px;line-height:1.6;margin:0;padding:20px;background:#ffffff">
+  <p style="margin:0 0 2px;font-weight:700;font-size:15px;color:#0f2a5e">${titulo}</p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0 16px"/>
+  ${corpo}
+  <p style="margin-top:24px;font-size:11px;color:#94a3b8">Smarter Estágios — notificação automática do CRM.</p>
+</body></html>`;
+}
+
+// ── Notificação interna de novo lead (formulário /parceria e afins) ──
+// Enviada para a unidade responsável (ou franqueadora, se sem unidade)
+// assim que um lead é capturado — precisa cair na caixa principal do
+// destinatário, por isso usa o template mínimo acima.
+export async function enviarNotificacaoNovoLead(params: {
+  destinatarioEmail: string;
+  nomeContato: string;
+  empresa: string;
+  whatsapp?: string | null;
+  email?: string | null;
+  origemLabel: string;
+  leadUrl?: string;
+}): Promise<boolean> {
+  const corpo = `
+    <p style="margin:0 0 12px">Novo lead recebido via ${params.origemLabel}.</p>
+    <p style="margin:0 0 4px"><strong>Nome:</strong> ${params.nomeContato}</p>
+    <p style="margin:0 0 4px"><strong>Empresa:</strong> ${params.empresa}</p>
+    ${params.whatsapp ? `<p style="margin:0 0 4px"><strong>WhatsApp:</strong> ${params.whatsapp}</p>` : ""}
+    ${params.email ? `<p style="margin:0 0 4px"><strong>E-mail:</strong> ${params.email}</p>` : ""}
+    ${params.leadUrl ? `<p style="margin:16px 0 0">Acessar no CRM: <a href="${params.leadUrl}" style="color:#0f2a5e">${params.leadUrl}</a></p>` : ""}
+  `;
+  return sendMail(
+    params.destinatarioEmail,
+    `Novo lead: ${params.empresa}`,
+    baseInterno("Novo lead recebido", corpo),
+  );
+}
+
 export async function enviarBoasVindasEstudante(params: {
   email: string; nome: string; senha: string; curso: string; loginUrl?: string;
 }): Promise<boolean> {
@@ -605,29 +647,23 @@ export async function enviarMiniutaPropriaParaSmarter(params: {
   portalUrl: string;
   observacao?: string;
 }): Promise<boolean> {
+  // Notificação interna (equipe de convênios) — template mínimo, sem
+  // banner/CTA de marketing, para não cair em Promoções.
   const corpo = `
-    <p class="title">IES optou por Minuta Própria</p>
-    <div class="divider"></div>
-    <p>Uma Instituição de Ensino optou por utilizar a <strong>minuta padrão da própria instituição</strong>
-    ao invés da minuta Smarter. É necessário ação manual da equipe de convênios.</p>
-    <div class="box">
-      <p style="margin:0 0 6px;font-weight:700;color:#0f2a5e;font-size:13px">📋 Dados da IES</p>
-      <p style="margin:3px 0;font-size:13px"><strong>Instituição:</strong> ${params.nomeIES}</p>
-      <p style="margin:3px 0;font-size:13px"><strong>E-mail:</strong> <a href="mailto:${params.emailIES}" style="color:#0f2a5e">${params.emailIES}</a></p>
-      <p style="margin:3px 0;font-size:13px"><strong>Representante:</strong> ${params.assinanteName}</p>
-      <p style="margin:3px 0;font-size:13px"><strong>CPF:</strong> ${params.assinanteCpf}</p>
-      ${params.telefoneIES ? `<p style="margin:3px 0;font-size:13px"><strong>Telefone:</strong> ${params.telefoneIES}</p>` : ""}
-      ${params.observacao ? `<p style="margin:8px 0 0;font-size:12px;color:#475569"><em>Observação: ${params.observacao}</em></p>` : ""}
-    </div>
-    <p><a href="${params.portalUrl}" style="color:#0f2a5e;font-weight:700">🔗 Acessar registro da IES no sistema</a></p>
-    <p style="color:#dc2626;font-size:13px;font-weight:600">
-      ⚠️ Ação necessária: Entre em contato com a IES para receber a minuta deles,
-      revisar, assinar e registrar o convênio no sistema.
-    </p>
+    <p style="margin:0 0 12px">Uma Instituição de Ensino optou por utilizar a minuta padrão da própria instituição
+    ao invés da minuta Smarter. Ação manual necessária.</p>
+    <p style="margin:0 0 4px"><strong>Instituição:</strong> ${params.nomeIES}</p>
+    <p style="margin:0 0 4px"><strong>E-mail:</strong> ${params.emailIES}</p>
+    <p style="margin:0 0 4px"><strong>Representante:</strong> ${params.assinanteName}</p>
+    <p style="margin:0 0 4px"><strong>CPF:</strong> ${params.assinanteCpf}</p>
+    ${params.telefoneIES ? `<p style="margin:0 0 4px"><strong>Telefone:</strong> ${params.telefoneIES}</p>` : ""}
+    ${params.observacao ? `<p style="margin:8px 0 0;font-size:13px;color:#475569">Observação: ${params.observacao}</p>` : ""}
+    <p style="margin:16px 0 0">Acessar registro da IES: <a href="${params.portalUrl}" style="color:#0f2a5e">${params.portalUrl}</a></p>
+    <p style="margin:12px 0 0;color:#b45309;font-weight:700">Ação necessária: entre em contato com a IES para receber a minuta deles, revisar, assinar e registrar o convênio no sistema.</p>
   `;
   return sendMail(
     "convenios@smarterestagios.com.br",
-    `⚠️ [AÇÃO NECESSÁRIA] ${params.nomeIES} optou por minuta própria`,
-    base("Minuta própria — IES aguarda contato", corpo),
+    `Ação necessária: ${params.nomeIES} optou por minuta própria`,
+    baseInterno("Minuta própria — IES aguarda contato", corpo),
   );
 }

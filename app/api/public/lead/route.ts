@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIpFromRequest } from "@/lib/rate-limit";
+import { enviarNotificacaoNovoLead } from "@/lib/email";
+import { getSystemConfig } from "@/lib/getConfig";
+
+const _rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "";
+const APP_URL = (_rawAppUrl && !_rawAppUrl.includes("localhost") && !_rawAppUrl.includes("127.0.0"))
+  ? _rawAppUrl.replace(/\/$/, "")
+  : "https://sistema.smarterestagios.com.br";
 
 export async function POST(req: Request) {
   // ALTO-C: rate limit — 10 leads/min por IP (formulário público de captação)
@@ -69,6 +76,36 @@ export async function POST(req: Request) {
       tipo:   "anotacao",
     },
   });
+
+  // Notificação interna por e-mail para quem deve agir no lead — não bloqueia
+  // a resposta ao formulário se o envio falhar (ex: RESEND_API_KEY ausente).
+  try {
+    let destinatarioEmail: string | null = null;
+    if (franchiseId) {
+      const franquia = await prisma.franchise.findUnique({
+        where: { id: franchiseId },
+        select: { email: true },
+      });
+      destinatarioEmail = franquia?.email || null;
+    } else {
+      const cfg = await getSystemConfig();
+      destinatarioEmail = cfg?.email || null;
+    }
+
+    if (destinatarioEmail) {
+      await enviarNotificacaoNovoLead({
+        destinatarioEmail,
+        nomeContato: lead.contato || lead.empresa,
+        empresa: lead.empresa,
+        whatsapp: lead.telefone,
+        email: lead.email,
+        origemLabel,
+        leadUrl: `${APP_URL}/dashboard/crm/${lead.id}`,
+      });
+    }
+  } catch (e) {
+    console.error("[public/lead] falha ao enviar notificação de novo lead:", e);
+  }
 
   return NextResponse.json({ ok: true, leadId: lead.id });
 }
