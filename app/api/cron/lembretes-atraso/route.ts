@@ -11,7 +11,7 @@
  * Configurado em vercel.json: "0 11 * * *" (11h00 UTC = 08h00 BRT)
  */
 import { prisma } from "@/lib/prisma";
-import { sendMail } from "@/lib/email";
+import { sendMail, baseInterno } from "@/lib/email";
 import { processarBloqueiosAutomaticos } from "@/lib/financeiro/bloqueio";
 import { NextResponse } from "next/server";
 
@@ -24,6 +24,8 @@ function fmt(v: number) {
   return "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 }
 
+// Notificação interna (unidade franqueada) — template mínimo, sem
+// banner/box de marketing, para não cair em Promoções.
 function lembreteHtml(
   nomeFranquia: string,
   descricao: string,
@@ -33,41 +35,16 @@ function lembreteHtml(
   linkBoleto?: string | null,
   chavePix?: string | null,
 ): string {
-  const cor = diasAtraso >= 10 ? "#991b1b" : "#dc2626";
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-body{font-family:Arial,sans-serif;background:#f1f5f9;margin:0;padding:0}
-.wrap{max-width:600px;margin:32px auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
-.header{background:${cor};padding:20px 32px;text-align:center}
-.ht{color:white;font-weight:900;font-size:18px}
-.body{padding:32px}
-.title{font-size:22px;font-weight:900;color:${cor};margin-bottom:8px}
-.divider{height:3px;background:${cor};border-radius:2px;margin:16px 0}
-.box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0}
-.label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:2px}
-.value{font-size:15px;font-weight:600;color:#1e293b}
-.pix-box{background:#f0fdf4;border:2px solid #10b981;border-radius:12px;padding:16px;margin:16px 0}
-.pix-key{font-family:monospace;font-size:13px;color:#065f46;word-break:break-all;background:#d1fae5;padding:8px 12px;border-radius:6px;display:block;margin-top:6px}
-.footer{background:#f8fafc;padding:20px 32px;text-align:center;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0}
-</style></head><body>
-<div class="wrap">
-  <div class="header"><div class="ht">⚠️ Smarter Estágios — Cobrança em Atraso</div></div>
-  <div class="body">
-    <div class="title">Pagamento Pendente — ${diasAtraso} dias em atraso</div>
-    <div class="divider"></div>
-    <p style="color:#475569;margin-bottom:16px">Olá, <strong>${nomeFranquia}</strong>! Identificamos uma cobrança em aberto há <strong style="color:${cor}">${diasAtraso} dias</strong>. Por favor, regularize o pagamento.</p>
-    <div class="box">
-      <div class="label">Referência</div><div class="value">${descricao}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
-        <div><div class="label">Valor</div><div class="value" style="color:${cor};font-size:20px;font-weight:900">${fmt(valor)}</div></div>
-        <div><div class="label">Vencimento</div><div class="value">${vencStr}</div></div>
-      </div>
-    </div>
-    ${linkBoleto ? `<div style="margin:16px 0;padding:16px;background:#eff6ff;border:2px solid #3b82f6;border-radius:12px"><p style="font-weight:700;color:#1e40af;margin:0 0 8px">📄 Boleto Bancário</p><a href="${linkBoleto}" style="color:#1d4ed8;font-weight:700;word-break:break-all">Clique aqui para pagar o boleto</a></div>` : ""}
-    ${chavePix ? `<div class="pix-box"><p style="font-weight:700;color:#065f46;margin:0 0 4px">💳 Pagamento via PIX</p><span class="pix-key">${chavePix}</span></div>` : ""}
-    <p style="color:#64748b;font-size:13px;margin-top:16px">A regularização evita a suspensão dos serviços da sua unidade. Em caso de dúvidas, entre em contato: <strong>financeiro@smarterestagios.com.br</strong></p>
-  </div>
-  <div class="footer">Smarter Estágios — Sistema de Gestão de Estágios<br>Este é um aviso automático.</div>
-</div></body></html>`;
+  const corpo = `
+    <p style="margin:0 0 12px">Olá, <strong>${nomeFranquia}</strong>! Identificamos uma cobrança em aberto há <strong>${diasAtraso} dias</strong>. Por favor, regularize o pagamento.</p>
+    <p style="margin:0 0 4px"><strong>Referência:</strong> ${descricao}</p>
+    <p style="margin:0 0 4px"><strong>Valor:</strong> ${fmt(valor)}</p>
+    <p style="margin:0 0 4px"><strong>Vencimento:</strong> ${vencStr}</p>
+    ${linkBoleto ? `<p style="margin:12px 0 0"><strong>Boleto:</strong> <a href="${linkBoleto}" style="color:#0f2a5e">${linkBoleto}</a></p>` : ""}
+    ${chavePix ? `<p style="margin:12px 0 0"><strong>Chave PIX:</strong> ${chavePix}</p>` : ""}
+    <p style="margin:16px 0 0;color:#475569;font-size:13px">A regularização evita a suspensão dos serviços da sua unidade. Em caso de dúvidas, entre em contato: financeiro@smarterestagios.com.br</p>
+  `;
+  return baseInterno(`Pagamento pendente — ${diasAtraso} dias em atraso`, corpo);
 }
 
 export async function GET(req: Request) {
@@ -147,7 +124,7 @@ export async function GET(req: Request) {
     try {
       const ok = await sendMail(
         franchise.email,
-        `⚠️ Cobrança em atraso (${diasAtraso} dias) — Smarter Estágios`,
+        `Cobrança em atraso (${diasAtraso} dias) — Smarter Estágios`,
         html,
         undefined,
         FROM_FINANCEIRO,

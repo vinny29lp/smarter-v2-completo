@@ -131,7 +131,7 @@ function base(titulo: string, corpo: string): string {
 // Sem logo, sem banner, sem botão grande de CTA e sem o texto "não responda".
 // Objetivo: parecer um email operacional/transacional, não uma peça de
 // marketing — reduz o risco de o Gmail classificar como "Promoções".
-function baseInterno(titulo: string, corpo: string): string {
+export function baseInterno(titulo: string, corpo: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:14px;line-height:1.6;margin:0;padding:20px;background:#ffffff">
   <p style="margin:0 0 2px;font-weight:700;font-size:15px;color:#0f2a5e">${titulo}</p>
