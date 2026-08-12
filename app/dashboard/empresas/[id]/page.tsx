@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EmpresaActions, EmpresaCPS } from "./EmpresaActions";
+import { EmpresaActions, EmpresaCPS, EmpresaProposta } from "./EmpresaActions";
 import { SolicitacoesVaga } from "./SolicitacoesVaga";
 
 const statusBadge: Record<string,"green"|"gray"|"yellow"|"red"> = { ATIVA:"green",INATIVA:"gray",ATENCAO:"yellow",PENDENTE:"yellow" };
@@ -165,6 +165,9 @@ export default async function EmpresaDetailPage({ params }: { params: { id: stri
           </div>
         </Card>
       )}
+
+      {/* Proposta Comercial */}
+      <EmpresaProposta empresa={empresa} />
 
       {/* Contrato de Prestação de Serviços */}
       <EmpresaCPS empresa={empresa} />

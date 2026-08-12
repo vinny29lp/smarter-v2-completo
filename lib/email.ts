@@ -429,6 +429,72 @@ export async function enviarApresentacaoEmpresas(params: {
   );
 }
 
+// ── Proposta Comercial ────────────────────────────────────────────
+export async function enviarPropostaComercial(params: {
+  email: string;
+  empresa: string;          // nome da empresa
+  responsavel?: string;     // A/C responsável
+  valorGestao: number;      // Company.valorGestao
+  nomeUnidade: string;      // ex: "Smarter Campinas" ou "Smarter Estágios"
+  responsavelUnidade?: string;
+  cidade?: string;          // "Campinas/SP"
+  token: string;            // proposalToken — forma o link público
+}): Promise<boolean> {
+  const link = `${APP_URL}/proposta/${params.token}`;
+  const saudacao = params.responsavel ? `Olá, <strong>${params.responsavel}</strong>!` : "Olá!";
+  const assinatura = [params.responsavelUnidade, params.nomeUnidade, params.cidade].filter(Boolean).join(" · ");
+  const valorStr = params.valorGestao.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+
+  const corpo = `
+    <p style="color:#475569;margin-bottom:16px">${saudacao}</p>
+    <p style="color:#475569;margin-bottom:16px">
+      Com base no que vimos sobre a <strong>${params.empresa}</strong>, preparamos uma
+      <strong>proposta comercial objetiva</strong> para vocês começarem a contratar estagiários
+      com a Smarter.
+    </p>
+
+    <div class="box">
+      <p style="font-size:13px;margin:0 0 12px;font-weight:700;color:#0f2a5e">O que está incluso</p>
+      <p style="margin:4px 0;font-size:13px">🎯 Triagem inteligente por perfil comportamental (DISC)</p>
+      <p style="margin:4px 0;font-size:13px">📑 TCE gerado e assinado digitalmente, sem burocracia</p>
+      <p style="margin:4px 0;font-size:13px">⚖️ Conformidade total com a Lei nº 11.788/2008</p>
+      <p style="margin:4px 0;font-size:13px">🏫 Convênio com instituições de ensino já integrado</p>
+      <p style="margin:4px 0;font-size:13px">🛡️ Seguro contra acidentes pessoais incluso</p>
+      <p style="margin:4px 0;font-size:13px">⚡ Prazo médio de 7 a 15 dias úteis para o estagiário começar</p>
+    </div>
+
+    <div class="box" style="text-align:center">
+      <p class="label">Investimento</p>
+      <p style="font-size:24px;font-weight:900;color:#0f2a5e;margin:2px 0">R$ ${valorStr}<span style="font-size:14px;font-weight:700;color:#64748b">/mês por estagiário ativo</span></p>
+    </div>
+
+    <div style="text-align:center;margin:28px 0">
+      <a href="${link}" style="background:#0f2a5e;color:white;font-weight:900;font-size:15px;padding:14px 36px;border-radius:12px;text-decoration:none;display:inline-block">
+        Ver a proposta completa →
+      </a>
+    </div>
+
+    <p style="color:#64748b;font-size:12px;text-align:center">
+      Ou copie e cole este link no navegador:<br/>
+      <a href="${link}" style="color:#0f2a5e">${link}</a>
+    </p>
+
+    <p style="color:#94a3b8;font-size:11px;text-align:center;margin-top:8px">Proposta válida por 15 dias.</p>
+
+    ${assinatura ? `
+    <p style="color:#475569;font-size:13px;margin-top:20px">
+      Atenciosamente,<br/>
+      <strong>${assinatura}</strong>
+    </p>` : ""}
+  `;
+
+  return sendMail(
+    params.email,
+    `Proposta comercial Smarter Estágios — ${params.empresa}`,
+    base("Proposta Comercial", corpo),
+  );
+}
+
 // ── Convite IES — Portal de Adesão ──────────────────────────────
 export async function enviarConviteIES(params: {
   email: string;

@@ -108,6 +108,11 @@ model Company {
   cpsStatus        String?        @default("NAO_GERADO")
   cpsAuthDocId     String?
   cpsSignedUrl     String?
+  proposalStatus       String?   @default("NAO_ENVIADA") // NAO_ENVIADA | ENVIADA | VISUALIZADA | ACEITA | RECUSADA
+  proposalToken        String?   @unique
+  proposalSentAt       DateTime? @db.Timestamptz(6)
+  proposalViewedAt     DateTime? @db.Timestamptz(6)
+  proposalRespondedAt  DateTime? @db.Timestamptz(6)
   origem           String?        @default("NORMAL") // NORMAL | MIGRADO — empresas migradas do sistema antigo são visíveis a todas as unidades
   migradoEm        DateTime?      @db.Timestamptz(6)
   migradoPor       String?

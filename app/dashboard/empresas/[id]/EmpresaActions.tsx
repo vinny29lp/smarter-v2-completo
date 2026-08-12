@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { EmpresaForm } from "@/components/forms/EmpresaForm";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
+
 export function EmpresaActions({ empresa }: { empresa: any }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -287,6 +289,125 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
           </div>
         </div>
       </Modal>
+    </Card>
+  );
+}
+
+const propostaStatusLabel: Record<string,string> = {
+  NAO_ENVIADA: "Não enviada",
+  ENVIADA: "Enviada",
+  VISUALIZADA: "Visualizada",
+  ACEITA: "Aceita ✓",
+  RECUSADA: "Recusada",
+};
+const propostaStatusColor: Record<string,string> = {
+  NAO_ENVIADA: "text-slate-400",
+  ENVIADA: "text-blue-600",
+  VISUALIZADA: "text-purple-600",
+  ACEITA: "text-emerald-600 font-bold",
+  RECUSADA: "text-red-500",
+};
+
+export function EmpresaProposta({ empresa }: { empresa: any }) {
+  const router = useRouter();
+  const [valorGestao, setValorGestao] = useState<string>(empresa.valorGestao ? String(empresa.valorGestao) : "");
+  const [propostaMsg, setPropostaMsg] = useState<string|null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [proposalStatus, setProposalStatus] = useState<string>(empresa.proposalStatus || "NAO_ENVIADA");
+  const [proposalToken, setProposalToken] = useState<string|null>(empresa.proposalToken || null);
+
+  const getLink = () => proposalToken ? `${APP_URL}/proposta/${proposalToken}` : null;
+
+  const copy = () => {
+    const link = getLink();
+    if (!link) return;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const gerarEEnviar = async () => {
+    if (!valorGestao || isNaN(Number(valorGestao.replace(",", ".")))) {
+      setPropostaMsg("❌ Informe um valor válido"); return;
+    }
+    setEnviando(true); setPropostaMsg(null);
+    const res = await fetch(`/api/app/empresas/${empresa.id}/proposta`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ valorGestao: Number(valorGestao.replace(",", ".")) }),
+    });
+    const data = await res.json();
+    setEnviando(false);
+    if (data.error) { setPropostaMsg("❌ " + data.error); }
+    else {
+      setPropostaMsg("✅ Proposta enviada para " + empresa.email);
+      setProposalStatus("ENVIADA");
+      setProposalToken(data.token);
+      router.refresh();
+    }
+  };
+
+  return (
+    <Card className="p-5 mb-4">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-sm font-bold text-slate-700">📋 Proposta Comercial</h3>
+        <span className={`text-xs ${propostaStatusColor[proposalStatus] || "text-slate-400"}`}>
+          {propostaStatusLabel[proposalStatus] || proposalStatus}
+        </span>
+      </div>
+      <p className="text-xs text-slate-400 mb-4">Etapa intermediária entre a apresentação e o contrato: uma proposta com valor e condições para a empresa aceitar online.</p>
+
+      <div className="space-y-3">
+        {/* Valor de gestão */}
+        <div>
+          <label className="text-xs font-bold text-slate-600 block mb-1">Valor de Gestão por Estagiário (R$/mês)</label>
+          <input
+            type="number" min="0" step="0.01" value={valorGestao}
+            onChange={e => setValorGestao(e.target.value)} placeholder="Ex: 150.00"
+            className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] transition-colors"
+          />
+        </div>
+
+        {propostaMsg && (
+          <p className={`text-xs p-2 rounded-lg ${propostaMsg.startsWith("✅") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+            {propostaMsg}
+          </p>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <button onClick={gerarEEnviar} disabled={enviando || !empresa.email}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0f2a5e] text-white rounded-xl text-sm font-bold hover:bg-[#1a3d8f] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            {enviando ? "Enviando..." : "📧 Gerar e enviar proposta"}
+          </button>
+
+          {proposalToken && (
+            <button onClick={copy}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+              {copied ? "✅ Link copiado!" : "📋 Copiar link da proposta"}
+            </button>
+          )}
+        </div>
+
+        {!empresa.email && (
+          <p className="text-xs text-amber-600">Cadastre um e-mail para a empresa antes de enviar a proposta.</p>
+        )}
+
+        {/* Timestamps */}
+        {(empresa.proposalSentAt || empresa.proposalViewedAt || empresa.proposalRespondedAt) && (
+          <div className="pt-2 border-t border-slate-100 space-y-1">
+            {empresa.proposalSentAt && (
+              <p className="text-xs text-slate-400">Enviada em {new Date(empresa.proposalSentAt).toLocaleString("pt-BR")}</p>
+            )}
+            {empresa.proposalViewedAt && (
+              <p className="text-xs text-slate-400">Visualizada em {new Date(empresa.proposalViewedAt).toLocaleString("pt-BR")}</p>
+            )}
+            {empresa.proposalRespondedAt && (
+              <p className="text-xs text-slate-400">Respondida em {new Date(empresa.proposalRespondedAt).toLocaleString("pt-BR")}</p>
+            )}
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
