@@ -523,15 +523,15 @@ model CrmTask {
 }
 
 model PartnerApiToken {
-  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tokenHash   String    @unique
-  franchiseId String
+  id          String     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tokenHash   String     @unique
+  franchiseId String? // null = token de nível franqueadora (ex.: scope "franquia_crm", não pertence a nenhuma unidade)
   descricao   String?
-  ativo       Boolean   @default(true)
-  scopes      String[]  @default(["crm"]) // capabilities autorizadas: "crm" | "marketing"
-  createdAt   DateTime? @default(now()) @db.Timestamptz(6)
-  lastUsedAt  DateTime? @db.Timestamptz(6)
-  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ativo       Boolean    @default(true)
+  scopes      String[]   @default(["crm"]) // capabilities autorizadas: "crm" | "marketing" | "recruitment" | "franquia_crm"
+  createdAt   DateTime?  @default(now()) @db.Timestamptz(6)
+  lastUsedAt  DateTime?  @db.Timestamptz(6)
+  franchise   Franchise? @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([franchiseId])
   @@map("partner_api_tokens")

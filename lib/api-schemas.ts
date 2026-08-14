@@ -156,6 +156,25 @@ export const partnerAtualizarLeadSchema = z.object({
   anotacao:       z.string().max(2000).optional().nullable(),
 });
 
+// ── Partners API — CRM de Franquias (leitura + escrita, escopo de rede) ───
+// Diferente do CRM acima: FranquiaLead não pertence a nenhuma franquia
+// específica (é a franqueadora vendendo novas unidades), então o token que
+// acessa isso é de nível rede (franchiseId null em partner_api_tokens),
+// não amarrado a uma unidade. Ver lib/crm/franquia-pipeline.ts pro pipeline.
+
+export const FRANQUIA_LEAD_ETAPAS = ["novo_lead", "primeiro_contato", "apresentacao", "due_diligence", "proposta", "fechado"] as const;
+export const FRANQUIA_LEAD_SITUACOES = ["ativo", "vendido", "perdido"] as const;
+
+export const partnerAtualizarFranquiaLeadSchema = z.object({
+  etapa:        z.enum(FRANQUIA_LEAD_ETAPAS).optional(),
+  situacao:     z.enum(FRANQUIA_LEAD_SITUACOES).optional(),
+  proximaAcao:  z.string().max(500).optional().nullable(),
+  anotacao:     z.string().max(2000).optional().nullable(),
+  // Marca que houve contato de verdade agora (some registros nunca tiveram
+  // ultimoContato preenchido — é o dado real que motivou essa integração).
+  contatoRealizado: z.boolean().optional().default(false),
+});
+
 // ── Partners API — Tráfego Pago (escrita escopada por franquia) ───────────
 
 export const TRAFEGO_PAGO_PLATAFORMAS = ["meta", "google"] as const;

@@ -39,8 +39,10 @@ function CopyButton({ value, label = "Copiar" }: { value: string; label?: string
 interface Props {
   titulo: string;
   descricao: string;
-  scope: "crm" | "recruitment" | "marketing";
-  franchiseId: string;
+  scope: "crm" | "recruitment" | "marketing" | "franquia_crm";
+  // null para tokens de nível rede (hoje só "franquia_crm") — não amarrados
+  // a nenhuma unidade selecionada no seletor da tela.
+  franchiseId: string | null;
   status: TokenStatus;
   onChanged: () => void;
   children?: React.ReactNode;

@@ -9,7 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiErr, apiOk } from "@/lib/api-response";
-import { resolveIntegracoesFranchiseId } from "@/lib/integracoes-auth";
+import { resolveIntegracoesFranchiseId, isIntegracoesAdmin } from "@/lib/integracoes-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,9 @@ export async function GET(req: Request) {
     return apiErr("Unidade não encontrada.", 404, "NOT_FOUND");
   }
 
-  const [tokens, empresas] = await Promise.all([
+  const admin = isIntegracoesAdmin(session);
+
+  const [tokens, empresas, networkTokens] = await Promise.all([
     prisma.partnerApiToken.findMany({
       where: { franchiseId },
       select: { scopes: true, ativo: true, createdAt: true, lastUsedAt: true },
@@ -50,6 +52,15 @@ export async function GET(req: Request) {
       select: { id: true, name: true, cnpj: true },
       orderBy: { name: "asc" },
     }),
+    // "CRM de Franquias" é nível rede (franchiseId null), não desta unidade —
+    // só faz sentido pra quem administra a rede toda, independente de qual
+    // unidade está selecionada no seletor da tela.
+    admin
+      ? prisma.partnerApiToken.findMany({
+          where: { franchiseId: null },
+          select: { scopes: true, ativo: true, createdAt: true, lastUsedAt: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   return apiOk({
@@ -57,6 +68,7 @@ export async function GET(req: Request) {
     crm: tokenStatus(tokens, "crm"),
     recruitment: tokenStatus(tokens, "recruitment"),
     marketing: tokenStatus(tokens, "marketing"),
+    ...(admin ? { franquiaCrm: tokenStatus(networkTokens, "franquia_crm") } : {}),
     empresas,
   });
 }

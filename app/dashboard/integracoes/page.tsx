@@ -18,6 +18,7 @@ interface StatusData {
   crm: TokenStatus;
   recruitment: TokenStatus;
   marketing: TokenStatus;
+  franquiaCrm?: TokenStatus;
   empresas: EmpresaOpcao[];
 }
 
@@ -137,6 +138,17 @@ export default function IntegracoesPage() {
             status={data.marketing}
             onChanged={() => carregarStatus(data.franchise.id)}
           />
+
+          {isAdmin && data.franquiaCrm && (
+            <ScopeTokenCard
+              titulo="CRM de Franquias (rede)"
+              descricao='Cole este token no campo "Token do CRM de Franquias" na configuração da Alizo. Ele autoriza o agente de vendas a ler e reativar os leads parados no CRM de Franquias — diferente dos tokens acima, este não é de uma unidade: cobre a rede inteira, porque leads de franquia pertencem à franqueadora, não a uma unidade específica.'
+              scope="franquia_crm"
+              franchiseId={null}
+              status={data.franquiaCrm}
+              onChanged={() => carregarStatus(data.franchise.id)}
+            />
+          )}
         </div>
       ) : null}
     </div>
