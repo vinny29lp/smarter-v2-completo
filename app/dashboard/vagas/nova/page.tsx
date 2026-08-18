@@ -90,6 +90,7 @@ export default function NovaVagaPage() {
   const [error, setError] = useState("");
   const [testesIA, setTestesIA] = useState("");
   const [companies, setCompanies] = useState<any[]>([]);
+  const [filtroEmpresa, setFiltroEmpresa] = useState("");
 
   // Nível de ensino — multi-select
   const [niveis, setNiveis] = useState<string[]>([]);
@@ -133,7 +134,12 @@ export default function NovaVagaPage() {
     setCursosSelecionados(prev => prev.includes(curso) ? prev.filter(c => c !== curso) : [...prev, curso]);
 
   useEffect(() => {
-    fetch("/api/app/empresas").then(r => r.json()).then(d => setCompanies(d.empresas || []));
+    // limit alto pra trazer TODAS as empresas visíveis de uma vez — sem isso só
+    // vinham as 50 mais recentes e empresas mais antigas (ex. Coresport) nunca
+    // apareciam pra seleção aqui, mesmo já cadastradas na unidade (achado 18/08).
+    fetch("/api/app/empresas?limit=2000")
+      .then(r => r.json())
+      .then(d => setCompanies((d.empresas || []).slice().sort((a: any, b: any) => a.name.localeCompare(b.name, "pt"))));
   }, []);
 
   const handleSubmit = async () => {
@@ -304,12 +310,27 @@ export default function NovaVagaPage() {
             {/* Empresa e Modalidade */}
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Empresa *</label>
+              <input
+                type="text"
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] mb-1.5"
+                placeholder="Filtrar por nome ou cidade..."
+                value={filtroEmpresa}
+                onChange={e => setFiltroEmpresa(e.target.value)}
+              />
               <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white" value={form.companyId} onChange={e => set("companyId", e.target.value)}>
                 <option value="">Selecione...</option>
-                {companies.filter((c:any) => c.status === "ATIVA").map((c:any) => (
-                  <option key={c.id} value={c.id}>{c.name} — {c.cidade}/{c.uf}</option>
-                ))}
+                {companies
+                  .filter((c:any) => c.status === "ATIVA")
+                  .filter((c:any) => {
+                    const termo = filtroEmpresa.trim().toLowerCase();
+                    if (!termo) return true;
+                    return c.name.toLowerCase().includes(termo) || (c.cidade || "").toLowerCase().includes(termo);
+                  })
+                  .map((c:any) => (
+                    <option key={c.id} value={c.id}>{c.name} — {c.cidade}/{c.uf}</option>
+                  ))}
               </select>
+              <p className="text-[11px] text-slate-400 mt-1">{companies.length} empresas cadastradas visíveis (inclui empresas migradas de outras unidades).</p>
             </div>
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Modalidade</label>

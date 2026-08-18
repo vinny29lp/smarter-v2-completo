@@ -20,7 +20,14 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
-  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+  // Cap alto o suficiente pra caber TODAS as empresas visíveis (própria unidade +
+  // migradas) numa única chamada — usado pelo dropdown de seleção de empresa na
+  // abertura de vaga (app/dashboard/vagas/nova), que precisa da lista inteira, não
+  // só da primeira página. A tela paginada de /dashboard/empresas continua usando
+  // o default de 50 (não passa ?limit). Achado em 2026-08-18: sem isso, empresas
+  // cadastradas há mais tempo (ex. Coresport, criada em 29/06) ficavam fora da
+  // primeira página e nunca apareciam pra seleção.
+  const limit = Math.min(2000, Math.max(1, parseInt(searchParams.get("limit") || "50")));
   const skip  = (page - 1) * limit;
 
   const role = session.user.role;
