@@ -86,6 +86,11 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
   const [autentiqueSuccess, setAutentiqueSuccess] = useState<string|null>(null);
   const [checkingStatus, setCheckingStatus]     = useState(false);
   const [copiedLink, setCopiedLink]             = useState<string|null>(null);
+  // Link de assinatura gerado sob demanda por signatário (chave: publicId ou email) —
+  // guardado aqui pra sobreviver a um "Verificar Assinaturas" (que não traz esse campo
+  // de volta pra signatários cadastrados por e-mail, ver lib/autentique.ts).
+  const [signerLinks, setSignerLinks]           = useState<Record<string,string>>({});
+  const [gerandoLinkPara, setGerandoLinkPara]   = useState<string|null>(null);
 
   // Dados derivados
   const isTce      = doc?.tipo === "tce" || doc?.tipo === "pe";
@@ -265,6 +270,61 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
     });
   };
 
+  // Link já conhecido de um signatário: o que veio do Autentique (raro — só
+  // signatário cadastrado por nome) ou o que já geramos sob demanda nesta sessão.
+  const linkConhecido = (signer: any): string | null => {
+    const doAutentique = typeof signer.link === "string" ? signer.link : (signer.link as any)?.short_link;
+    if (doAutentique) return doAutentique;
+    const chave = signer.publicId || signer.public_id || signer.email;
+    return signerLinks[chave] || null;
+  };
+
+  // Gera (sob demanda, via API) o link de assinatura de um signatário que ainda não tem um.
+  const obterOuGerarLink = async (signer: any): Promise<string | null> => {
+    const existente = linkConhecido(signer);
+    if (existente) return existente;
+
+    const publicId = signer.publicId || signer.public_id;
+    const chave = publicId || signer.email;
+    if (!publicId) {
+      setAlertas(["⚠️ Não foi possível gerar o link — reenvie o documento para assinatura para habilitar esta função."]);
+      return null;
+    }
+
+    setGerandoLinkPara(chave);
+    try {
+      const res = await fetch(
+        `/api/app/contratos/${params.id}/documentos/${params.docId}/autentique/link`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ publicId }) }
+      );
+      const data = await res.json();
+      if (data.error || !data.shortLink) {
+        setAlertas([data.error || "⚠️ Erro ao gerar link de assinatura."]);
+        return null;
+      }
+      setSignerLinks(prev => ({ ...prev, [chave]: data.shortLink }));
+      return data.shortLink as string;
+    } catch {
+      setAlertas(["⚠️ Erro ao gerar link de assinatura."]);
+      return null;
+    } finally {
+      setGerandoLinkPara(null);
+    }
+  };
+
+  const handleCopiarLinkSignatario = async (signer: any) => {
+    const link = await obterOuGerarLink(signer);
+    if (link) copiarLink(link);
+  };
+
+  const handleEnviarWhatsApp = async (signer: any) => {
+    const link = await obterOuGerarLink(signer);
+    if (!link) return;
+    const nome = signer.label ? ` (${signer.label})` : "";
+    const texto = `Olá! Segue o link para assinatura do documento "${doc?.titulo || "Termo"}"${nome}: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+  };
+
   // Visualizar o PDF assinado em nova aba (link direto)
   const visualizarAssinado = () => {
     const url = doc?.signedUrl;
@@ -425,20 +485,30 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                         {isViewed && !isSigned && !isRejected && (
                           <p className="text-[10px] font-normal text-yellow-600">Visualizado — aguardando</p>
                         )}
-                        {(() => {
-                          const lnk = typeof signer.link === "string"
-                            ? signer.link
-                            : (signer.link as any)?.short_link;
-                          return lnk && !isRejected ? (
-                            <button
-                              onClick={() => copiarLink(lnk)}
-                              className={`text-[10px] font-bold hover:underline mt-0.5 ${
-                                copiedLink === lnk ? "text-emerald-600" : "text-[#0f2a5e]"
-                              }`}
-                            >
-                              {copiedLink === lnk ? "✅ Copiado!" : "🔗 Copiar link"}
-                            </button>
-                          ) : null;
+                        {!isRejected && !isSigned && (() => {
+                          const chave = signer.publicId || signer.public_id || signer.email;
+                          const lnkAtual = linkConhecido(signer);
+                          const gerando = gerandoLinkPara === chave;
+                          return (
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <button
+                                onClick={() => handleCopiarLinkSignatario(signer)}
+                                disabled={gerando}
+                                className={`text-[10px] font-bold hover:underline ${
+                                  lnkAtual && copiedLink === lnkAtual ? "text-emerald-600" : "text-[#0f2a5e]"
+                                } disabled:opacity-50`}
+                              >
+                                {gerando ? "Gerando..." : lnkAtual && copiedLink === lnkAtual ? "✅ Copiado!" : "🔗 Copiar link"}
+                              </button>
+                              <button
+                                onClick={() => handleEnviarWhatsApp(signer)}
+                                disabled={gerando}
+                                className="text-[10px] font-bold text-emerald-600 hover:underline disabled:opacity-50"
+                              >
+                                📲 WhatsApp
+                              </button>
+                            </div>
+                          );
                         })()}
                       </div>
                     </div>
@@ -449,7 +519,7 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
 
             {!assinado && (
               <p className="text-[10px] text-slate-400 mt-3">
-                Os signatários receberam o link por e-mail. Use "🔗 Copiar link" para reenviar manualmente caso não encontrem, ou "Verificar Assinaturas" para atualizar o status.
+                Os signatários receberam o link por e-mail. Use "🔗 Copiar link" ou "📲 WhatsApp" para reenviar manualmente caso não encontrem, ou "Verificar Assinaturas" para atualizar o status.
               </p>
             )}
           </div>

@@ -31,6 +31,7 @@ export interface AutentiqueDocumentoResponse {
   created_at: string;
   /** Autentique API v2 retorna `signatures`, não `signers` */
   signatures: Array<{
+    public_id?: string;
     email: string;
     name?: string;
     action?: { name: string };
@@ -72,6 +73,7 @@ export async function enviarParaAutentique(
         refusable
         created_at
         signatures {
+          public_id
           email
           name
           action { name }
@@ -128,6 +130,7 @@ export async function autentiqueConectado(): Promise<boolean> {
 }
 
 export interface AutentiqueSignerStatus {
+  publicId?: string;
   email: string;
   name?: string;
   action?: string;
@@ -162,6 +165,7 @@ export async function buscarStatusAutentique(docId: string): Promise<AutentiqueD
         name
         files { signed }
         signatures {
+          public_id
           email
           name
           action { name }
@@ -203,6 +207,7 @@ export async function buscarStatusAutentique(docId: string): Promise<AutentiqueD
     // Excluir e-mails internos do Autentique (dono da conta, adicionados automaticamente)
     .filter((s: any) => !AUTENTIQUE_INTERNAL_EMAILS.includes((s.email || "").toLowerCase()))
     .map((s: any) => ({
+      publicId: s.public_id,
       email: s.email,
       name: s.name,
       action: s.action?.name,
@@ -224,4 +229,55 @@ export async function buscarStatusAutentique(docId: string): Promise<AutentiqueD
     signedUrl: doc.files?.signed || undefined,
     signers,
   };
+}
+
+/**
+ * Gera (ou re-gera) o link de assinatura de UM signatário específico, pelo
+ * `public_id` da assinatura (não confundir com o id do documento).
+ *
+ * Achado em 2026-08-18: o campo `link.short_link` das queries acima (usado
+ * pelo botão "🔗 Copiar link" já existente na tela do documento) só vem
+ * preenchido quando o signatário é cadastrado por NOME no Autentique —
+ * como sempre cadastramos por e-mail (enviarParaAutentique), esse campo
+ * nunca vinha preenchido e o botão nunca aparecia. Esta mutation
+ * (`createLinkToSignature`) gera o link sob demanda pra qualquer
+ * signatário, independente de como foi cadastrado — é o que a tela usa
+ * agora pra "Copiar link" / "Enviar por WhatsApp".
+ * Docs: https://docs.autentique.com.br/api/mutations/create-signature-link
+ */
+export async function criarLinkAssinatura(publicId: string): Promise<string> {
+  const token = await getToken();
+
+  const query = `
+    mutation {
+      createLinkToSignature(public_id: "${publicId}") {
+        short_link
+      }
+    }
+  `;
+
+  const response = await fetch(AUTENTIQUE_API, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Autentique HTTP ${response.status}: ${text}`);
+  }
+
+  const json = await response.json();
+  if (json.errors?.length) {
+    const msg = json.errors.map((e: any) => e.message).join("; ");
+    throw new Error(`Autentique GraphQL error: ${msg}`);
+  }
+
+  const shortLink = json.data?.createLinkToSignature?.short_link;
+  if (!shortLink) throw new Error("Autentique não retornou o link de assinatura.");
+  return shortLink as string;
 }
