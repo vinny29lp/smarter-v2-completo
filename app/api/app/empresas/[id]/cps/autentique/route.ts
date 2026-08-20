@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { handleApiError } from "@/lib/api-response";
 import { enviarParaAutentique, buscarStatusAutentique, AUTENTIQUE_INTERNAL_EMAILS } from "@/lib/autentique";
 import { enviarNotificacaoAssinatura } from "@/lib/email";
+import { checkPermission } from "@/lib/permissions";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
 
@@ -113,9 +114,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!["FRANQUEADORA", "FRANQUEADO"].includes(session.user.role || "")) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
-    }
+    const permCheck = checkPermission(session, "empresas");
+    if (permCheck) return permCheck;
 
     const body = await req.json() as { emails?: string[]; email?: string; emailEmpresa?: string };
     // Suporta array de emails (novo) ou email único (retrocompatibilidade)

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { wrapParaPDF } from "@/lib/pdf-wrapper";
 import { handleApiError } from "@/lib/api-response";
+import { checkPermission } from "@/lib/permissions";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
 
@@ -165,9 +166,8 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["FRANQUEADORA", "FRANQUEADO"].includes(session.user.role || "")) {
-    return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
-  }
+  const permCheck = checkPermission(session, "empresas");
+  if (permCheck) return permCheck;
 
   const { valorGestao } = await req.json();
   if (!valorGestao || isNaN(Number(valorGestao))) {
