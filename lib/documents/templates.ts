@@ -745,7 +745,9 @@ export function gerarReciboRescisao(
   diasBolsa: number,
   diasTrabalhados: number,
   descontos: DescontoRescisao[],
-  diasRecesso?: number
+  diasRecesso?: number,
+  avosRecesso?: number,
+  regraEspecialRecesso?: boolean
 ): string {
   const { estudante: e, empresa: emp, smarter: sm, estagio: est } = c;
   const bolsaDia  = Number(est.valorBolsa) / 30;
@@ -758,6 +760,9 @@ export function gerarReciboRescisao(
     ? diasRecesso
     : (diasTrabalhados >= 12 ? Math.ceil(diasTrabalhados / 365 * 30 * 2) / 2 : 0);
   const recessoValor = diasRec * bolsaDia;
+  const avosLabel = avosRecesso !== undefined
+    ? ` — ${avosRecesso} avo(s)${regraEspecialRecesso ? " (14/12, recesso não usufruído em 12 meses)" : ""}`
+    : "";
 
   const totalDescontos = descontos.reduce((s, d) => s + (d.valor || 0), 0);
   const total = bolsaProp + recessoValor - totalDescontos;
@@ -769,8 +774,8 @@ export function gerarReciboRescisao(
     : "";
 
   const recessoRow = diasRec > 0
-    ? `${fld("Recesso Proporcional", `${diasRec} dia(s) — base: ${diasTrabalhados} dias trabalhados`)}${fld("Valor", fmt(recessoValor))}`
-    : `${fld("Recesso Proporcional", "Não devido (menos de 12 dias trabalhados)")}${fld("Valor", fmt(0))}`;
+    ? `${fld("Recesso Proporcional", `${diasRec} dia(s)${avosLabel}`)}${fld("Valor", fmt(recessoValor))}`
+    : `${fld("Recesso Proporcional", "Não devido (nenhum mês completo de estágio)")}${fld("Valor", fmt(0))}`;
 
   return wrap(`
 ${premiumHeader("Recibo de Rescisão", "Lei Nº 11.788/2008", c.numero, sm)}
@@ -796,7 +801,7 @@ ${descontosRows}
 </div></div>
 
 <div class="obj-box" style="margin:14px 0">
-  Eu, <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, declaro ter recebido de <strong>${emp.razaoSocial}</strong>, CNPJ: <strong>${emp.cnpj}</strong>, a importância de <strong>${fmt(total)} (${valorExtenso(Math.round(total))})</strong>, relativa aos acertos rescisórios do estágio encerrado, conforme detalhamento acima. O recesso proporcional foi calculado com base em <strong>${diasTrabalhados || 0} dias trabalhados</strong>, sendo <strong>${diasRec} dia(s)</strong> de recesso (Lei 11.788/2008, Art. 13).
+  Eu, <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, declaro ter recebido de <strong>${emp.razaoSocial}</strong>, CNPJ: <strong>${emp.cnpj}</strong>, a importância de <strong>${fmt(total)} (${valorExtenso(Math.round(total))})</strong>, relativa aos acertos rescisórios do estágio encerrado, conforme detalhamento acima. O recesso proporcional foi calculado com base em <strong>${diasTrabalhados || 0} dias trabalhados</strong>, sendo <strong>${diasRec} dia(s)</strong> de recesso${avosLabel} (Lei 11.788/2008, Art. 13).
 </div>
 
 <p style="text-align:right;font-size:10px;margin:14px 0">${c.cidadeAssinatura}, ${hoje}</p>

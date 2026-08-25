@@ -6,6 +6,15 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { type BlocoJornada, DIAS_LABELS, getDiasCount, calcBlocoCh, blocosDoContrato, serializarBlocos } from "@/lib/contratos/jornada";
+
+// Mesmos presets do formulário de criação (components/forms/ContratoForm.tsx) —
+// fora deles, o select cai em "Personalizado" e mostra os blocos de horário.
+const DIAS_PRESETS_EDIT = [
+  "Segunda a Sexta", "Segunda a Sábado", "Terça a Sábado", "Terça a Domingo",
+  "Quarta a Sábado", "Quarta a Domingo", "Quinta a Segunda", "Sexta a Terça",
+  "Sábado a Quarta", "Domingo a Quinta",
+];
 
 const statusBadge: Record<string,string> = {ATIVO:"green",PENDENTE:"yellow",AGUARDANDO_ASSINATURA:"blue",VENCIDO:"red",FINALIZADO:"gray",SUSPENSO:"red",INATIVO:"gray"};
 const docStatusBadge: Record<string,string> = {NAO_GERADO:"gray",RASCUNHO:"yellow",GERADO:"purple",ENVIADO_ASSINATURA:"blue",AGUARDANDO_ASSINATURA:"blue",ASSINADO:"green",CANCELADO:"red"};
@@ -38,6 +47,18 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const [actionMsg, setActionMsg]   = useState<string|null>(null);
   const [editForm, setEditForm]     = useState<Record<string,any>>({});
   const setF = (k: string, v: any) => setEditForm(p => ({ ...p, [k]: v }));
+
+  // ── Horário personalizado (blocos) na edição — mesmo sistema da criação ──
+  const [editDiasSelect, setEditDiasSelect] = useState<string>("Segunda a Sexta");
+  const editIsPersonalizado = editDiasSelect === "Personalizado";
+  const [editBlocos, setEditBlocos] = useState<BlocoJornada[]>([]);
+  const updateEditBloco = (i: number, k: keyof BlocoJornada, v: string | number) =>
+    setEditBlocos(p => p.map((b, idx) => idx === i ? { ...b, [k]: v } : b));
+  const addEditBloco = () => setEditBlocos(p => [...p, { de: 5, ate: 5, inicio: "08:00", fim: "14:00", intervalo: 0 }]);
+  const removeEditBloco = (i: number) => setEditBlocos(p => p.filter((_, idx) => idx !== i));
+  const editChTotalPersonalizado = editBlocos.reduce((s, b) => s + calcBlocoCh(b) * getDiasCount(b.de, b.ate), 0);
+  const editChDiariaMaxPersonalizado = editBlocos.length > 0 ? Math.max(...editBlocos.map(calcBlocoCh)) : 0;
+  const editHasExcessDiario = editIsPersonalizado && editBlocos.some(b => calcBlocoCh(b) > 6);
 
   // ── Migração / Documentos Físicos ─────────────────────────────────
   const [migMsg, setMigMsg] = useState<string | null>(null);
@@ -117,16 +138,53 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
       atividades:      contract.atividades      || "",
       modalidade:      contract.modalidade      || "Presencial",
     });
+    // Dias personalizados: se o valor salvo não é um dos presets fixos, é um
+    // horário personalizado (blocos estruturados, turnos legados, ou texto
+    // livre antigo) — blocosDoContrato reconstrói os blocos editáveis nos 3
+    // casos, inclusive contratos antigos com um único horário (1 bloco só).
+    if (DIAS_PRESETS_EDIT.includes(contract.diasSemana)) {
+      setEditDiasSelect(contract.diasSemana);
+      setEditBlocos([]);
+    } else {
+      setEditDiasSelect("Personalizado");
+      setEditBlocos(blocosDoContrato(contract));
+    }
     setActionMsg(null);
     setEditModal(true);
   };
 
   const salvarEdicao = async () => {
+    if (editIsPersonalizado) {
+      if (editHasExcessDiario) {
+        setActionMsg("❌ Um ou mais blocos excedem 6h/dia líquidas (Lei 11.788/2008, art. 10). Ajuste os horários ou o intervalo de descanso.");
+        return;
+      }
+      if (editChTotalPersonalizado > 30) {
+        setActionMsg(`❌ Carga horária semanal (${editChTotalPersonalizado.toFixed(1)}h) excede o limite legal de 30h/semana (Lei 11.788/2008, art. 10).`);
+        return;
+      }
+    }
     setSaving(true); setActionMsg(null);
+    // Fora do modo personalizado, salva os campos do formulário como sempre.
+    // No modo personalizado, os blocos substituem diasSemana/horário/CH —
+    // mesma convenção da criação (ver ContratoForm.tsx): horarioInicio/
+    // horarioFim/intervalo do contrato guardam o 1º bloco, para quem ainda lê
+    // esses campos direto; o horário por dia completo fica no diasSemana.
+    const payload = editIsPersonalizado
+      ? {
+          ...editForm,
+          diasSemana: serializarBlocos(editBlocos),
+          horarioInicio: editBlocos[0]?.inicio || "08:00",
+          horarioFim: editBlocos[0]?.fim || "14:00",
+          intervalo: editBlocos[0]?.intervalo ?? 0,
+          chDiaria: Math.round(editChDiariaMaxPersonalizado),
+          chSemanal: Math.round(editChTotalPersonalizado * 10) / 10,
+        }
+      : { ...editForm, diasSemana: editDiasSelect };
     const res = await fetch(`/api/app/contratos/${params.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editForm),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     setSaving(false);
@@ -178,42 +236,18 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const assinados = docsDigitais.filter((d: any) => d.status === "ASSINADO").length;
 
   // ── Calculadora de Rescisão ──────────────────────────────────────────
+  // Dias trabalhados no mês, meses/avos de recesso (com a regra do 14/12 avos
+  // quando o recesso não foi tirado em 12 meses) e valores são todos calculados
+  // no servidor a partir das datas do contrato — ver lib/documents/rescisaoCalc.ts.
+  // Aqui só enviamos o que realmente é uma escolha do usuário: último dia,
+  // motivo e descontos.
   const calcularRescisao = async () => {
     if (!rescisao.ultimoDia || gerandoRecibo) return;
-    const inicio = new Date(contract.dataInicio);
-    const ultimo = new Date(rescisao.ultimoDia);
 
-    const mesesTrabalhados = (ultimo.getFullYear() - inicio.getFullYear()) * 12 +
-      (ultimo.getMonth() - inicio.getMonth());
-    const diasTrabalhados = Math.round((ultimo.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
-    const diasNoMes = new Date(ultimo.getFullYear(), ultimo.getMonth() + 1, 0).getDate();
-    const diasProporcional = ultimo.getDate();
-
-    const bolsaMensal = contract.bolsa || 0;
-    const bolsaProporcional = (bolsaMensal / diasNoMes) * diasProporcional;
-
-    // 1/12 avos: 1/12 da bolsa por cada mês trabalhado (total de meses, sem módulo)
-    const dozeavos = (bolsaMensal / 12) * mesesTrabalhados;
-
-    const totalBruto = bolsaProporcional + dozeavos;
-    const totalDescontos = rescisao.descontos.reduce((s, d) => s + (d.valor || 0), 0);
-
-    const newCalc = {
-      diasTrabalhados,
-      mesesTrabalhados,
-      diasProporcional,
-      bolsaProporcional,
-      dozeavos,
-      totalBruto,
-      totalDescontos,
-      totalLiquido: totalBruto - totalDescontos,
-    };
-    setCalc(newCalc);
-
-    // Gerar e salvar o Recibo de Rescisão (tipo "rr")
     setGerandoRecibo(true);
     setReciboError(null);
     setReciboGerado(false);
+    setCalc(null);
     try {
       const rrDoc = contract.documents?.find((d: any) => d.tipo === "rr");
       if (!rrDoc) throw new Error("Documento de recibo não encontrado no contrato");
@@ -222,16 +256,15 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          diasBolsa: newCalc.diasProporcional,
-          mesesTrabalhados: newCalc.mesesTrabalhados,
           descontos: rescisao.descontos,
-          dozeavos: newCalc.dozeavos,
           ultimoDia: rescisao.ultimoDia,
           motivo: rescisao.motivo,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao gerar recibo");
+
+      setCalc(data.calculo);
 
       // Abre o recibo em nova aba
       const w = window.open("", "_blank");
@@ -639,63 +672,139 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-          {/* Horário e CH */}
-          <div className="grid grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Horário Início</label>
-              <input type="time" value={editForm.horarioInicio} onChange={e => setF("horarioInicio", e.target.value)}
-                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Horário Fim</label>
-              <input type="time" value={editForm.horarioFim} onChange={e => setF("horarioFim", e.target.value)}
-                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">CH Diária (h)</label>
-              <input type="number" value={editForm.chDiaria} onChange={e => setF("chDiaria", e.target.value)}
-                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">CH Semanal (h)</label>
-              <input type="number" value={editForm.chSemanal} onChange={e => setF("chSemanal", e.target.value)}
-                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
-            </div>
+          {/* Dias da semana */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-600 block">Dias da Semana</label>
+            <select
+              value={editDiasSelect}
+              onChange={e => {
+                const v = e.target.value;
+                if (v === "Personalizado" && editBlocos.length === 0) {
+                  // 1ª vez que entra em personalizado nesta edição: parte do
+                  // horário único que já estava no formulário, como 1 bloco —
+                  // o usuário pode ajustá-lo ou adicionar mais blocos.
+                  setEditBlocos(blocosDoContrato({
+                    diasSemana: editDiasSelect,
+                    horarioInicio: editForm.horarioInicio,
+                    horarioFim: editForm.horarioFim,
+                    intervalo: contract.intervalo,
+                  }));
+                }
+                setEditDiasSelect(v);
+              }}
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+            >
+              {[...DIAS_PRESETS_EDIT, "Personalizado"].map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
 
-          {/* Dias da semana */}
-          {(() => {
-            const DIAS_PRESETS_EDIT = [
-              "Segunda a Sexta","Segunda a Sábado","Terça a Sábado","Terça a Domingo",
-              "Quarta a Sábado","Quarta a Domingo","Quinta a Segunda","Sexta a Terça",
-              "Sábado a Quarta","Domingo a Quinta",
-            ];
-            const isPreset = DIAS_PRESETS_EDIT.includes(editForm.diasSemana);
-            const selectVal = isPreset ? editForm.diasSemana : "Personalizado";
-            return (
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-600 block">Dias da Semana</label>
-                <select
-                  value={selectVal}
-                  onChange={e => {
-                    const v = e.target.value;
-                    if (v !== "Personalizado") setF("diasSemana", v);
-                    else setF("diasSemana", "");
-                  }}
-                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white"
-                >
-                  {[...DIAS_PRESETS_EDIT, "Personalizado"].map(d => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-                {selectVal === "Personalizado" && (
-                  <input type="text" value={editForm.diasSemana} onChange={e => setF("diasSemana", e.target.value)}
-                    placeholder="Ex: Quarta a Sexta, Seg/Qua/Sex..."
-                    className="w-full border-2 border-blue-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
-                )}
+          {/* Horário e CH — modo preset: campos únicos como sempre */}
+          {!editIsPersonalizado && (
+            <div className="grid grid-cols-4 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Horário Início</label>
+                <input type="time" value={editForm.horarioInicio} onChange={e => setF("horarioInicio", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
               </div>
-            );
-          })()}
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Horário Fim</label>
+                <input type="time" value={editForm.horarioFim} onChange={e => setF("horarioFim", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">CH Diária (h)</label>
+                <input type="number" value={editForm.chDiaria} onChange={e => setF("chDiaria", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">CH Semanal (h)</label>
+                <input type="number" value={editForm.chSemanal} onChange={e => setF("chSemanal", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+            </div>
+          )}
+
+          {/* Horário personalizado: blocos interativos — mesmo sistema da criação (ContratoForm.tsx) */}
+          {editIsPersonalizado && (
+            <div className="space-y-3 border-2 border-blue-200 bg-blue-50 rounded-xl p-4">
+              <p className="text-xs font-bold text-blue-700">🗓 Horário personalizado — configure um bloco por faixa de dias</p>
+
+              {editBlocos.map((b, i) => {
+                const chDia = calcBlocoCh(b);
+                const nDias = getDiasCount(b.de, b.ate);
+                const totalBloco = chDia * nDias;
+                const excede = chDia > 6;
+                return (
+                  <div key={i} className={`bg-white rounded-xl p-3 border-2 ${excede ? "border-red-200" : "border-slate-100"}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-bold text-slate-700">Bloco {i + 1}</p>
+                      {editBlocos.length > 1 && (
+                        <button type="button" onClick={() => removeEditBloco(i)}
+                          className="text-xs text-red-400 hover:text-red-600 font-bold">Remover</button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">De</label>
+                        <select value={b.de} onChange={e => updateEditBloco(i, "de", parseInt(e.target.value))}
+                          className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white">
+                          {DIAS_LABELS.map((d, idx) => <option key={idx} value={idx}>{d}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Até</label>
+                        <select value={b.ate} onChange={e => updateEditBloco(i, "ate", parseInt(e.target.value))}
+                          className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white">
+                          {DIAS_LABELS.map((d, idx) => <option key={idx} value={idx}>{d}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Início</label>
+                        <input type="time" value={b.inicio} onChange={e => updateEditBloco(i, "inicio", e.target.value)}
+                          className="w-full border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Fim</label>
+                        <input type="time" value={b.fim} onChange={e => updateEditBloco(i, "fim", e.target.value)}
+                          className="w-full border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Intervalo</label>
+                        <select value={b.intervalo} onChange={e => updateEditBloco(i, "intervalo", parseInt(e.target.value))}
+                          className="w-full border-2 border-slate-200 rounded-xl px-2 py-2 text-sm outline-none focus:border-[#0f2a5e] bg-white">
+                          <option value={0}>Sem</option>
+                          <option value={15}>15min</option>
+                          <option value={30}>30min</option>
+                          <option value={45}>45min</option>
+                          <option value={60}>1h</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className={`mt-2 text-xs px-2 py-1 rounded-lg font-semibold ${excede ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-600"}`}>
+                      {excede ? "⚠️ " : "→ "}
+                      {chDia % 1 === 0 ? chDia.toFixed(0) : chDia.toFixed(1)}h/dia × {nDias} dia{nDias !== 1 ? "s" : ""} = {totalBloco % 1 === 0 ? totalBloco.toFixed(0) : totalBloco.toFixed(1)}h/semana
+                      {excede && " — excede 6h/dia (limite legal)"}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button type="button" onClick={addEditBloco}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800">
+                + Adicionar bloco de horário
+              </button>
+
+              <div className={`rounded-xl px-3 py-2.5 text-sm font-bold border-2 ${(editChTotalPersonalizado > 30 || editHasExcessDiario) ? "bg-red-50 border-red-200 text-red-700" : "bg-emerald-50 border-emerald-200 text-emerald-700"}`}>
+                ⏱ Total semanal: {editChTotalPersonalizado % 1 === 0 ? editChTotalPersonalizado.toFixed(0) : editChTotalPersonalizado.toFixed(1)}h/semana
+                {editChTotalPersonalizado > 30 && <span className="ml-2">— ⚠️ Excede limite legal de 30h</span>}
+                {editHasExcessDiario && !editChTotalPersonalizado && <span className="ml-2">— ⚠️ Bloco excede 6h/dia</span>}
+              </div>
+            </div>
+          )}
 
           {/* Supervisor */}
           <div>
@@ -925,12 +1034,12 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
                   <span className="font-semibold">{calc.mesesTrabalhados} meses ({calc.diasTrabalhados} dias)</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Bolsa proporcional ({calc.diasProporcional} dias):</span>
+                  <span className="text-slate-500">Bolsa proporcional ({calc.diasBolsa} dias):</span>
                   <span className="font-semibold text-emerald-600">{fmt(calc.bolsaProporcional)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">1/12 avos ({calc.mesesTrabalhados} meses):</span>
-                  <span className="font-semibold text-emerald-600">{fmt(calc.dozeavos)}</span>
+                  <span className="text-slate-500">Recesso proporcional ({calc.avosRecesso} avo{calc.avosRecesso === 1 ? "" : "s"}):</span>
+                  <span className="font-semibold text-emerald-600">{fmt(calc.recessoValor)}</span>
                 </div>
                 {calc.totalDescontos > 0 && (
                   <div className="flex justify-between">
@@ -939,6 +1048,11 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
                   </div>
                 )}
               </div>
+              {calc.regraEspecialAplicada && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  ⚠️ Recesso não usufruído há 12 meses ou mais — aplicado o adicional (14/12 avos).
+                </p>
+              )}
               <div className="border-t border-slate-200 pt-3 flex justify-between items-center">
                 <span className="font-bold text-slate-700">Total a Receber:</span>
                 <span className="text-xl font-black text-[#0f2a5e]">{fmt(calc.totalLiquido)}</span>

@@ -3,7 +3,8 @@
  * Central de alertas do dashboard — retorna todos os avisos de ação necessária.
  *
  * Alertas por role:
- *  FRANQUEADO/FUNCIONARIO: contratos vencendo, pendentes, avaliações semestrais, CRM
+ *  FRANQUEADO/FUNCIONARIO: contratos vencendo, pendentes, avaliações semestrais, CRM,
+ *                          solicitações de vaga pendentes
  *  FRANQUEADORA:           tudo acima + visão de rede + CRM Franquias
  */
 import { getServerSession } from "next-auth";
@@ -123,6 +124,19 @@ export async function GET() {
       take: 15,
     });
 
+    // ─── 6c. Solicitações de vaga (levantamento de perfil pela empresa) pendentes ─
+    // Hoje só aparecem na página da própria empresa (SolicitacoesVaga.tsx) — sem
+    // esse alerta central, ninguém sabia que uma chegou sem abrir empresa por empresa.
+    const solicitacoesVagaPendentes = await prisma.vagaSolicitacao.findMany({
+      where: { ...fwhere, status: "PENDENTE" },
+      select: {
+        id: true, funcao: true, bolsa: true, createdAt: true, companyId: true,
+        company: { select: { name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 20,
+    });
+
     // ─── 7. CRM de Parcerias — leads com retorno vencido ─────────────────────
     const leadsCrmVencidos = await prisma.crmLead.findMany({
       where: {
@@ -217,7 +231,7 @@ export async function GET() {
 
     // ─── Totais por severidade ────────────────────────────────────────────────
     const critico = contratosPendentes2Mes.length + contratosVencidosSemFinalizar.length + unidadesComPendentes2Mes.length + franquiaTarefasVencidas.length;
-    const atencao = contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length + liaFeedbackBugs.length;
+    const atencao = contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length + liaFeedbackBugs.length + solicitacoesVagaPendentes.length;
     const info    = franquiaLeadsParados.length + liaFeedbackGeral.length;
 
     return NextResponse.json({
@@ -228,6 +242,7 @@ export async function GET() {
         contratosPendentes2Mes:      contratosPendentes2Mes.map(c => ({ ...c, diasPendente: DIAS(c.createdAt ?? new Date()) })),
         avaliacoesDevidas:           avaliacoesDevidas.map(c => ({ ...c, mesesAtivo: Math.floor(DIAS(c.dataInicio ?? new Date()) / 30) })),
         leadsCrmVencidos,
+        solicitacoesVagaPendentes,
         liaFeedbackBugs,
         liaFeedbackGeral,
         // FRANQUEADORA:

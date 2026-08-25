@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { AIButton } from "@/components/ai/AIButton";
+import { type BlocoJornada, DIAS_LABELS, getDiasCount, calcBlocoCh, serializarBlocos } from "@/lib/contratos/jornada";
 
 interface Props { franchiseId: string; }
 
@@ -160,27 +161,12 @@ export function ContratoForm({ franchiseId }: Props) {
   const [nomeResponsavel, setNomeResponsavel] = useState("");
 
   // ── Blocos de horário personalizados ─────────────────────────────────────────
-  // Cada bloco cobre um range de dias (De/Até) com horários e intervalo próprios
-  interface Bloco { de: number; ate: number; inicio: string; fim: string; intervalo: number; }
-  const DIAS_LABELS = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"];
-
-  const getDiasCount = (de: number, ate: number): number =>
-    de <= ate ? ate - de + 1 : 7 - de + ate + 1;
-
-  const calcBlocoCh = (b: Bloco): number => {
-    const [h1s, m1s] = b.inicio.split(":");
-    const [h2s, m2s] = b.fim.split(":");
-    const h1 = parseInt(h1s), m1 = parseInt(m1s ?? "0");
-    const h2 = parseInt(h2s), m2 = parseInt(m2s ?? "0");
-    if (isNaN(h1) || isNaN(h2)) return 0;
-    const totalMin = (h2 * 60 + m2) - (h1 * 60 + m1) - b.intervalo;
-    return Math.max(0, totalMin / 60);
-  };
-
-  const [blocos, setBlocos] = useState<Bloco[]>([
+  // Cada bloco cobre um range de dias (De/Até) com horários e intervalo próprios.
+  // Lógica compartilhada com a edição de estágio em lib/contratos/jornada.ts.
+  const [blocos, setBlocos] = useState<BlocoJornada[]>([
     { de: 0, ate: 4, inicio: "08:00", fim: "14:00", intervalo: 0 }
   ]);
-  const updateBloco = (i: number, k: keyof Bloco, v: string | number) =>
+  const updateBloco = (i: number, k: keyof BlocoJornada, v: string | number) =>
     setBlocos(p => p.map((b, idx) => idx === i ? { ...b, [k]: v } : b));
   const addBloco = () => setBlocos(p => [...p, { de: 5, ate: 5, inicio: "08:00", fim: "14:00", intervalo: 0 }]);
   const removeBloco = (i: number) => setBlocos(p => p.filter((_, idx) => idx !== i));
@@ -283,7 +269,7 @@ export function ContratoForm({ franchiseId }: Props) {
       }
       // Serializa blocos personalizados como JSON estruturado para a TCE gerar corretamente
       const diasSemanaFinal = isDiasPersonalizado
-        ? JSON.stringify(blocos.map(b => ({ de: b.de, ate: b.ate, inicio: b.inicio, fim: b.fim, intervalo: b.intervalo })))
+        ? serializarBlocos(blocos)
         : form.diasSemana;
       const horarioInicioFinal = isDiasPersonalizado ? (blocos[0]?.inicio || "08:00") : form.horarioInicio;
       const horarioFimFinal    = isDiasPersonalizado ? (blocos[0]?.fim    || "14:00") : form.horarioFim;

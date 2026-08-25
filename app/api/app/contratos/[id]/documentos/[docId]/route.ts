@@ -6,9 +6,15 @@ import {
   gerarAvaliacaoSemestral, gerarParecerTecnico,
 } from "@/lib/documents/templates";
 import { validateTCE } from "@/lib/documents/validate";
+import { calcularRescisao, paraDataCalendario, type CalculoRescisao } from "@/lib/documents/rescisaoCalc";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+
+// Status de InternshipDocument que indicam que o documento de fato existe/foi
+// concluído (não é rascunho nem "nunca gerado") — usado para saber se um
+// recesso já foi formalizado durante o estágio.
+const STATUS_CONCLUIDOS = ["GERADO", "ENVIADO_ASSINATURA", "AGUARDANDO_ASSINATURA", "ASSINADO"];
 
 // ── Helper: lançamento automático de taxa de administração ──────────────────
 async function criarLancamentoTaxaAdmin(contractId: string) {
@@ -75,6 +81,7 @@ export async function POST(
   if (!contratoData) return NextResponse.json({ error: "Contrato não encontrado" }, { status: 404 });
 
   let html = "";
+  let rrCalc: CalculoRescisao | null = null;
 
   if (doc.tipo === "tce" || doc.tipo === "pe") {
     const erros = validateTCE(contratoData);
@@ -108,13 +115,58 @@ export async function POST(
         : body.descontos > 0
           ? [{ descricao: "Descontos", valor: Number(body.descontos) }]
           : [];
-      // Recesso proporcional — calcula a partir de diasTrabalhados (Lei 11.788/2008, Art. 13)
-      // Mínimo 12 dias para ter direito. Arredonda para 0,5 dia mais próximo.
-      const diasTrabalhados = Number(body.diasTrabalhados) || 0;
-      const diasRecesso = diasTrabalhados >= 12
-        ? Math.ceil(diasTrabalhados / 365 * 30 * 2) / 2
-        : 0;
-      html = gerarReciboRescisao(contratoData, body.diasBolsa || 30, diasTrabalhados, descontosRR, diasRecesso);
+      const totalDescontosRR = descontosRR.reduce((s: number, d: any) => s + (Number(d.valor) || 0), 0);
+
+      const contratoRaw = await prisma.contract.findUnique({
+        where: { id: params.id },
+        select: { dataInicio: true, bolsa: true },
+      });
+      if (!contratoRaw) return NextResponse.json({ error: "Contrato não encontrado" }, { status: 404 });
+
+      // Recesso já concedido durante o estágio? Só existe 1 documento "rec" por
+      // contrato (ver docTipos em lib/actions/contracts.ts) — se ele já foi
+      // concluído (não é rascunho nem "nunca gerado") e guardou a data final do
+      // período gozado, a contagem de avos reinicia a partir do dia seguinte.
+      const recessoDoc = await prisma.internshipDocument.findFirst({
+        where: { contractId: params.id, tipo: "rec" },
+        select: { status: true, metaData: true },
+      });
+      const recessoMetaDataFim = (recessoDoc?.metaData as any)?.dataFim;
+      // Se a data em metaData vier corrompida/em formato inesperado, isNaN abaixo
+      // descarta e conta o recesso desde o início do contrato.
+      const recessoJaTiradoAteRaw =
+        recessoDoc && STATUS_CONCLUIDOS.includes(recessoDoc.status || "") && recessoMetaDataFim
+          ? new Date(recessoMetaDataFim)
+          : null;
+      const recessoJaTiradoAte =
+        recessoJaTiradoAteRaw && !isNaN(recessoJaTiradoAteRaw.getTime()) ? recessoJaTiradoAteRaw : null;
+
+      const ultimoDiaStr: string = body.ultimoDia || new Date().toISOString().slice(0, 10);
+      const ultimoDiaDate = new Date(ultimoDiaStr);
+      if (isNaN(ultimoDiaDate.getTime())) {
+        return NextResponse.json({ error: "Último dia de estágio inválido." }, { status: 400 });
+      }
+      if (ultimoDiaDate.getTime() < paraDataCalendario(contratoRaw.dataInicio).getTime()) {
+        return NextResponse.json({ error: "Último dia de estágio não pode ser anterior ao início do contrato." }, { status: 400 });
+      }
+
+      rrCalc = calcularRescisao({
+        dataInicioContrato: contratoRaw.dataInicio,
+        bolsaMensal: Number(contratoRaw.bolsa) || 0,
+        ultimoDia: ultimoDiaDate,
+        recessoJaTiradoAte,
+        descontos: totalDescontosRR,
+      });
+
+      html = gerarReciboRescisao(
+        contratoData,
+        rrCalc.diasBolsa,
+        rrCalc.diasTrabalhados,
+        descontosRR,
+        rrCalc.diasRecesso,
+        rrCalc.avosRecesso,
+        rrCalc.regraEspecialAplicada
+      );
       break;
     }
     case "rec":
@@ -151,7 +203,7 @@ export async function POST(
   const updated = await saveDocumentHtml(params.docId, html);
 
   // Salva metaData para TR e RR
-  if ((doc.tipo === "tr" || doc.tipo === "rr") && (body.ultimoDia || body.motivo || body.tipoRescisao || body.descontos || body.dozeavos)) {
+  if ((doc.tipo === "tr" || doc.tipo === "rr") && (body.ultimoDia || body.motivo || body.tipoRescisao || body.descontos || rrCalc)) {
     await prisma.internshipDocument.update({
       where: { id: params.docId },
       data: {
@@ -160,10 +212,14 @@ export async function POST(
           ...(body.ultimoDia ? { ultimoDia: body.ultimoDia } : {}),
           ...(body.motivo ? { motivo: body.motivo } : {}),
           ...(body.tipoRescisao ? { tipoRescisao: body.tipoRescisao } : {}),
-          ...(doc.tipo === "rr" ? {
-            diasBolsa: body.diasBolsa,
-            mesesRecesso: body.mesesRecesso,
-            dozeavos: body.dozeavos,
+          // Valores calculados automaticamente (ver lib/documents/rescisaoCalc.ts) —
+          // guardados para auditoria, não para reuso manual.
+          ...(rrCalc ? {
+            diasBolsa: rrCalc.diasBolsa,
+            diasTrabalhados: rrCalc.diasTrabalhados,
+            avosRecesso: rrCalc.avosRecesso,
+            diasRecesso: rrCalc.diasRecesso,
+            regraEspecialRecesso: rrCalc.regraEspecialAplicada,
             descontos: body.descontos,
           } : {}),
         },
@@ -171,7 +227,7 @@ export async function POST(
     });
   }
 
-  return NextResponse.json({ document: updated, html });
+  return NextResponse.json({ document: updated, html, calculo: rrCalc });
 }
 
 export async function PATCH(
@@ -232,7 +288,7 @@ export async function PATCH(
   const SAFE_META_KEYS = [
     "ultimoDia", "motivo", "tipoRescisao", "diasBolsa", "mesesRecesso",
     "dozeavos", "descontos", "periodo", "notas", "parecer", "recomendacao",
-    "diasTrabalhados", "diasRecesso",
+    "diasTrabalhados", "diasRecesso", "avosRecesso", "regraEspecialRecesso",
   ];
   const safeMetaData = body.metaData && typeof body.metaData === "object"
     ? Object.fromEntries(

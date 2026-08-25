@@ -8,6 +8,7 @@ import Link from "next/link";
 
 interface ContratItem   { id: string; numero: string; student?: { name: string } | null; company?: { name: string } | null; franchise?: { name: string } | null; dataFim?: string; createdAt?: string; dataInicio?: string; diasRestantes?: number; diasPendente?: number; mesesAtivo?: number; }
 interface LeadCrmItem   { id: string; empresa: string; contato: string; retornoAt: string; etapa: string; }
+interface SolicitacaoVagaItem { id: string; funcao: string; bolsa: number; createdAt: string; companyId: string; company?: { name: string } | null; }
 interface UnidadeItem   { franchiseId: string; franchiseName: string; total: number; }
 interface TarefaItem    { id: string; leadId: string; nomeCompleto: string; descricao: string; dueAt: string; }
 interface LeadParadoItem{ id: string; nomeCompleto: string; etapa: string; ultimoContato: string | null; dias: number; }
@@ -20,6 +21,7 @@ interface Alertas {
   contratosPendentes2Mes: ContratItem[];
   avaliacoesDevidas: ContratItem[];
   leadsCrmVencidos: LeadCrmItem[];
+  solicitacoesVagaPendentes: SolicitacaoVagaItem[];
   liaFeedbackBugs: LiaFeedbackItem[];
   liaFeedbackGeral: LiaFeedbackItem[];
   unidadesComPendentes2Mes: UnidadeItem[];
@@ -33,6 +35,9 @@ interface Totais { critico: number; atencao: number; info: number; total: number
 
 const fmt = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString("pt-BR") : "—";
+
+const fmtMoney = (v: number) =>
+  "R$ " + (v ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 
 function Badge({ tipo }: { tipo: "critico" | "atencao" | "info" }) {
   const cls = {
@@ -238,6 +243,18 @@ export default function AlertasPanel({ isMaster }: { isMaster: boolean }) {
             <div>
               <p className="font-medium">{l.empresa}</p>
               <p className="text-xs text-gray-500">{l.contato} · Retorno previsto: {fmt(l.retornoAt)} · Etapa: {l.etapa}</p>
+            </div>
+          </AlertRow>
+        ))}
+      </Section>
+
+      <Section title="Solicitações de vaga pendentes (levantamento de perfil pela empresa)" tipo="atencao" count={alertas.solicitacoesVagaPendentes.length}>
+        {alertas.solicitacoesVagaPendentes.map(s => (
+          <AlertRow key={s.id} href={`/dashboard/empresas/${s.companyId}`}>
+            <span className="text-yellow-500 mt-0.5">📋</span>
+            <div>
+              <p className="font-medium">{s.company?.name ?? "—"} · {s.funcao}</p>
+              <p className="text-xs text-gray-500">{fmtMoney(s.bolsa)}/mês · Recebida em {fmt(s.createdAt)}</p>
             </div>
           </AlertRow>
         ))}
