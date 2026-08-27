@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { normalizarDataOpcional } from "@/lib/dates";
+import { normalizarDataOpcional, dataOpcionalEhValida } from "@/lib/dates";
 import bcrypt from "bcryptjs";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -103,6 +103,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
   // institutionId vazio ("") não é um FK válido — normaliza para null
   if (data.institutionId === "") data.institutionId = null;
+  // Validação ANTES de tocar no Prisma — se algo não faz sentido, devolve uma
+  // mensagem clara por campo em vez de deixar o Prisma quebrar com um erro
+  // técnico cru (ex: "Invalid `prisma.student.update()` invocation...").
+  const errosValidacao: string[] = [];
+  if (!dataOpcionalEhValida(data.dataNasc)) {
+    errosValidacao.push("Data de nascimento inválida — verifique o campo.");
+  }
+  if (errosValidacao.length > 0) {
+    return NextResponse.json({ error: errosValidacao.join(" ") }, { status: 400 });
+  }
+
   // dataNasc vem como "YYYY-MM-DD" do front, ou "" quando o campo é limpo no
   // formulário — Prisma exige DateTime ISO-8601 ou null (não aceita string vazia).
   if (data.dataNasc !== undefined) data.dataNasc = normalizarDataOpcional(data.dataNasc);
@@ -115,7 +126,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const estudante = await prisma.student.update({ where: { id: params.id }, data });
     return NextResponse.json({ estudante });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Erro ao atualizar estudante." }, { status: 500 });
+    console.error("[estudantes/id] PATCH error:", e?.message || e);
+    if (e?.code === "P2002") {
+      // Violação de unicidade — ex: CPF já cadastrado em outro estudante
+      const campo = Array.isArray(e?.meta?.target) ? e.meta.target[0] : e?.meta?.target;
+      const label = campo === "cpf" ? "CPF" : campo === "email" ? "E-mail" : "Este valor";
+      return NextResponse.json({ error: `${label} já está cadastrado para outro estudante.` }, { status: 409 });
+    }
+    if (e?.code === "P2025") {
+      return NextResponse.json({ error: "Estudante não encontrado." }, { status: 404 });
+    }
+    return NextResponse.json({ error: "Não foi possível salvar as alterações. Verifique os dados e tente novamente." }, { status: 500 });
   }
 }
 
