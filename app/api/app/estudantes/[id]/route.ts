@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { normalizarDataOpcional } from "@/lib/dates";
 import bcrypt from "bcryptjs";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -102,10 +103,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
   // institutionId vazio ("") não é um FK válido — normaliza para null
   if (data.institutionId === "") data.institutionId = null;
-  // dataNasc vem como "YYYY-MM-DD" do front — Prisma exige DateTime ISO-8601
-  if (data.dataNasc && typeof data.dataNasc === "string" && !data.dataNasc.includes("T")) {
-    data.dataNasc = new Date(data.dataNasc + "T12:00:00.000Z");
-  }
+  // dataNasc vem como "YYYY-MM-DD" do front, ou "" quando o campo é limpo no
+  // formulário — Prisma exige DateTime ISO-8601 ou null (não aceita string vazia).
+  if (data.dataNasc !== undefined) data.dataNasc = normalizarDataOpcional(data.dataNasc);
   // Franqueadora pode atualizar status diretamente (já validado acima)
   if (body.status !== undefined && role === "FRANQUEADORA") {
     data.status = body.status;
