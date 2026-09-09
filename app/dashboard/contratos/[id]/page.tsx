@@ -7,6 +7,16 @@ import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type BlocoJornada, DIAS_LABELS, getDiasCount, calcBlocoCh, blocosDoContrato, serializarBlocos } from "@/lib/contratos/jornada";
+import { parseJsonResponse } from "@/lib/http";
+
+// O upload do documento físico vai como base64 dentro do corpo da
+// requisição (JSON), que passa pela função serverless do Vercel — cujo
+// limite de corpo de requisição é ~4,5 MB e NÃO é configurável. Base64
+// infla o arquivo em ~33%, então travamos o arquivo original bem abaixo
+// disso pra sobrar margem (JSON em volta, +33% do base64) e nunca bater
+// no limite da plataforma — que devolveria um 413 em texto puro, quebrando
+// o `res.json()` do front com "Unexpected token ... is not valid JSON".
+const MAX_PDF_MB = 3;
 
 // Mesmos presets do formulário de criação (components/forms/ContratoForm.tsx) —
 // fora deles, o select cai em "Personalizado" e mostra os blocos de horário.
@@ -69,6 +79,11 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
 
   const uploadTCEMigrada = async (file: File) => {
     setMigMsg(null);
+    if (file.size > MAX_PDF_MB * 1024 * 1024) {
+      setMigMsg(`❌ Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo permitido: ${MAX_PDF_MB}MB — comprima o PDF ou escaneie em resolução menor.`);
+      if (tceFileRef.current) tceFileRef.current.value = "";
+      return;
+    }
     setMigLoading(true);
     try {
       const buffer = await file.arrayBuffer();
@@ -82,12 +97,12 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tcePdfBase64: base64, nomeArquivo: nomeEnviar }),
       });
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Erro ao anexar documento.");
       setMigMsg("✅ Documento anexado com sucesso!");
       setDocNome("");
       if (tceFileRef.current) tceFileRef.current.value = "";
-      const updated = await fetch(`/api/app/contratos/${params.id}`).then(r => r.json());
+      const updated = await fetch(`/api/app/contratos/${params.id}`).then(parseJsonResponse);
       setContract(updated.contract || updated);
     } catch (e: any) {
       setMigMsg("❌ " + (e.message || "Erro ao anexar documento."));
@@ -102,10 +117,10 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
     setMigMsg(null);
     try {
       const res = await fetch(`/api/app/contratos/${params.id}/ativar-migracao`, { method: "POST" });
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
       if (!res.ok) throw new Error(data.error || "Erro ao ativar.");
       setMigMsg("✅ Estágio ativado com sucesso!");
-      const updated = await fetch(`/api/app/contratos/${params.id}`).then(r => r.json());
+      const updated = await fetch(`/api/app/contratos/${params.id}`).then(parseJsonResponse);
       setContract(updated.contract || updated);
     } catch (e: any) {
       setMigMsg("❌ " + (e.message || "Erro ao ativar estágio."));

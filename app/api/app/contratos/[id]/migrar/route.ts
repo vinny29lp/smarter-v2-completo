@@ -20,6 +20,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "PDF do documento é obrigatório." }, { status: 400 });
   }
 
+  // Defesa em profundidade: o front já barra arquivo grande antes de enviar,
+  // mas uma chamada direta à API poderia pular essa checagem. O corpo da
+  // requisição (JSON com o PDF em base64) passa pela função serverless do
+  // Vercel, cujo limite de ~4,5 MB não é configurável — arquivos maiores
+  // nem chegam a executar esta rota (a plataforma já responde 413 antes).
+  // 4MB de base64 ≈ 3MB de arquivo original.
+  const MAX_BASE64_LENGTH = 4 * 1024 * 1024;
+  if (tcePdfBase64.length > MAX_BASE64_LENGTH) {
+    return NextResponse.json(
+      { error: "Arquivo muito grande. Máximo permitido: 3MB — comprima o PDF ou escaneie em resolução menor." },
+      { status: 413 }
+    );
+  }
+
   // Verificar se o contrato existe
   const contrato = await prisma.contract.findUnique({ where: { id: params.id } });
   if (!contrato) {
