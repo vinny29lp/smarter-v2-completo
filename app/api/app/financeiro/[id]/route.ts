@@ -5,6 +5,7 @@ import { logAudit, getClientIP } from "@/lib/audit";
 import { authOptions } from "@/lib/auth";
 import { handleApiError } from "@/lib/api-response";
 import { reavaliarBloqueioAposPagamento } from "@/lib/financeiro/bloqueio";
+import { statusAposEditarVencimento } from "@/lib/financeiro/atraso";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -58,6 +59,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
   }
 
+  // Bug real de produção: editar só o vencimento (ex: adiar uma cobrança
+  // renegociada) gravava a nova data sem reavaliar o status — um lançamento
+  // já VENCIDO ficava "atrasado" pra sempre mesmo com vencimento no futuro.
+  // Só reavalia quando `status`/`cancelado` não vêm explícitos no body (senão
+  // respeita a intenção explícita do caller, ex: dar baixa, reverter).
+  let statusReavaliado: "PENDENTE" | "VENCIDO" | null = null;
+  if ("vencimentoAt" in body && body.status === undefined && body.cancelado === undefined) {
+    const atual = await prisma.financial.findUnique({ where: { id: params.id }, select: { status: true } });
+    if (atual) {
+      statusReavaliado = statusAposEditarVencimento(atual.status || "PENDENTE", body.vencimentoAt || null);
+    }
+  }
+
   const fin = await prisma.financial.update({
     where: { id: params.id },
     data: {
@@ -67,6 +81,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(body.valor ? { valor: parseFloat(body.valor) } : {}),
       ...(body.cancelado !== undefined ? { cancelado: body.cancelado, status: body.cancelado ? "CANCELADO" as any : undefined } : {}),
       ...("vencimentoAt" in body ? { vencimentoAt: body.vencimentoAt ? new Date(body.vencimentoAt) : null } : {}),
+      ...(statusReavaliado ? { status: statusReavaliado as any } : {}),
     },
   });
 

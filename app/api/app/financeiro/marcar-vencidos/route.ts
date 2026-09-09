@@ -16,6 +16,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/api-response";
+import { inicioDoDiaUTC } from "@/lib/financeiro/atraso";
 
 export const dynamic = "force-dynamic";
 
@@ -92,9 +93,10 @@ export async function PATCH(req: Request) {
         ? { franchiseId }
         : {};
 
-    // Marca como VENCIDO todos os PENDENTE com vencimentoAt antes de hoje
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0); // início do dia de hoje
+    // Marca como VENCIDO todos os PENDENTE com vencimentoAt antes de hoje.
+    // Início do dia em UTC (não hora local do processo) — mesma regra de
+    // lib/financeiro/atraso.ts, pra não depender do fuso do servidor.
+    const hoje = inicioDoDiaUTC();
 
     const result = await prisma.financial.updateMany({
       where: {

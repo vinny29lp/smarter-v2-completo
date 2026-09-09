@@ -6,6 +6,7 @@ import { Badge }  from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input }  from "@/components/ui/Input";
 import { Modal }  from "@/components/ui/Modal";
+import { estaVencido } from "@/lib/financeiro/atraso";
 
 // ─── Utils ───────────────────────────────────────────────────────────────────
 const STATUS_V: Record<string,"green"|"yellow"|"red"> = {
@@ -202,8 +203,14 @@ export default function FinanceiroPage() {
   const isMesAtual = (l: any) => { const k = mesKeyDe(l); return k === null || k === mesAtualKey; };
   const isFuturo   = (l: any) => { const k = mesKeyDe(l); return k !== null && k > mesAtualKey; };
   const isPassado  = (l: any) => { const k = mesKeyDe(l); return k !== null && k < mesAtualKey; };
-  // Atrasado: marcado VENCIDO, ou ainda PENDENTE mas de mês passado (rede de segurança)
-  const isAtrasado = (l: any) => l.status === "VENCIDO" || (l.status === "PENDENTE" && isPassado(l));
+  // Atrasado: marcado VENCIDO, ou ainda PENDENTE cujo vencimento já passou.
+  // Com vencimentoAt definido, compara por dia-calendário UTC (lib/financeiro/
+  // atraso.ts) em vez de mês — mais preciso, e é a mesma regra usada no
+  // backend (marcar-vencidos e na edição do lançamento). Sem vencimento
+  // definido, mantém o mês de criação como aproximação (rede de segurança).
+  const isAtrasado = (l: any) =>
+    l.status === "VENCIDO" ||
+    (l.status === "PENDENTE" && (l.vencimentoAt ? estaVencido(l.vencimentoAt, hoje) : isPassado(l)));
   // Pendente do mês corrente: nem atrasado, nem de mês futuro
   const isPendenteMesAtual = (l: any) => l.status === "PENDENTE" && isMesAtual(l);
   const isPendenteFuturo   = (l: any) => l.status === "PENDENTE" && isFuturo(l);
@@ -791,7 +798,7 @@ export default function FinanceiroPage() {
               </thead>
               <tbody>
                 {franquiaMesAtual.map(l => {
-                  const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
+                  const vencido = l.status === "PENDENTE" && estaVencido(l.vencimentoAt, hoje);
                   return (
                     <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado ? "opacity-40" : ""}`}>
                       <td className="px-4 py-2.5 text-sm font-medium max-w-xs">
@@ -896,7 +903,7 @@ export default function FinanceiroPage() {
                   </thead>
                   <tbody>
                     {franquiaMesAtual.map(l => {
-                      const vencido = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
+                      const vencido = l.status === "PENDENTE" && estaVencido(l.vencimentoAt, hoje);
                       return (
                         <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado ? "opacity-40" : ""}`}>
                           <td className="px-4 py-2.5 text-sm font-medium max-w-xs">
