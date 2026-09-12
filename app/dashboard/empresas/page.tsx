@@ -7,6 +7,7 @@ import Link from "next/link";
 import { EmpresasFilters } from "./EmpresasFilters";
 import { ImportarEmpresasButton } from "@/components/empresas/ImportarEmpresasButton";
 import { ProspeccaoEmpresas } from "@/components/empresas/ProspeccaoEmpresas";
+import { contemTexto } from "@/lib/text";
 
 const statusBadge: Record<string, "green"|"gray"|"yellow"|"red"> = {
   ATIVA:"green", INATIVA:"gray", ATENCAO:"yellow", PENDENTE:"yellow"
@@ -25,17 +26,20 @@ export default async function EmpresasPage({
 
   let empresas = all;
   if (searchParams.q) {
-    const q = searchParams.q.toLowerCase();
+    const q = searchParams.q;
+    // Ignora acento e caixa — "cafe" precisa achar "Café", "sao jose" precisa
+    // achar "São José" (busca digitada sem acento é comum e não pode falhar).
+    // Também busca por razão social — antes só olhava o nome fantasia, então
+    // buscar pela razão social cadastrada não encontrava a empresa.
     empresas = empresas.filter(e =>
-      e.name.toLowerCase().includes(q) ||
+      contemTexto(e.name, q) ||
+      contemTexto(e.razaoSocial, q) ||
       e.cnpj.includes(q) ||
-      (e.responsavel || "").toLowerCase().includes(q)
+      contemTexto(e.responsavel, q)
     );
   }
   if (searchParams.status) empresas = empresas.filter(e => e.status === searchParams.status);
-  if (searchParams.cidade) empresas = empresas.filter(e =>
-    e.cidade.toLowerCase().includes(searchParams.cidade!.toLowerCase())
-  );
+  if (searchParams.cidade) empresas = empresas.filter(e => contemTexto(e.cidade, searchParams.cidade!));
 
   const franchiseRef = session?.user?.franchiseId || undefined;
 
