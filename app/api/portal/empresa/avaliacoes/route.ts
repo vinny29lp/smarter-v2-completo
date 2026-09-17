@@ -53,31 +53,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { contratoId, respostas, observacoes } = await req.json();
-  if (!contratoId || !respostas) {
-    return NextResponse.json({ error: "Dados obrigatórios ausentes" }, { status: 400 });
+  try {
+    const { contratoId, respostas, observacoes } = await req.json();
+    if (!contratoId || !respostas) {
+      return NextResponse.json({ error: "Dados obrigatórios ausentes" }, { status: 400 });
+    }
+
+    // Verify the contract belongs to this company's user
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { companyId: true },
+    });
+    const contract = await prisma.contract.findUnique({ where: { id: contratoId } });
+    if (!contract || contract.companyId !== user?.companyId) {
+      return NextResponse.json({ error: "Contrato não encontrado" }, { status: 404 });
+    }
+
+    const evaluation = await prisma.evaluation.create({
+      data: {
+        contractId: contratoId,
+        tipo: "semestral",
+        respostas,
+        observacoes: observacoes || null,
+        status: "respondido",
+        respondidoAt: new Date(),
+      },
+    });
+
+    return NextResponse.json({ ok: true, evaluation }, { status: 201 });
+  } catch (e) {
+    console.error("[avaliacoes] POST error:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "Não foi possível enviar a avaliação. Tente novamente." }, { status: 500 });
   }
-
-  // Verify the contract belongs to this company's user
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { companyId: true },
-  });
-  const contract = await prisma.contract.findUnique({ where: { id: contratoId } });
-  if (!contract || contract.companyId !== user?.companyId) {
-    return NextResponse.json({ error: "Contrato não encontrado" }, { status: 404 });
-  }
-
-  const evaluation = await prisma.evaluation.create({
-    data: {
-      contractId: contratoId,
-      tipo: "semestral",
-      respostas,
-      observacoes: observacoes || null,
-      status: "respondido",
-      respondidoAt: new Date(),
-    },
-  });
-
-  return NextResponse.json({ ok: true, evaluation }, { status: 201 });
 }

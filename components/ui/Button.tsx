@@ -10,6 +10,11 @@ const vm: Record<V,string> = {
 };
 const sm = { sm:"px-3 py-1.5 text-xs", md:"px-4 py-2 text-sm", lg:"px-5 py-2.5 text-base" };
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> { variant?: V; size?: "sm"|"md"|"lg"; }
-export function Button({ variant="primary", size="md", className, children, ...props }: Props) {
-  return <button className={clsx("inline-flex items-center gap-1.5 rounded-xl font-semibold transition-all cursor-pointer",vm[variant],sm[size],className)} {...props}>{children}</button>;
+export function Button({ variant="primary", size="md", className, children, disabled, ...props }: Props) {
+  // Sem isso, um botão disabled ficava com a MESMA cor/cursor de um habilitado —
+  // clicar não fazia nada (onClick não dispara) mas nada avisava o usuário,
+  // dando a impressão de que a ação "não funciona" (ex: formulário de avaliação
+  // semestral com campo obrigatório vazio: o botão parecia normal, o clique não
+  // tinha efeito nenhum, e não havia nenhuma pista do porquê).
+  return <button disabled={disabled} className={clsx("inline-flex items-center gap-1.5 rounded-xl font-semibold transition-all",disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",vm[variant],sm[size],className)} {...props}>{children}</button>;
 }

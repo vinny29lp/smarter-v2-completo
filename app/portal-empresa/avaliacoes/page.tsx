@@ -30,6 +30,7 @@ function AvaliacoesContent() {
   const [recomendacao, setRecomendacao]   = useState("Manter");
   const [saving, setSaving]         = useState(false);
   const [msg, setMsg]               = useState("");
+  const [erro, setErro]             = useState("");
 
   const load = () => {
     setLoading(true);
@@ -59,11 +60,13 @@ function AvaliacoesContent() {
     setPontosMelhoria("");
     setParecerFinal("");
     setRecomendacao("Manter");
+    setErro("");
   };
 
   const salvar = async () => {
     if (!avalModal) return;
     setSaving(true);
+    setErro("");
     const respostasCompletas = {
       ...form,
       pontosFortes,
@@ -71,16 +74,26 @@ function AvaliacoesContent() {
       parecerFinal,
       recomendacao,
     };
-    const res = await fetch("/api/portal/empresa/avaliacoes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contratoId: avalModal, respostas: respostasCompletas, observacoes: obs }),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/portal/empresa/avaliacoes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contratoId: avalModal, respostas: respostasCompletas, observacoes: obs }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Bug real: antes, uma falha aqui não mostrava nada — o modal ficava
+        // aberto sem nenhuma explicação, parecendo que "não conclui".
+        setErro(data.error || "Não foi possível enviar a avaliação. Tente novamente.");
+        setSaving(false);
+        return;
+      }
       setMsg("Avaliação enviada! ✓");
       setAvalModal(null);
       load();
       setTimeout(() => setMsg(""), 3000);
+    } catch {
+      setErro("Erro de conexão. Verifique sua internet e tente novamente.");
     }
     setSaving(false);
   };
@@ -243,6 +256,12 @@ function AvaliacoesContent() {
               value={obs} onChange={e => setObs(e.target.value)}
               placeholder="Observações complementares (opcional)..."/>
           </div>
+          {erro && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erro}</p>
+          )}
+          {(!pontosFortes || !pontosMelhoria || !parecerFinal) && (
+            <p className="text-xs text-amber-600">Preencha Pontos Fortes, Pontos de Melhoria e Parecer Final (*) para poder enviar.</p>
+          )}
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setAvalModal(null)}>Cancelar</Button>
             <Button onClick={salvar} disabled={saving || !pontosFortes || !pontosMelhoria || !parecerFinal}>
