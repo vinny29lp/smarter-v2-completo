@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { estaVencido, statusAposEditarVencimento, inicioDoDiaUTC } from "./atraso";
+import { estaVencido, statusAposEditarVencimento, inicioDoDiaUTC, diasEmAtraso } from "./atraso";
 
 describe("estaVencido", () => {
   it("sem vencimentoAt nunca está vencido", () => {
@@ -56,6 +56,27 @@ describe("statusAposEditarVencimento", () => {
   it("remover o vencimento (null) de um VENCIDO volta pra PENDENTE — sem data, não há como estar atrasado", () => {
     const hoje = new Date("2026-09-08T12:00:00.000Z");
     expect(statusAposEditarVencimento("VENCIDO", null, hoje)).toBe("PENDENTE");
+  });
+});
+
+describe("diasEmAtraso", () => {
+  it("o bug real do print: vencimento no futuro nunca dá dias negativos — devolve 0", () => {
+    const hoje = new Date("2026-09-17T21:00:00.000Z");
+    expect(diasEmAtraso("2026-09-20T12:00:00.000Z", hoje)).toBe(0);
+  });
+
+  it("sem vencimento, 0 dias", () => {
+    expect(diasEmAtraso(null)).toBe(0);
+  });
+
+  it("vencido há N dias completos", () => {
+    const hoje = new Date("2026-09-17T21:00:00.000Z");
+    expect(diasEmAtraso("2026-09-10T12:00:00.000Z", hoje)).toBe(7);
+  });
+
+  it("vence hoje ainda não conta dia de atraso", () => {
+    const hoje = new Date("2026-09-17T21:00:00.000Z");
+    expect(diasEmAtraso("2026-09-17T00:00:00.000Z", hoje)).toBe(0);
   });
 });
 

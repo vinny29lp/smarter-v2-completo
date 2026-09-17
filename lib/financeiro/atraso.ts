@@ -19,6 +19,8 @@
  * dia-calendário em UTC (nunca hora exata, nunca fuso local do processo).
  */
 
+const MS_DIA = 24 * 60 * 60 * 1000;
+
 function chaveDataUTC(d: Date): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
@@ -38,6 +40,20 @@ export function estaVencido(vencimentoAt: Date | string | null | undefined, refe
   const venc = typeof vencimentoAt === "string" ? new Date(vencimentoAt) : vencimentoAt;
   if (isNaN(venc.getTime())) return false;
   return chaveDataUTC(venc) < chaveDataUTC(referencia);
+}
+
+/**
+ * Dias corridos (inteiro, nunca negativo) desde o vencimento — 0 quando
+ * ainda não venceu (ou nunca teve vencimento). Bug real encontrado em
+ * produção: a tela calculava isso com `Date.now() - vencimentoAt` direto,
+ * sem checar o sinal — um lançamento com vencimento no futuro (por causa do
+ * bug do status preso, ver acima) chegava a mostrar "Venceu há -3 dia(s)",
+ * um número negativo de dias vencidos, logicamente impossível.
+ */
+export function diasEmAtraso(vencimentoAt: Date | string | null | undefined, referencia: Date = new Date()): number {
+  if (!estaVencido(vencimentoAt, referencia)) return 0;
+  const venc = typeof vencimentoAt === "string" ? new Date(vencimentoAt) : (vencimentoAt as Date);
+  return Math.round((chaveDataUTC(referencia) - chaveDataUTC(venc)) / MS_DIA);
 }
 
 export type StatusFinanceiro = "PENDENTE" | "PAGO" | "VENCIDO" | "CANCELADO";

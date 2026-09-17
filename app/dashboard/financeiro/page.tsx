@@ -6,7 +6,7 @@ import { Badge }  from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input }  from "@/components/ui/Input";
 import { Modal }  from "@/components/ui/Modal";
-import { estaVencido } from "@/lib/financeiro/atraso";
+import { estaVencido, diasEmAtraso } from "@/lib/financeiro/atraso";
 
 // ─── Utils ───────────────────────────────────────────────────────────────────
 const STATUS_V: Record<string,"green"|"yellow"|"red"> = {
@@ -1073,16 +1073,22 @@ export default function FinanceiroPage() {
                     {filtro === "VENCIDO" ? "✅ Nenhum lançamento atrasado! Tudo em dia." : "Nenhum lançamento."}
                   </td></tr>
                 : filtrados.map(l => {
-                  const isVencido = l.status === "VENCIDO";
+                  // Não confia cegamente no status gravado — recalcula se o
+                  // vencimento realmente já passou (lib/financeiro/atraso.ts).
+                  // Bug real de produção: um lançamento com status VENCIDO
+                  // preso e vencimento no futuro chegava a mostrar "Venceu há
+                  // -3 dia(s)" — um número negativo, logicamente impossível.
+                  const diasAtraso = l.vencimentoAt ? diasEmAtraso(l.vencimentoAt, hoje) : 0;
+                  const isVencido = l.status === "VENCIDO" && diasAtraso > 0;
                   return (
                     <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado?"opacity-40":""} ${isVencido?"bg-red-50/30":""}`}>
                       <td className="px-4 py-2.5 text-sm font-medium max-w-xs">
                         <span>{l.descricao}</span>
                         {l.company?.name && <p className="text-[10px] text-slate-400 mt-0.5">🏭 {l.company.name}</p>}
                         {l.franchise?.name && <p className="text-[10px] text-slate-400 mt-0.5">🏢 {l.franchise.name}</p>}
-                        {isVencido && l.vencimentoAt && (
+                        {isVencido && (
                           <p className="text-[10px] text-red-500 font-semibold mt-0.5">
-                            Venceu há {Math.floor((Date.now() - new Date(l.vencimentoAt).getTime()) / 86400000)} dia(s)
+                            Venceu há {diasAtraso} dia(s)
                           </p>
                         )}
                       </td>

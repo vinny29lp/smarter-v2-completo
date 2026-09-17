@@ -1,8 +1,16 @@
 /**
  * PATCH /api/app/financeiro/marcar-vencidos
  *
- * Varre todos os lançamentos PENDENTE com vencimentoAt < hoje e os marca como VENCIDO.
- * Chamado automaticamente no carregamento do painel financeiro (fire-and-forget).
+ * Varre todos os lançamentos PENDENTE com vencimentoAt < hoje e os marca como
+ * VENCIDO — e o inverso: VENCIDO cujo vencimentoAt já não está mais no
+ * passado volta pra PENDENTE. Chamado automaticamente no carregamento do
+ * painel financeiro (fire-and-forget), então funciona como uma
+ * autocorreção contínua: qualquer lançamento que fique com o par
+ * status/vencimentoAt incoerente (por edição direto no banco, um caminho de
+ * código que ainda não reavalie o status ao mudar a data, ou um registro que
+ * ficou preso de antes de uma correção) se conserta sozinho na próxima vez
+ * que alguém abrir o financeiro — não depende de reabrir e resalvar o
+ * lançamento manualmente.
  *
  * Escopo:
  *   FRANQUEADORA → todos os registros da rede (franchiseId null + categoria Franquia)
@@ -108,7 +116,20 @@ export async function PATCH(req: Request) {
       data: { status: "VENCIDO" },
     });
 
-    return NextResponse.json({ ok: true, updated: result.count });
+    // Inverso: VENCIDO cujo vencimento não está mais no passado (data foi
+    // adiada, ou nunca deveria ter sido marcado) volta pra PENDENTE. Sem
+    // vencimentoAt não há como saber que passou — não mexe.
+    const resultReverso = await prisma.financial.updateMany({
+      where: {
+        ...where,
+        status: "VENCIDO",
+        vencimentoAt: { gte: hoje },
+        cancelado: { not: true },
+      },
+      data: { status: "PENDENTE" },
+    });
+
+    return NextResponse.json({ ok: true, updated: result.count, revertidos: resultReverso.count });
   } catch (e) {
     return handleApiError(e, "MARCAR_VENCIDOS_PATCH");
   }
