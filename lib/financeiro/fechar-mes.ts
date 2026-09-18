@@ -12,7 +12,8 @@
 import { prisma } from "@/lib/prisma";
 
 // Executa uma função em paralelo com concorrência máxima controlada (batch size)
-async function processInBatches<T, R>(
+// Exportado: reaproveitado por cobrancaGestaoMensal.ts (mesmo padrão de fechamento).
+export async function processInBatches<T, R>(
   items: T[],
   batchSize: number,
   fn: (item: T) => Promise<R>,

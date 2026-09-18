@@ -1492,6 +1492,30 @@ export default function FinanceiroPage() {
                 ⚠️ {fechamentoResult.error}
               </div>
             )}
+            {fechamentoResult.gestao && (
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <p className="text-xs font-bold text-slate-600">📋 Taxa de Gestão (empresas)</p>
+                {fechamentoResult.gestao.ok ? (
+                  <>
+                    <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+                      {fechamentoResult.gestao.message}
+                    </div>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {(fechamentoResult.gestao.resultados || []).map((r: any, i: number) => (
+                        <div key={i} className={`flex justify-between items-center p-2 rounded-lg text-xs ${r.skipped ? "bg-slate-50 text-slate-400" : "bg-blue-50 text-blue-800"}`}>
+                          <span className="font-medium">{r.empresa} — {r.contrato}{!r.skipped && r.vencimento ? <span className="text-[10px] text-slate-400 ml-2">venc. {r.vencimento}</span> : null}</span>
+                          <span className="font-bold">{r.skipped ? r.reason : fmt(r.valor)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                    ⚠️ {fechamentoResult.gestao.error}
+                  </div>
+                )}
+              </div>
+            )}
             <Button onClick={() => setFechamentoModal(false)} variant="secondary" className="w-full">Fechar</Button>
           </div>
         )}

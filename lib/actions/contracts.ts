@@ -1,6 +1,7 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { competenciaDeData } from "@/lib/financeiro/competencia";
 
 /** Calcula a próxima data de vencimento dado o dia do mês */
 function calcVencimentoAt(dia: number): Date {
@@ -46,6 +47,10 @@ export async function criarOuAtualizarLancamentoContrato({
   const vencimentoAt = calcVencimentoAt(diaVenc);
   const nome = companyName || "Empresa";
   const descricao = `Taxa de Gestão - ${nome} - Contrato ${numero || "s/n"}`;
+  // Marca a competência (mês do vencimento) desde a criação — é o que o
+  // fechamento mensal (lib/financeiro/cobrancaGestaoMensal.ts) usa pra saber
+  // que esse mês já está coberto e não gerar uma cobrança duplicada nele.
+  const competencia = competenciaDeData(vencimentoAt);
 
   // Verifica se já existe lançamento PENDENTE para este contrato
   const existing = await prisma.financial.findFirst({
@@ -58,7 +63,7 @@ export async function criarOuAtualizarLancamentoContrato({
     if (existing.status === "PENDENTE") {
       return prisma.financial.update({
         where: { id: existing.id },
-        data: { valor: valorEmpresa, diaVencimento: diaVenc, vencimentoAt, descricao },
+        data: { valor: valorEmpresa, diaVencimento: diaVenc, vencimentoAt, descricao, competencia } as any,
       });
     }
     // Já pago/cancelado — não altera
@@ -76,6 +81,7 @@ export async function criarOuAtualizarLancamentoContrato({
       recorrente: true,
       diaVencimento: diaVenc,
       vencimentoAt,
+      competencia,
       franchiseId,
       companyId,
       contractId,
