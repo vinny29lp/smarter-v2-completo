@@ -6,7 +6,17 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || !["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO"].includes(session.user.role || "")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const role = session.user.role;
+  const franchiseId = session.user.franchiseId;
+  if (role === "FUNCIONARIO") {
+    const permissoes: string[] = (session.user as any)?.permissoes ?? [];
+    if (!permissoes.includes("financeiro")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   try {
     const body = await req.json();
@@ -18,6 +28,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
 
     if (!lancamento) return NextResponse.json({ error: "Lançamento não encontrado." }, { status: 404 });
+
+    // SEC: escopo por franquia — FRANQUEADO/FUNCIONARIO só envia cobrança de
+    // lançamento da própria unidade (mesmo padrão de [id]/route.ts PATCH).
+    if (role !== "FRANQUEADORA" && lancamento.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Email de destino: body → empresa → franqueado (para cobranças de franquia)
     const email = emailDestino
@@ -101,7 +117,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || !["FRANQUEADORA", "FRANQUEADO", "FUNCIONARIO", "EQUIPE"].includes(session.user.role || "")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // SEC: escopo por franquia — mesmo padrão do POST acima.
+  if (session.user.role !== "FRANQUEADORA" && session.user.role !== "EQUIPE") {
+    const lancamento = await prisma.financial.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
+    if (!lancamento || lancamento.franchiseId !== session.user.franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   const logs = await prisma.financialSendLog.findMany({
     where: { financialId: params.id },
