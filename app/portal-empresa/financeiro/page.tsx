@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card }  from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { estaVencido } from "@/lib/financeiro/atraso";
 
 export default async function EmpresaFinanceiro() {
   const session  = await getServerSession(authOptions);
@@ -16,9 +17,7 @@ export default async function EmpresaFinanceiro() {
 
   const pago     = lancamentos.filter(l => l.status === "PAGO").reduce((a, b) => a + b.valor, 0);
   const pendente = lancamentos.filter(l => l.status === "PENDENTE").reduce((a, b) => a + b.valor, 0);
-  const vencidos = lancamentos.filter(l =>
-    l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date()
-  );
+  const vencidos = lancamentos.filter(l => l.status === "PENDENTE" && estaVencido(l.vencimentoAt));
   const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 
   return (
@@ -54,7 +53,7 @@ export default async function EmpresaFinanceiro() {
         {lancamentos.length === 0 ? (
           <Card className="p-10 text-center text-slate-400">Nenhum lançamento encontrado.</Card>
         ) : lancamentos.map(l => {
-          const vencido    = l.status === "PENDENTE" && l.vencimentoAt && new Date(l.vencimentoAt) < new Date();
+          const vencido    = l.status === "PENDENTE" && estaVencido(l.vencimentoAt);
           const temPix     = !!(l as any).chavePix;
           const temBoleto  = !!(l as any).linkPagamento;
           const temInstrucao = !!(l as any).instrucaoPagamento;

@@ -26,7 +26,14 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const page  = Math.max(1, parseInt(searchParams.get("page")  || "1"));
-  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50")));
+  // Cap alto o suficiente pra caber todos os lançamentos visíveis numa única
+  // chamada — o painel /dashboard/financeiro busca com ?limit=200 e faz TODA
+  // a agregação (a receber, atrasados, caixa etc.) em memória sobre esse
+  // resultado sem paginar; um corte baixo aqui já cortou silenciosamente a
+  // lista de empresas e o dropdown de vaga antes (mesma causa raiz) — hoje
+  // (2026-09-17) nenhuma franquia ainda passa de 200 lançamentos, mas é a
+  // mesma armadilha esperando a próxima unidade crescer.
+  const limit = Math.min(2000, Math.max(1, parseInt(searchParams.get("limit") || "50")));
   const skip  = (page - 1) * limit;
 
   // EQUIPE: vê toda a rede (sem filtro)

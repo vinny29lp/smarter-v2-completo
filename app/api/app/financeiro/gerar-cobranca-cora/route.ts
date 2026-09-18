@@ -45,7 +45,11 @@ export async function POST(req: Request) {
     }
 
     const valorNum = parseFloat(String(valor));
-    const vencDate = new Date(vencimento + "T12:00:00");
+    // Sem o "Z", isso seria interpretado como horário LOCAL do processo (não
+    // UTC) — inconsistente com a convenção usada no resto do financeiro
+    // (meio-dia UTC), podendo gravar o vencimento no dia errado dependendo
+    // do fuso do servidor.
+    const vencDate = new Date(vencimento + "T12:00:00.000Z");
 
     // 1. Cria o lançamento financeiro
     const lancamento = await (prisma.financial as any).create({

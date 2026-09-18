@@ -13,6 +13,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendMail, baseInterno } from "@/lib/email";
 import { processarBloqueiosAutomaticos } from "@/lib/financeiro/bloqueio";
+import { inicioDoDiaUTC, diasEmAtraso } from "@/lib/financeiro/atraso";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -63,8 +64,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const dryRun = searchParams.get("dryRun") === "true";
 
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
+  // UTC, não hora local do processo — mesma regra de lib/financeiro/atraso.ts.
+  const hoje = inicioDoDiaUTC();
 
   // 1. Marca vencidos no servidor (antes dependia de alguém abrir o painel,
   //    e o lembrete só olhava PENDENTE — itens auto-marcados VENCIDO paravam
@@ -100,9 +101,7 @@ export async function GET(req: Request) {
     const franchise = l.franchise;
     if (!franchise?.email) { pulados++; continue; }
 
-    const vencDt = new Date(l.vencimentoAt);
-    vencDt.setHours(0, 0, 0, 0);
-    const diasAtraso = Math.round((hoje.getTime() - vencDt.getTime()) / 86400000);
+    const diasAtraso = diasEmAtraso(l.vencimentoAt, hoje);
 
     // Item 6: checagem/lembrete a cada 5 dias após o vencimento (5, 10, 15...)
     const shouldSend = diasAtraso >= 5 && diasAtraso % 5 === 0;
@@ -110,7 +109,7 @@ export async function GET(req: Request) {
 
     if (dryRun) { enviados++; continue; }
 
-    const vencStr = vencDt.toLocaleDateString("pt-BR");
+    const vencStr = new Date(l.vencimentoAt).toLocaleDateString("pt-BR", { timeZone: "UTC" });
     const html = lembreteHtml(
       franchise.name,
       l.descricao,

@@ -121,7 +121,7 @@ export default function FinanceiroPage() {
 
   // ─── Loaders ─────────────────────────────────────────────────────────────
   const load = () =>
-    fetch("/api/app/financeiro?limit=200").then(r => r.json()).then(d => setLancamentos(d.lancamentos || []));
+    fetch("/api/app/financeiro?limit=2000").then(r => r.json()).then(d => setLancamentos(d.lancamentos || []));
 
   // Auto-marca itens vencidos ao carregar; recarrega se algum foi atualizado
   const marcarVencidosAuto = () =>
