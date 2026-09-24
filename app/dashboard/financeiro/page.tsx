@@ -1480,9 +1480,9 @@ export default function FinanceiroPage() {
                 </p>
                 <div className="space-y-1 max-h-60 overflow-y-auto">
                   {(fechamentoResult.results || []).map((r: any, i: number) => (
-                    <div key={i} className={`flex justify-between items-center p-2.5 rounded-lg text-sm ${r.skipped ? "bg-slate-50 text-slate-400" : "bg-emerald-50 text-emerald-800"}`}>
-                      <span className="font-medium">{r.franchise}{!r.skipped && r.vencimento ? <span className="text-[10px] text-slate-400 ml-2">venc. {r.vencimento}</span> : null}</span>
-                      <span className="font-bold">{r.skipped ? r.reason : fmt(r.total)}</span>
+                    <div key={i} className={`flex justify-between items-center p-2.5 rounded-lg text-sm ${r.erro ? "bg-red-50 text-red-700" : r.skipped ? "bg-slate-50 text-slate-400" : "bg-emerald-50 text-emerald-800"}`}>
+                      <span className="font-medium">{r.franchise}{!r.skipped && !r.erro && r.vencimento ? <span className="text-[10px] text-slate-400 ml-2">venc. {r.vencimento}</span> : null}</span>
+                      <span className="font-bold">{r.erro ? `⚠️ ${r.erro}` : r.skipped ? r.reason : fmt(r.total)}</span>
                     </div>
                   ))}
                 </div>

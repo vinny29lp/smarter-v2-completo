@@ -4,13 +4,15 @@
  *
  * Alertas por role:
  *  FRANQUEADO/FUNCIONARIO: contratos vencendo, pendentes, avaliações semestrais, CRM,
- *                          solicitações de vaga pendentes
+ *                          solicitações de vaga pendentes, contratos ativos sem
+ *                          Taxa de Gestão cobrada este mês
  *  FRANQUEADORA:           tudo acima + visão de rede + CRM Franquias
  */
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { contratosSemCoberturaGestao } from "@/lib/financeiro/cobrancaGestaoMensal";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +139,13 @@ export async function GET() {
       take: 20,
     });
 
+    // ─── 6d. Contratos ativos com Taxa de Gestão configurada, sem NENHUMA
+    // cobrança do mês atual/seguinte — nunca mais um contrato pode passar
+    // batido silenciosamente (achado real: 5 contratos ativos que nunca
+    // tinham sido cobrados, em 2026-09). FRANQUEADORA/EQUIPE vê a rede
+    // inteira; FRANQUEADO/FUNCIONARIO só a própria unidade.
+    const contratosGestaoSemCobertura = await contratosSemCoberturaGestao(isMaster ? undefined : franchiseId);
+
     // ─── 7. CRM de Parcerias — leads com retorno vencido ─────────────────────
     const leadsCrmVencidos = await prisma.crmLead.findMany({
       where: {
@@ -230,7 +239,7 @@ export async function GET() {
     }
 
     // ─── Totais por severidade ────────────────────────────────────────────────
-    const critico = contratosPendentes2Mes.length + contratosVencidosSemFinalizar.length + unidadesComPendentes2Mes.length + franquiaTarefasVencidas.length;
+    const critico = contratosPendentes2Mes.length + contratosVencidosSemFinalizar.length + unidadesComPendentes2Mes.length + franquiaTarefasVencidas.length + contratosGestaoSemCobertura.length;
     const atencao = contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length + liaFeedbackBugs.length + solicitacoesVagaPendentes.length;
     const info    = franquiaLeadsParados.length + liaFeedbackGeral.length;
 
@@ -243,6 +252,7 @@ export async function GET() {
         avaliacoesDevidas:           avaliacoesDevidas.map(c => ({ ...c, mesesAtivo: Math.floor(DIAS(c.dataInicio ?? new Date()) / 30) })),
         leadsCrmVencidos,
         solicitacoesVagaPendentes,
+        contratosGestaoSemCobertura,
         liaFeedbackBugs,
         liaFeedbackGeral,
         // FRANQUEADORA:

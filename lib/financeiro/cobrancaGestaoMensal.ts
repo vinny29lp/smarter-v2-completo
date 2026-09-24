@@ -81,46 +81,72 @@ export async function gerarCobrancasGestaoMensal(force: boolean) {
   });
   const jaFechadosSet = new Set(jaFechados.map(j => j.contractId));
 
+  // Cada contrato tem seu próprio try/catch: um erro isolado (dado
+  // inconsistente, falha de rede) vira um item com `erro` no resultado, mas
+  // NUNCA aborta o lote inteiro — sem isso, um único contrato problemático
+  // podia silenciosamente travar a cobrança de todos os outros do mesmo
+  // lote (mesma classe de risco corrigida em fechar-mes.ts). O valor
+  // cobrado (`c.valorEmpresa`) vem sempre da consulta feita AGORA em
+  // prisma.contract.findMany acima — nunca copiado de um lançamento antigo.
   const resultados = await processInBatches(contratos, 10, async (c) => {
     const empresa = c.company?.name || "Empresa";
+    try {
+      if (jaFechadosSet.has(c.id)) {
+        return { contrato: c.numero, empresa, skipped: true, reason: `Já existe cobrança de ${mesRef}` };
+      }
 
-    if (jaFechadosSet.has(c.id)) {
-      return { contrato: c.numero, empresa, skipped: true, reason: `Já existe cobrança de ${mesRef}` };
+      // Vencimento: dia configurado no contrato (padrão 5), no mês da competência.
+      // Clamp 1–28 pra nunca estourar o mês (ex.: dia 31 em fevereiro).
+      const diaVenc = Math.min(Math.max(c.vencimento ?? 5, 1), 28);
+      const vencimento = new Date(Date.UTC(comp.ano, comp.mes0, diaVenc));
+      const descricao = `Taxa de Gestão - ${empresa} - Contrato ${c.numero || "s/n"} - ${mesRef}`;
+
+      const lancamento = await prisma.financial.create({
+        data: {
+          descricao,
+          tipo: "entrada",
+          valor: c.valorEmpresa as number,
+          categoria: "Empresa",
+          status: "PENDENTE",
+          competencia: comp.chave,
+          vencimentoAt: vencimento,
+          franchiseId: c.franchiseId,
+          companyId: c.companyId,
+          contractId: c.id,
+          recorrente: true,
+        } as any,
+      });
+
+      return {
+        contrato: c.numero,
+        empresa,
+        valor: c.valorEmpresa,
+        vencimento: vencimento.toLocaleDateString("pt-BR", { timeZone: "UTC" }),
+        lancamentoId: lancamento.id,
+      };
+    } catch (e: any) {
+      console.error(`[gerarCobrancasGestaoMensal] Falha no contrato ${c.numero} (${empresa}):`, e?.message || e);
+      return { contrato: c.numero, empresa, erro: e?.message || "Erro ao gerar cobrança" };
     }
-
-    // Vencimento: dia configurado no contrato (padrão 5), no mês da competência.
-    // Clamp 1–28 pra nunca estourar o mês (ex.: dia 31 em fevereiro).
-    const diaVenc = Math.min(Math.max(c.vencimento ?? 5, 1), 28);
-    const vencimento = new Date(Date.UTC(comp.ano, comp.mes0, diaVenc));
-    const descricao = `Taxa de Gestão - ${empresa} - Contrato ${c.numero || "s/n"} - ${mesRef}`;
-
-    const lancamento = await prisma.financial.create({
-      data: {
-        descricao,
-        tipo: "entrada",
-        valor: c.valorEmpresa as number,
-        categoria: "Empresa",
-        status: "PENDENTE",
-        competencia: comp.chave,
-        vencimentoAt: vencimento,
-        franchiseId: c.franchiseId,
-        companyId: c.companyId,
-        contractId: c.id,
-        recorrente: true,
-      } as any,
-    });
-
-    return {
-      contrato: c.numero,
-      empresa,
-      valor: c.valorEmpresa,
-      vencimento: vencimento.toLocaleDateString("pt-BR", { timeZone: "UTC" }),
-      lancamentoId: lancamento.id,
-    };
   });
 
-  const gerados = resultados.filter((r: any) => !r.skipped);
+  const gerados = resultados.filter((r: any) => !r.skipped && !r.erro);
+  const comErro = resultados.filter((r: any) => r.erro);
   const totalGeral = gerados.reduce((acc: number, r: any) => acc + (r.valor || 0), 0);
+
+  // Rede de segurança: depois de gerar, confere se sobrou ALGUM contrato
+  // ativo (em QUALQUER unidade) sem cobrança desta competência nem da
+  // seguinte — cobre tanto os itens com erro acima quanto qualquer contrato
+  // que por algum outro motivo nunca tenha passado por aqui (foi assim que
+  // o Vinicius encontrou os 5 contratos que nunca tinham sido cobrados).
+  const semCobertura = await contratosSemCoberturaGestao();
+
+  if (comErro.length > 0) {
+    console.error(`[gerarCobrancasGestaoMensal] ${comErro.length} contrato(s) falharam e NÃO tiveram cobrança gerada:`, comErro.map((r: any) => `${r.contrato} (${r.empresa})`));
+  }
+  if (semCobertura.length > 0) {
+    console.error(`[gerarCobrancasGestaoMensal] ⚠️ ${semCobertura.length} contrato(s) ativo(s) sem NENHUMA cobrança de Taxa de Gestão coberta (mês atual ou seguinte):`, semCobertura.map(s => `${s.numero} (${s.empresa})`));
+  }
 
   return {
     ok: true as const,
@@ -128,8 +154,64 @@ export async function gerarCobrancasGestaoMensal(force: boolean) {
     competencia: comp.chave,
     totalGeral,
     resultados,
-    message: `Fechamento de Taxa de Gestão de ${mesRef}: ${gerados.length} cobrança(s) gerada(s) para ${resultados.length} contrato(s) ativo(s). Total: R$ ${totalGeral.toFixed(2).replace(".", ",")}`,
+    comErro: comErro.length,
+    semCobertura,
+    message: `Fechamento de Taxa de Gestão de ${mesRef}: ${gerados.length} cobrança(s) gerada(s) para ${contratos.length} contrato(s) ativo(s).`
+      + ` Total: R$ ${totalGeral.toFixed(2).replace(".", ",")}`
+      + (comErro.length > 0 ? ` — ⚠️ ${comErro.length} falharam.` : "")
+      + (semCobertura.length > 0 ? ` — 🚨 ${semCobertura.length} contrato(s) sem cobertura, veja os alertas.` : ""),
   };
+}
+
+/**
+ * Contratos ATIVO com Taxa de Gestão configurada (valorEmpresa > 0) que NÃO
+ * têm nenhum lançamento (categoria "Empresa", não cancelado) com competência
+ * do mês atual ou do mês seguinte — ou seja, ficaram pelo menos 1 mês
+ * inteiro sem cobrança gerada, em QUALQUER unidade.
+ *
+ * Usado (a) como rede de segurança logo após o fechamento mensal, e (b)
+ * como alerta contínuo (app/api/app/alertas/route.ts) — pra nunca mais um
+ * contrato passar batido silenciosamente como os 5 encontrados em
+ * 2026-09 (nunca tiveram NENHUM lançamento de Taxa de Gestão, nem o
+ * único da época anterior a este fechamento).
+ *
+ * `franchiseId` escopa a checagem a uma unidade só (usado pelos alertas de
+ * FRANQUEADO/FUNCIONARIO); sem ele, verifica a rede inteira (FRANQUEADORA).
+ */
+export async function contratosSemCoberturaGestao(franchiseId?: string) {
+  const hoje = new Date();
+  const mesAtual = competenciaDeData(hoje);
+  const mesSeguinte = competenciaDoFechamento(hoje).chave;
+
+  const where: any = { status: "ATIVO", valorEmpresa: { gt: 0 } };
+  if (franchiseId) where.franchiseId = franchiseId;
+
+  const contratos = await prisma.contract.findMany({
+    where,
+    select: { id: true, numero: true, valorEmpresa: true, franchiseId: true, company: { select: { name: true } } },
+  });
+  if (contratos.length === 0) return [];
+
+  const cobertos = await prisma.financial.findMany({
+    where: {
+      contractId: { in: contratos.map(c => c.id) },
+      categoria: "Empresa",
+      competencia: { in: [mesAtual, mesSeguinte] },
+      cancelado: { not: true },
+    },
+    select: { contractId: true },
+  });
+  const cobertosSet = new Set(cobertos.map(c => c.contractId));
+
+  return contratos
+    .filter(c => !cobertosSet.has(c.id))
+    .map(c => ({
+      contractId: c.id,
+      numero: c.numero,
+      empresa: c.company?.name || "Empresa",
+      valor: c.valorEmpresa,
+      franchiseId: c.franchiseId,
+    }));
 }
 
 export async function previewCobrancaGestao() {

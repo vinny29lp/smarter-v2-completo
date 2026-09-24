@@ -9,6 +9,7 @@ import Link from "next/link";
 interface ContratItem   { id: string; numero: string; student?: { name: string } | null; company?: { name: string } | null; franchise?: { name: string } | null; dataFim?: string; createdAt?: string; dataInicio?: string; diasRestantes?: number; diasPendente?: number; mesesAtivo?: number; }
 interface LeadCrmItem   { id: string; empresa: string; contato: string; retornoAt: string; etapa: string; }
 interface SolicitacaoVagaItem { id: string; funcao: string; bolsa: number; createdAt: string; companyId: string; company?: { name: string } | null; }
+interface ContratoSemCoberturaItem { contractId: string; numero: string; empresa: string; valor: number; franchiseId: string | null; }
 interface UnidadeItem   { franchiseId: string; franchiseName: string; total: number; }
 interface TarefaItem    { id: string; leadId: string; nomeCompleto: string; descricao: string; dueAt: string; }
 interface LeadParadoItem{ id: string; nomeCompleto: string; etapa: string; ultimoContato: string | null; dias: number; }
@@ -22,6 +23,7 @@ interface Alertas {
   avaliacoesDevidas: ContratItem[];
   leadsCrmVencidos: LeadCrmItem[];
   solicitacoesVagaPendentes: SolicitacaoVagaItem[];
+  contratosGestaoSemCobertura: ContratoSemCoberturaItem[];
   liaFeedbackBugs: LiaFeedbackItem[];
   liaFeedbackGeral: LiaFeedbackItem[];
   unidadesComPendentes2Mes: UnidadeItem[];
@@ -165,6 +167,18 @@ export default function AlertasPanel({ isMaster }: { isMaster: boolean }) {
             <div>
               <p className="font-medium">{c.student?.name ?? "—"} · {c.company?.name ?? "—"}</p>
               <p className="text-xs text-gray-500">Contrato {c.numero} · Venceu em {fmt(c.dataFim)}{c.franchise?.name ? ` · ${c.franchise.name}` : ""}</p>
+            </div>
+          </AlertRow>
+        ))}
+      </Section>
+
+      <Section title="Contratos ativos sem Taxa de Gestão cobrada este mês" tipo="critico" count={alertas.contratosGestaoSemCobertura.length}>
+        {alertas.contratosGestaoSemCobertura.map(c => (
+          <AlertRow key={c.contractId} href={`/dashboard/contratos/${c.contractId}`}>
+            <span className="text-red-500 mt-0.5">💸</span>
+            <div>
+              <p className="font-medium">{c.empresa} · Contrato {c.numero}</p>
+              <p className="text-xs text-gray-500">Nenhuma cobrança gerada no mês atual nem no seguinte — R$ {c.valor?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês configurado</p>
             </div>
           </AlertRow>
         ))}

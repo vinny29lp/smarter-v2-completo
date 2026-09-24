@@ -84,7 +84,13 @@ export async function fecharMes(force: boolean) {
   const jaFechadosSet = new Set(jaFechados.map(j => j.franchiseId));
 
   // ⚡ ESC-001: Processar em paralelo com batches de 10 (evita timeout de 30s da Vercel)
+  // Cada franquia tem seu próprio try/catch: se uma falhar (erro de rede,
+  // dado inconsistente etc.), ela vira um item com `erro` no resultado, mas
+  // as OUTRAS franquias do lote continuam sendo processadas normalmente —
+  // sem isso, Promise.all rejeitava o lote inteiro e travava silenciosamente
+  // a cobrança de unidades que não tinham nada a ver com a que falhou.
   const resultados = await processInBatches(franchises, 10, async (f) => {
+   try {
     const ativos = f.contracts.length;
     const taxaAdmin = ativos * 13;
     const cobrarMens = f.cobrarMensalidade ?? true;
@@ -136,12 +142,20 @@ export async function fecharMes(force: boolean) {
       vencimento: vencimento.toLocaleDateString("pt-BR", { timeZone: "UTC" }),
       lancamentoId: lancamento.id,
     };
+   } catch (e: any) {
+     console.error(`[fecharMes] Falha ao gerar cobrança de ${f.name}:`, e?.message || e);
+     return { franchise: f.name, franchiseId: f.id, erro: e?.message || "Erro ao gerar cobrança" };
+   }
   });
 
   const results = resultados;
-  const totalGeral = results
-    .filter((r: any) => !r.skipped)
-    .reduce((acc: number, r: any) => acc + (r.total || 0), 0);
+  const gerados = results.filter((r: any) => !r.skipped && !r.erro);
+  const comErro = results.filter((r: any) => r.erro);
+  const totalGeral = gerados.reduce((acc: number, r: any) => acc + (r.total || 0), 0);
+
+  if (comErro.length > 0) {
+    console.error(`[fecharMes] ${comErro.length} franquia(s) falharam e NÃO tiveram cobrança gerada:`, comErro.map((r: any) => r.franchise));
+  }
 
   return {
     ok: true as const,
@@ -149,7 +163,9 @@ export async function fecharMes(force: boolean) {
     competencia: comp.chave,
     totalGeral,
     results,
-    message: `Fechamento de ${mesRef} realizado para ${results.filter((r: any) => !r.skipped).length} franqueado(s). Total: R$ ${totalGeral.toFixed(2).replace(".", ",")}`,
+    comErro: comErro.length,
+    message: `Fechamento de ${mesRef} realizado para ${gerados.length} franqueado(s). Total: R$ ${totalGeral.toFixed(2).replace(".", ",")}`
+      + (comErro.length > 0 ? ` — ⚠️ ${comErro.length} falharam e precisam de atenção.` : ""),
   };
 }
 
