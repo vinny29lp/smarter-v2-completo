@@ -140,6 +140,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
     if (!empresa) return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
 
+    // SEC: escopo por franquia — checkPermission("empresas") só garante que o
+    // módulo está liberado, não que ESTA empresa é da franquia de quem chama
+    // (mesmo padrão de app/api/app/empresas/[id]/cps/route.ts PATCH).
+    if (session.user.role !== "FRANQUEADORA" && empresa.franchiseId !== session.user.franchiseId) {
+      return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
+    }
+
     const valorGestao = (empresa as any).valorGestao;
     if (!valorGestao) {
       return NextResponse.json({ error: "Defina o valor de gestão antes de enviar o contrato." }, { status: 400 });
@@ -200,6 +207,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     const empresa = await prisma.company.findUnique({ where: { id: params.id } });
     if (!empresa) return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
+
+    // SEC: escopo por franquia — mesma checagem do POST acima.
+    if (session.user.role !== "FRANQUEADORA" && empresa.franchiseId !== session.user.franchiseId) {
+      return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
+    }
 
     const authDocId = (empresa as any).cpsAuthDocId;
     if (!authDocId) {

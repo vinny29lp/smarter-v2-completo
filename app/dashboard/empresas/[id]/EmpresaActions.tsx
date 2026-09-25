@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/Card";
@@ -435,7 +435,73 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
   const [verificando, setVerificando] = useState(false);
   const [cpsStatus, setCpsStatus] = useState<string>(empresa.cpsStatus || "NAO_GERADO");
   const [cpsSignedUrl, setCpsSignedUrl] = useState<string|null>(empresa.cpsSignedUrl || null);
+  // Signatários do CPS + link de assinatura sob demanda (copiar/WhatsApp) —
+  // mesmo padrão já usado pros documentos de contrato (ver documentos/[docId]/
+  // page.tsx: signerLinks/obterOuGerarLink). O campo `link` que vem pronto
+  // nas queries do Autentique só é preenchido pra signatário cadastrado por
+  // nome — como cadastramos sempre por e-mail, precisa gerar sob demanda.
+  const [cpsSigners, setCpsSigners] = useState<any[]>([]);
+  const [cpsSignerLinks, setCpsSignerLinks] = useState<Record<string,string>>({});
+  const [gerandoLinkPara, setGerandoLinkPara] = useState<string|null>(null);
+  const [copiedLink, setCopiedLink] = useState<string|null>(null);
   const router = useRouter();
+
+  const linkConhecido = (signer: any): string | null => {
+    const doAutentique = typeof signer.link === "string" ? signer.link : (signer.link as any)?.short_link;
+    if (doAutentique) return doAutentique;
+    const chave = signer.publicId || signer.public_id || signer.email;
+    return cpsSignerLinks[chave] || null;
+  };
+
+  const obterOuGerarLink = async (signer: any): Promise<string | null> => {
+    const existente = linkConhecido(signer);
+    if (existente) return existente;
+
+    const publicId = signer.publicId || signer.public_id;
+    const chave = publicId || signer.email;
+    if (!publicId) {
+      setCpsMsg("⚠️ Não foi possível gerar o link — reenvie o CPS para assinatura para habilitar esta função.");
+      return null;
+    }
+
+    setGerandoLinkPara(chave);
+    try {
+      const res = await fetch(`/api/app/empresas/${empresa.id}/cps/autentique/link`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ publicId }),
+      });
+      const data = await res.json();
+      if (data.error || !data.shortLink) {
+        setCpsMsg("❌ " + (data.error || "Erro ao gerar link de assinatura."));
+        return null;
+      }
+      setCpsSignerLinks(prev => ({ ...prev, [chave]: data.shortLink }));
+      return data.shortLink as string;
+    } catch {
+      setCpsMsg("❌ Erro ao gerar link de assinatura.");
+      return null;
+    } finally {
+      setGerandoLinkPara(null);
+    }
+  };
+
+  const copiarLinkTexto = (link: string) => {
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedLink(link);
+      setTimeout(() => setCopiedLink(null), 2500);
+    }).catch(() => {});
+  };
+
+  const handleCopiarLinkCps = async (signer: any) => {
+    const link = await obterOuGerarLink(signer);
+    if (link) copiarLinkTexto(link);
+  };
+
+  const handleEnviarWhatsAppCps = async (signer: any) => {
+    const link = await obterOuGerarLink(signer);
+    if (!link) return;
+    const texto = `Olá! Segue o link para assinatura do Contrato de Parceria (CPS) de ${empresa.name}: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+  };
 
   const salvar = async () => {
     if (!valorGestao || isNaN(Number(valorGestao.replace(",", ".")))) {
@@ -494,6 +560,8 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
     else {
       setCpsMsg("✅ CPS enviado para assinatura!");
       setCpsStatus("AGUARDANDO_ASSINATURA");
+      setCpsSigners(data.signers || []);
+      setCpsSignerLinks({});
       setAssinaturaModal(false);
       router.refresh();
     }
@@ -505,6 +573,7 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
     const data = await res.json();
     setVerificando(false);
     if (data.error) { setCpsMsg("❌ " + data.error); return; }
+    setCpsSigners(data.signers || []);
     if (data.allSigned) {
       setCpsStatus("ASSINADO");
       setCpsSignedUrl(data.signedUrl || null);
@@ -515,6 +584,20 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
       setCpsMsg(`🔄 Aguardando ${pendentes} assinatura(s).`);
     }
   };
+
+  // Carrega os signatários sozinho quando a página abre com o CPS já enviado
+  // — os signatários não ficam persistidos no cadastro da empresa (só o
+  // status/URL final), então sem isso a lista só aparecia depois de clicar
+  // manualmente em "Verificar Assinaturas". Silencioso: não usa
+  // cpsMsg/verificando, que são do botão manual.
+  useEffect(() => {
+    if (cpsStatus !== "AGUARDANDO_ASSINATURA") return;
+    fetch(`/api/app/empresas/${empresa.id}/cps/autentique`)
+      .then(r => r.json())
+      .then(data => { if (!data.error) setCpsSigners(data.signers || []); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresa.id]);
 
   return (
     <Card className="p-5 mb-4">
@@ -581,6 +664,53 @@ export function EmpresaCPS({ empresa }: { empresa: any }) {
             </a>
           )}
         </div>
+
+        {/* Signatários — link de assinatura sob demanda pra copiar/reenviar
+            por WhatsApp ou e-mail (o link pronto do Autentique só vem
+            preenchido pra signatário cadastrado por nome; aqui é sempre por
+            e-mail, então o link precisa ser gerado sob demanda). */}
+        {cpsSigners.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Signatários</p>
+            {cpsSigners.map((signer: any) => {
+              const chave = signer.publicId || signer.public_id || signer.email;
+              const lnkAtual = linkConhecido(signer);
+              const gerando = gerandoLinkPara === chave;
+              return (
+                <div key={chave} className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs ${
+                  signer.rejected ? "border-red-200 bg-red-50" : signer.signed ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"
+                }`}>
+                  <div className="min-w-0">
+                    <p className="font-bold truncate">{signer.name || signer.email}</p>
+                    <p className="text-slate-400 truncate">{signer.email}</p>
+                  </div>
+                  {signer.signed ? (
+                    <span className="text-emerald-600 font-bold shrink-0">✅ Assinado</span>
+                  ) : signer.rejected ? (
+                    <span className="text-red-500 font-bold shrink-0">❌ Recusado</span>
+                  ) : (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleCopiarLinkCps(signer)}
+                        disabled={gerando}
+                        className={`font-bold hover:underline disabled:opacity-50 ${lnkAtual && copiedLink === lnkAtual ? "text-emerald-600" : "text-[#0f2a5e]"}`}
+                      >
+                        {gerando ? "Gerando..." : lnkAtual && copiedLink === lnkAtual ? "✅ Copiado!" : "🔗 Copiar link"}
+                      </button>
+                      <button
+                        onClick={() => handleEnviarWhatsAppCps(signer)}
+                        disabled={gerando}
+                        className="font-bold text-emerald-600 hover:underline disabled:opacity-50"
+                      >
+                        📲 WhatsApp
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Modal: Enviar para Assinatura */}

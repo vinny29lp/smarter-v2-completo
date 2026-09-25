@@ -5,6 +5,7 @@
  */
 
 import { getSystemConfig } from "./getConfig";
+import { nomeArquivoSeguro } from "./text";
 
 const AUTENTIQUE_API = "https://api.autentique.com.br/v2/graphql";
 
@@ -97,7 +98,12 @@ export async function enviarParaAutentique(
   formData.append("operations", JSON.stringify({ query, variables }));
   formData.append("map", JSON.stringify({ "0": ["variables.file"] }));
   const htmlBlob = new Blob([htmlContent], { type: "text/html" });
-  formData.append("0", htmlBlob, `${titulo.replace(/\s+/g, "-")}.html`);
+  // O filename do multipart vai cru (sem escape RFC 5987) no header
+  // Content-Disposition — caractere não-ASCII no título (ex: "CPS — Empresa
+  // Ltda", sempre com travessão) quebrava o parser da Autentique. `titulo`
+  // continua intacto no nome do documento (campo `name` do GraphQL, é só um
+  // dado, não um header) — só o filename do arquivo precisa ser seguro.
+  formData.append("0", htmlBlob, `${nomeArquivoSeguro(titulo)}.html`);
 
   // CRIT-001: timeout de 20s — evita hang de 30s no Lambda da Vercel se Autentique estiver lento
   const response = await fetch(AUTENTIQUE_API, {
