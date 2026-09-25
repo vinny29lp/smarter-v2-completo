@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type BlocoJornada, DIAS_LABELS, getDiasCount, calcBlocoCh, blocosDoContrato, serializarBlocos } from "@/lib/contratos/jornada";
 import { parseJsonResponse } from "@/lib/http";
+import { Autocomplete } from "@/components/ui/Autocomplete";
 
 // O upload do documento físico vai como base64 dentro do corpo da
 // requisição (JSON), que passa pela função serverless do Vercel — cujo
@@ -57,6 +58,10 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const [actionMsg, setActionMsg]   = useState<string|null>(null);
   const [editForm, setEditForm]     = useState<Record<string,any>>({});
   const setF = (k: string, v: any) => setEditForm(p => ({ ...p, [k]: v }));
+
+  // ── Trocar estudante vinculado (cadastro errado/duplicado na criação) ────
+  const [trocarEstudante, setTrocarEstudante] = useState(false);
+  const [novoEstudante, setNovoEstudante] = useState<any>(null);
 
   // ── Horário personalizado (blocos) na edição — mesmo sistema da criação ──
   const [editDiasSelect, setEditDiasSelect] = useState<string>("Segunda a Sexta");
@@ -164,11 +169,17 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
       setEditDiasSelect("Personalizado");
       setEditBlocos(blocosDoContrato(contract));
     }
+    setTrocarEstudante(false);
+    setNovoEstudante(null);
     setActionMsg(null);
     setEditModal(true);
   };
 
   const salvarEdicao = async () => {
+    if (trocarEstudante && !novoEstudante) {
+      setActionMsg("❌ Selecione o novo estudante, ou clique em \"Cancelar\" para manter o vínculo atual.");
+      return;
+    }
     if (editIsPersonalizado) {
       if (editHasExcessDiario) {
         setActionMsg("❌ Um ou mais blocos excedem 6h/dia líquidas (Lei 11.788/2008, art. 10). Ajuste os horários ou o intervalo de descanso.");
@@ -196,6 +207,9 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           chSemanal: Math.round(editChTotalPersonalizado * 10) / 10,
         }
       : { ...editForm, diasSemana: editDiasSelect };
+    if (trocarEstudante && novoEstudante?.id) {
+      (payload as any).studentId = novoEstudante.id;
+    }
     const res = await fetch(`/api/app/contratos/${params.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -642,6 +656,45 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
       {/* Modal: Editar Estágio */}
       <Modal open={editModal} onClose={() => setEditModal(false)} title="✏️ Editar Estágio" size="xl">
         <div className="space-y-5">
+
+          {/* Estudante vinculado */}
+          <div className="p-3 bg-slate-50 border-2 border-slate-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-bold text-slate-600 block">Estudante Vinculado</label>
+                <p className="text-sm text-slate-800">
+                  {trocarEstudante && novoEstudante ? novoEstudante.name : contract?.student?.name}
+                  {" "}
+                  <span className="text-slate-400">— {(trocarEstudante && novoEstudante ? novoEstudante.email : contract?.student?.email) || "sem e-mail"}</span>
+                </p>
+                {!trocarEstudante && (
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Cadastro desatualizado? <Link href={`/dashboard/estudantes/${contract?.student?.id}`} target="_blank" className="underline hover:text-slate-600">edite o cadastro do estudante</Link> — o contrato sempre lê os dados mais recentes automaticamente.
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => { setTrocarEstudante(v => !v); setNovoEstudante(null); }}
+                className="text-xs px-3 py-1.5"
+              >
+                {trocarEstudante ? "Cancelar" : "🔄 Trocar estudante"}
+              </Button>
+            </div>
+            {trocarEstudante && (
+              <div className="pt-1">
+                <Autocomplete
+                  label="Novo estudante (cadastro correto)"
+                  placeholder="Digite nome, CPF ou e-mail (mín. 2 caracteres)..."
+                  fetchUrl={q => `/api/app/estudantes/buscar?q=${encodeURIComponent(q)}`}
+                  resultKey="estudantes"
+                  getLabel={s => `${s.name} — ${s.curso || "Sem curso"}`}
+                  onSelect={s => setNovoEstudante(s)}
+                />
+                <p className="text-[11px] text-amber-600 mt-1">⚠️ Isso substitui o estudante deste contrato — use apenas para corrigir um vínculo errado (ex: cadastro duplicado). Documentos já gerados/assinados não são alterados.</p>
+              </div>
+            )}
+          </div>
 
           {/* Status */}
           <div>

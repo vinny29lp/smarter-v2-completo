@@ -62,12 +62,16 @@ export async function PATCH(
   const role = session.user.role || "";
   const franchiseId = session.user.franchiseId;
 
+  // Precisamos do studentId atual em qualquer papel — usado abaixo pra saber
+  // se o vínculo com o estudante está sendo trocado.
+  const contratoAtual = await prisma.contract.findUnique({ where: { id: params.id }, select: { franchiseId: true, studentId: true } });
+  if (!contratoAtual) {
+    return NextResponse.json({ error: "Contrato não encontrado." }, { status: 404 });
+  }
+
   // Ownership check: FRANQUEADO/FUNCIONARIO cannot edit contracts of other franchises
-  if (role !== "FRANQUEADORA") {
-    const existing = await prisma.contract.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
-    if (!existing || existing.franchiseId !== franchiseId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  if (role !== "FRANQUEADORA" && contratoAtual.franchiseId !== franchiseId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -99,12 +103,39 @@ export async function PATCH(
   if (data.chSemanal  !== undefined) data.chSemanal = data.chSemanal  === "" ? null : parseInt(String(data.chSemanal));
   if (data.vencimento !== undefined) data.vencimento= data.vencimento === "" ? null : parseInt(String(data.vencimento));
 
+  // Trocar o estudante vinculado ao contrato — pra corrigir um cadastro errado
+  // selecionado na criação (ex: homônimo, duplicata). Tratado à parte da
+  // allowlist genérica acima porque exige validar o novo estudante antes de
+  // aceitar a troca.
+  const studentIdAnterior = contratoAtual.studentId;
+  let trocandoEstudante = false;
+  if (typeof body.studentId === "string" && body.studentId && body.studentId !== studentIdAnterior) {
+    const novoEstudante = await prisma.student.findUnique({ where: { id: body.studentId }, select: { id: true, franchiseId: true } });
+    if (!novoEstudante) {
+      return NextResponse.json({ error: "Estudante selecionado não encontrado." }, { status: 400 });
+    }
+    // SEC: não deixa vincular um estudante de outra franquia
+    if (role !== "FRANQUEADORA" && novoEstudante.franchiseId && novoEstudante.franchiseId !== franchiseId) {
+      return NextResponse.json({ error: "Estudante selecionado não encontrado." }, { status: 400 });
+    }
+    data.studentId = body.studentId;
+    trocandoEstudante = true;
+  }
+
   try {
     const contract = await prisma.contract.update({ where: { id: params.id }, data });
 
     // Sync student status if contract status changed
     if (data.status !== undefined && contract.studentId) {
       await syncEstudanteStatus(contract.studentId);
+    }
+
+    // Estudante trocado: libera o antigo (se não tiver mais contratos ativos)
+    // e marca o novo como EM_ESTAGIO — mesmo padrão usado na criação do
+    // contrato (lib/actions/contracts.ts).
+    if (trocandoEstudante) {
+      await syncEstudanteStatus(studentIdAnterior);
+      await prisma.student.update({ where: { id: contract.studentId }, data: { status: "EM_ESTAGIO" } }).catch(() => {});
     }
 
     // ── Sincronizar lançamento financeiro ────────────────────────────────
@@ -134,9 +165,11 @@ export async function PATCH(
       userId: session.user.id,
       role: session.user.role || "",
       franchiseId: contract.franchiseId,
-      acao: data.status ? `CONTRATO_STATUS_${data.status}` : "CONTRATO_EDITADO",
+      acao: trocandoEstudante ? "CONTRATO_TROCA_ESTUDANTE" : (data.status ? `CONTRATO_STATUS_${data.status}` : "CONTRATO_EDITADO"),
       modulo: "contratos",
-      detalhes: `contrato:${params.id} | numero:${contract.numero || ""} | campos:${Object.keys(data).join(",")}`,
+      detalhes: trocandoEstudante
+        ? `contrato:${params.id} | numero:${contract.numero || ""} | estudante_anterior:${studentIdAnterior} | estudante_novo:${contract.studentId}`
+        : `contrato:${params.id} | numero:${contract.numero || ""} | campos:${Object.keys(data).join(",")}`,
       ip: getClientIP(req),
     });
 
