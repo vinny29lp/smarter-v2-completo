@@ -83,6 +83,15 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
 
   const [autentiqueLoading, setAutentiqueLoading] = useState(false);
   const [autentiqueSuccess, setAutentiqueSuccess] = useState<string|null>(null);
+
+  // TCE Externa — modelo próprio da faculdade (PDF) em vez do HTML gerado
+  const [pdfExternoModal, setPdfExternoModal] = useState(false);
+  const [pdfExternoArquivo, setPdfExternoArquivo] = useState<File|null>(null);
+  const [pdfExternoBase64, setPdfExternoBase64] = useState<string>("");
+  const [pdfExternoLoading, setPdfExternoLoading] = useState(false);
+  const [pdfExternoSuccess, setPdfExternoSuccess] = useState<string|null>(null);
+  const [pdfExternoErro, setPdfExternoErro] = useState<string|null>(null);
+  const MAX_PDF_EXTERNO_MB = 3;
   const [checkingStatus, setCheckingStatus]     = useState(false);
   const [copiedLink, setCopiedLink]             = useState<string|null>(null);
   // Link de assinatura gerado sob demanda por signatário (chave: publicId ou email) —
@@ -209,6 +218,73 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
       setAlertas(["Erro ao conectar com a API Autentique."]);
     }
     setAutentiqueLoading(false);
+  };
+
+  const selecionarPdfExterno = (file: File | null) => {
+    setPdfExternoErro(null);
+    setPdfExternoArquivo(null);
+    setPdfExternoBase64("");
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setPdfExternoErro("Envie um arquivo PDF.");
+      return;
+    }
+    if (file.size > MAX_PDF_EXTERNO_MB * 1024 * 1024) {
+      setPdfExternoErro(`Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo permitido: ${MAX_PDF_EXTERNO_MB}MB.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setPdfExternoBase64(reader.result as string);
+    reader.onerror = () => setPdfExternoErro("Erro ao ler o arquivo.");
+    reader.readAsDataURL(file);
+    setPdfExternoArquivo(file);
+  };
+
+  const enviarTceExterno = async () => {
+    setPdfExternoErro(null); setPdfExternoSuccess(null);
+    if (!pdfExternoBase64) { setPdfExternoErro("Anexe o PDF do modelo da faculdade."); return; }
+
+    const slots = TCE_SIGNERS.map(s => ({ email: tceEmails[s.key]?.trim() || "", label: s.label }));
+    const invalidos = slots.filter(s => !s.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email));
+    if (invalidos.length > 0) {
+      setPdfExternoErro(`E-mails inválidos: ${invalidos.map(s => s.label).join(", ")}`);
+      return;
+    }
+
+    setPdfExternoLoading(true);
+    try {
+      const res = await fetch(
+        `/api/app/contratos/${params.id}/documentos/${params.docId}/autentique/pdf-externo`,
+        {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pdfBase64: pdfExternoBase64,
+            nomeArquivo: pdfExternoArquivo?.name,
+            emails: slots.map(s => s.email),
+            labels: slots.map(s => s.label),
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.error) {
+        setPdfExternoErro(data.error);
+      } else {
+        setPdfExternoSuccess(data.message || "Enviado com sucesso!");
+        setDoc((p: any) => ({
+          ...p,
+          status: "ENVIADO_ASSINATURA",
+          authDocId: data.autentiqueId,
+          signers: data.signers || [],
+        }));
+        setTimeout(() => {
+          setPdfExternoModal(false); setPdfExternoSuccess(null);
+          setPdfExternoArquivo(null); setPdfExternoBase64("");
+        }, 2500);
+      }
+    } catch {
+      setPdfExternoErro("Erro ao conectar com a API Autentique.");
+    }
+    setPdfExternoLoading(false);
   };
 
   const verificarStatus = async () => {
@@ -378,6 +454,11 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
           {gerado && !assinado && (
             <Button variant="secondary" onClick={abrirModalAutentique}>
               ✍️ Enviar para Assinatura
+            </Button>
+          )}
+          {isTce && !enviado && !assinado && (
+            <Button variant="secondary" onClick={() => { setPdfExternoErro(null); setPdfExternoSuccess(null); setPdfExternoModal(true); }}>
+              📎 Enviar TCE Externa
             </Button>
           )}
           {enviado && !assinado && (
@@ -658,6 +739,67 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                 <Button variant="secondary" onClick={() => setAutentiqueModal(false)}>Cancelar</Button>
                 <Button onClick={enviarParaAutentique} disabled={autentiqueLoading}>
                   {autentiqueLoading ? "Enviando..." : "✍️ Enviar para Assinatura"}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal TCE Externa — modelo próprio da faculdade (PDF) */}
+      <Modal open={pdfExternoModal} onClose={() => setPdfExternoModal(false)} title="Enviar TCE Externa (Modelo da Faculdade)">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-500">
+            Use quando a instituição de ensino exige seu <strong>próprio modelo</strong> de TCE, em vez do gerado pelo sistema.
+            Anexe o PDF já preenchido e informe os <strong>3 signatários</strong> — o estágio será ativado automaticamente quando todos assinarem, igual ao fluxo normal.
+          </p>
+
+          {pdfExternoSuccess ? (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 flex items-center gap-2">
+              ✅ {pdfExternoSuccess}
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">PDF do modelo da faculdade</label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+                  onChange={e => selecionarPdfExterno(e.target.files?.[0] || null)}
+                />
+                {pdfExternoArquivo && (
+                  <p className="text-xs text-slate-500 mt-1">📄 {pdfExternoArquivo.name} ({(pdfExternoArquivo.size / 1024 / 1024).toFixed(2)}MB)</p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {TCE_SIGNERS.map(slot => (
+                  <div key={slot.key}>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">{slot.label}</label>
+                    <input
+                      type="email"
+                      placeholder={slot.placeholder}
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+                      value={tceEmails[slot.key] || ""}
+                      onChange={e => setTceEmails(p => ({ ...p, [slot.key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-3 border rounded-xl text-xs bg-blue-50 border-blue-200 text-blue-700">
+                🔐 O PDF será enviado via Autentique para assinatura digital com validade jurídica — o modelo do sistema não é usado neste envio.
+              </div>
+
+              {pdfExternoErro && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{pdfExternoErro}</div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <Button variant="secondary" onClick={() => setPdfExternoModal(false)}>Cancelar</Button>
+                <Button onClick={enviarTceExterno} disabled={pdfExternoLoading}>
+                  {pdfExternoLoading ? "Enviando..." : "📎 Enviar TCE Externa"}
                 </Button>
               </div>
             </>

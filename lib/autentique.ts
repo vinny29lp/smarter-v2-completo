@@ -50,13 +50,19 @@ async function getToken(): Promise<string> {
 }
 
 /**
- * Envia um documento HTML para assinatura via Autentique.
+ * Envia um documento para assinatura via Autentique — HTML gerado pelo
+ * sistema (padrão) ou um PDF externo (`arquivoExterno`, ex: modelo próprio
+ * da faculdade para o TCE). A API do Autentique aceita qualquer um dos dois
+ * no mesmo campo `file: Upload!` da mutation — o formato é inferido pelo
+ * Content-Type/extensão do multipart, não pela mutation em si. Quando
+ * `arquivoExterno` é passado, `htmlContent` é ignorado.
  * Retorna os dados do documento criado (com links de assinatura por signatário).
  */
 export async function enviarParaAutentique(
   titulo: string,
   htmlContent: string,
-  signatarios: AutentiqueSignatario[]
+  signatarios: AutentiqueSignatario[],
+  arquivoExterno?: { buffer: Buffer; nomeOriginal: string }
 ): Promise<AutentiqueDocumentoResponse> {
   const token = await getToken();
   if (!signatarios || signatarios.length === 0) throw new Error("Informe ao menos um signatário.");
@@ -97,13 +103,19 @@ export async function enviarParaAutentique(
   const formData = new FormData();
   formData.append("operations", JSON.stringify({ query, variables }));
   formData.append("map", JSON.stringify({ "0": ["variables.file"] }));
-  const htmlBlob = new Blob([htmlContent], { type: "text/html" });
   // O filename do multipart vai cru (sem escape RFC 5987) no header
   // Content-Disposition — caractere não-ASCII no título (ex: "CPS — Empresa
   // Ltda", sempre com travessão) quebrava o parser da Autentique. `titulo`
   // continua intacto no nome do documento (campo `name` do GraphQL, é só um
   // dado, não um header) — só o filename do arquivo precisa ser seguro.
-  formData.append("0", htmlBlob, `${nomeArquivoSeguro(titulo)}.html`);
+  const nomeArquivo = nomeArquivoSeguro(titulo);
+  if (arquivoExterno) {
+    const pdfBlob = new Blob([new Uint8Array(arquivoExterno.buffer)], { type: "application/pdf" });
+    formData.append("0", pdfBlob, `${nomeArquivo}.pdf`);
+  } else {
+    const htmlBlob = new Blob([htmlContent], { type: "text/html" });
+    formData.append("0", htmlBlob, `${nomeArquivo}.html`);
+  }
 
   // CRIT-001: timeout de 20s — evita hang de 30s no Lambda da Vercel se Autentique estiver lento
   const response = await fetch(AUTENTIQUE_API, {
