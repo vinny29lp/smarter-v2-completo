@@ -301,15 +301,16 @@ export default function FinanceiroPage() {
   const franquiaFuturas   = lancamentosFranquia.filter(l => isPendenteFuturo(l));
 
   // 🚨 Inadimplência 30+ dias por unidade (só franqueadora) — base do bloqueio automático
-  const CORTE_30D = Date.now() - 30 * 86400000;
+  // Dias em atraso pela MESMA regra de todo o resto do financeiro (dia-calendário
+  // UTC, lib/financeiro/atraso.ts) — antes calculava com Date.now() - vencMs em
+  // milissegundos direto, divergente da regra única e sujeito a variar por fuso.
   const inadimplentes30d: { nome: string; franchiseId: string; total: number; dias: number; bloqueada: boolean }[] = [];
   if (isFranqueadora) {
     const porFranquia = new Map<string, any>();
     for (const l of lancamentosFranquia) {
       if (!isAtrasado(l) || !l.vencimentoAt || !l.franchiseId) continue;
-      const vencMs = new Date(l.vencimentoAt).getTime();
-      if (vencMs > CORTE_30D) continue;
-      const dias = Math.floor((Date.now() - vencMs) / 86400000);
+      const dias = diasEmAtraso(l.vencimentoAt, hoje);
+      if (dias < 30) continue;
       const atual = porFranquia.get(l.franchiseId) || {
         nome: l.franchise?.name || "—", franchiseId: l.franchiseId, total: 0, dias: 0,
         bloqueada: !!l.franchise?.acessoBloqueado,
@@ -324,13 +325,26 @@ export default function FinanceiroPage() {
   // "TODOS" = mês corrente (exclui atrasados E futuros — cada um tem sua tela)
   // "VENCIDO" (⚠️ Atrasados) mostra TODOS os atrasados inclusive de franquia
   // "FUTUROS" mostra pendências de meses seguintes inclusive de franquia
-  const filtrados = filtro === "TODOS"
+  const filtrados = (filtro === "TODOS"
     ? lancamentosGerais.filter(l => !isAtrasado(l) && !isPendenteFuturo(l))
     : filtro === "VENCIDO"
       ? lancamentos.filter(l => isAtrasado(l))
       : filtro === "FUTUROS"
         ? lancamentos.filter(l => isPendenteFuturo(l))
-        : lancamentosGerais.filter(l => l.status === filtro);
+        : lancamentosGerais.filter(l => l.status === filtro)
+  )
+    // Ordena por vencimento (mais antigo/urgente primeiro) em vez da ordem de
+    // criação — a API só ordena por createdAt, e cobranças de tipos bem
+    // diferentes (Taxa Admin, Taxa Gestão, Franquia, avulsos) apareciam
+    // intercaladas sem relação nenhuma com o que vence primeiro, dificultando
+    // enxergar o que é mais urgente. Sem vencimentoAt vai pro final da lista.
+    .slice()
+    .sort((a, b) => {
+      if (!a.vencimentoAt && !b.vencimentoAt) return 0;
+      if (!a.vencimentoAt) return 1;
+      if (!b.vencimentoAt) return -1;
+      return new Date(a.vencimentoAt).getTime() - new Date(b.vencimentoAt).getTime();
+    });
 
   // ─── Relatório — Dados (Ponto 4) ─────────────────────────────────────────
   // Gráfico: receitas dos últimos 6 meses
@@ -1083,7 +1097,14 @@ export default function FinanceiroPage() {
                   return (
                     <tr key={l.id} className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/50 ${l.cancelado?"opacity-40":""} ${isVencido?"bg-red-50/30":""}`}>
                       <td className="px-4 py-2.5 text-sm font-medium max-w-xs">
-                        <span>{l.descricao}</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{l.descricao}</span>
+                          {l.categoria && (
+                            <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 whitespace-nowrap">
+                              {l.categoria}
+                            </span>
+                          )}
+                        </div>
                         {l.company?.name && <p className="text-[10px] text-slate-400 mt-0.5">🏭 {l.company.name}</p>}
                         {l.franchise?.name && <p className="text-[10px] text-slate-400 mt-0.5">🏢 {l.franchise.name}</p>}
                         {isVencido && (

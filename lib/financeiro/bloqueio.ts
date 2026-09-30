@@ -12,6 +12,7 @@
  * (liberar acesso com prazo de tolerância) funcionam independentemente da flag.
  */
 import { prisma } from "@/lib/prisma";
+import { diasEmAtraso } from "./atraso";
 
 export const DIAS_ATRASO_BLOQUEIO = 30;
 
@@ -56,12 +57,14 @@ export async function detectarInadimplentes(): Promise<InadimplenciaInfo[]> {
   });
 
   const porFranquia = new Map<string, InadimplenciaInfo>();
-  const agora = Date.now();
+  const agora = new Date();
 
   for (const c of cobrancas) {
     if (!c.franchiseId || !c.franchise) continue;
     const f: any = c.franchise;
-    const dias = Math.floor((agora - new Date(c.vencimentoAt!).getTime()) / 86400000);
+    // Dia-calendário UTC (lib/financeiro/atraso.ts) — mesma regra única do
+    // resto do financeiro, não milissegundos crus (sujeito a fuso/hora exata).
+    const dias = diasEmAtraso(c.vencimentoAt, agora);
     const atual = porFranquia.get(c.franchiseId) || {
       franchiseId: c.franchiseId,
       nome: f.name,
