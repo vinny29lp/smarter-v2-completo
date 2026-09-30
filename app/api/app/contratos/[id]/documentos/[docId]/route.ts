@@ -95,9 +95,11 @@ export async function POST(
     case "pe":
       html = gerarTCE(contratoData);
       break;
-    case "rpb":
-      html = gerarReciboBolsa(contratoData, body.mesRef || new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" }));
+    case "rpb": {
+      const extrasRPB = Array.isArray(body.extras) ? body.extras : [];
+      html = gerarReciboBolsa(contratoData, body.mesRef || new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" }), extrasRPB);
       break;
+    }
     case "tr":
       html = gerarRescisao(
         contratoData,
@@ -116,6 +118,7 @@ export async function POST(
           ? [{ descricao: "Descontos", valor: Number(body.descontos) }]
           : [];
       const totalDescontosRR = descontosRR.reduce((s: number, d: any) => s + (Number(d.valor) || 0), 0);
+      const extrasRR: Array<{descricao:string;valor:number}> = Array.isArray(body.extras) ? body.extras : [];
 
       const contratoRaw = await prisma.contract.findUnique({
         where: { id: params.id },
@@ -165,7 +168,8 @@ export async function POST(
         descontosRR,
         rrCalc.diasRecesso,
         rrCalc.avosRecesso,
-        rrCalc.regraEspecialAplicada
+        rrCalc.regraEspecialAplicada,
+        extrasRR
       );
       break;
     }
@@ -203,7 +207,7 @@ export async function POST(
   const updated = await saveDocumentHtml(params.docId, html);
 
   // Salva metaData para TR e RR
-  if ((doc.tipo === "tr" || doc.tipo === "rr") && (body.ultimoDia || body.motivo || body.tipoRescisao || body.descontos || rrCalc)) {
+  if ((doc.tipo === "tr" || doc.tipo === "rr") && (body.ultimoDia || body.motivo || body.tipoRescisao || body.descontos || body.extras || rrCalc)) {
     await prisma.internshipDocument.update({
       where: { id: params.docId },
       data: {
@@ -221,7 +225,23 @@ export async function POST(
             diasRecesso: rrCalc.diasRecesso,
             regraEspecialRecesso: rrCalc.regraEspecialAplicada,
             descontos: body.descontos,
+            extras: body.extras,
           } : {}),
+        },
+      },
+    });
+  }
+
+  // Salva metaData para RPB (mês de referência + valores extras — pra
+  // reabrir o recibo do mês seguinte já lembrando o que foi lançado)
+  if (doc.tipo === "rpb" && (body.mesRef || body.extras)) {
+    await prisma.internshipDocument.update({
+      where: { id: params.docId },
+      data: {
+        metaData: {
+          ...((doc.metaData as any) || {}),
+          ...(body.mesRef ? { mesRef: body.mesRef } : {}),
+          ...(body.extras ? { extras: body.extras } : {}),
         },
       },
     });

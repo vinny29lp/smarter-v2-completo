@@ -161,8 +161,17 @@ export async function createContract(data: any) {
     if (!co?.franchiseId) throw new Error("A empresa selecionada não está vinculada a nenhuma franquia. Verifique o cadastro da empresa.");
     data.franchiseId = co.franchiseId;
   }
-  if (!data.bolsa || isNaN(Number(data.bolsa)))
-    throw new Error("Informe um valor de Bolsa válido.");
+  // Estágio não remunerado (facultado pro estágio obrigatório, art. 12 §1º
+  // da Lei 11.788/2008) não tem bolsa — bolsa some zerada, nunca negativa
+  // (franqueados usavam -1 como gambiarra pra sinalizar isso, quebrando o
+  // texto do documento gerado: "R$ -1,00 (menos um reais)").
+  const remunerado = data.remunerado !== false;
+  if (remunerado) {
+    if (!data.bolsa || isNaN(Number(data.bolsa)) || Number(data.bolsa) < 0)
+      throw new Error("Informe um valor de Bolsa válido.");
+  } else {
+    data.bolsa = 0;
+  }
   if (!data.dataInicio || isNaN(new Date(data.dataInicio).getTime()))
     throw new Error("Data de Início inválida ou ausente.");
   if (!data.dataFim || isNaN(new Date(data.dataFim).getTime()))
@@ -195,7 +204,7 @@ export async function createContract(data: any) {
   const safeData = {
     studentId, companyId, franchiseId,
     ...(institutionId ? { institutionId } : {}),
-    bolsa, vencimento, dataInicio, dataFim,
+    bolsa, remunerado, vencimento, dataInicio, dataFim,
     ...(valorEmpresa !== null && valorEmpresa !== undefined ? { valorEmpresa } : {}),
     ...(auxTransporte !== null && auxTransporte !== undefined ? { auxTransporte } : {}),
     ...(beneficios ? { beneficios } : {}),

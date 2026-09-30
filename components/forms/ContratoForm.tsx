@@ -76,6 +76,11 @@ export function ContratoForm({ franchiseId }: Props) {
   });
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
+  // Estágio remunerado (padrão) ou não — facultado pro estágio obrigatório,
+  // art. 12 §1º da Lei 11.788/2008. Quando não remunerado, a bolsa não se
+  // aplica; o texto da cláusula de bolsa/recesso no TCE muda automaticamente.
+  const [remunerado, setRemunerado] = useState(true);
+
   // Controla o select de dias: preset vs personalizado
   const selectDiasValue = DIAS_PRESETS.includes(form.diasSemana) ? form.diasSemana : "Personalizado";
   const isDiasPersonalizado = selectDiasValue === "Personalizado";
@@ -122,8 +127,8 @@ export function ContratoForm({ franchiseId }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!form.studentId || !form.companyId || !form.bolsa || !form.dataInicio || !form.dataFim) {
-      setError("Preencha: Estudante, Empresa, Bolsa e Datas."); return;
+    if (!form.studentId || !form.companyId || (remunerado && !form.bolsa) || !form.dataInicio || !form.dataFim) {
+      setError(`Preencha: Estudante, Empresa, ${remunerado ? "Bolsa, " : ""}Datas.`); return;
     }
     if (isDiasPersonalizado && hasExcessDiario) {
       setError(`⚠️ Um ou mais blocos excedem 6h/dia líquidas (Lei 11.788/2008, art. 10). Ajuste os horários ou o intervalo de descanso.`);
@@ -168,7 +173,8 @@ export function ContratoForm({ franchiseId }: Props) {
         horarioFim: horarioFimFinal,
         modalidade: form.modalidade || "Presencial",
         franchiseId,
-        bolsa: parseFloat(form.bolsa),
+        remunerado,
+        bolsa: remunerado ? parseFloat(form.bolsa) : 0,
         valorEmpresa: form.valorEmpresa ? parseFloat(form.valorEmpresa) : null,
         auxTransporte: form.auxTransporte ? parseFloat(form.auxTransporte) : null,
         vencimento: parseInt(form.vencimento),
@@ -304,8 +310,24 @@ export function ContratoForm({ franchiseId }: Props) {
       {etapa === 2 && (
         <Card className="p-6 space-y-4">
           <h3 className="text-sm font-bold text-slate-700 mb-2">Dados do Estágio</h3>
+
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={remunerado}
+              onChange={e => { setRemunerado(e.target.checked); if (!e.target.checked) set("bolsa", ""); }}
+              className="w-4 h-4"
+            />
+            Estágio remunerado
+          </label>
+          {!remunerado && (
+            <p className="text-xs text-amber-600">⚠️ Estágio não remunerado — facultado apenas pro estágio obrigatório (Lei 11.788/2008, art. 12 §1º). A bolsa não se aplica; o TCE gerado já sai com o texto correto (sem menção a bolsa-auxílio remunerada).</p>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Bolsa (R$) *" type="number" value={form.bolsa} onChange={e => set("bolsa", e.target.value)} placeholder="1500" />
+            {remunerado && (
+              <Input label="Bolsa (R$) *" type="number" value={form.bolsa} onChange={e => set("bolsa", e.target.value)} placeholder="1500" />
+            )}
             <Input label="Valor cobrado Empresa (R$)" type="number" value={form.valorEmpresa} onChange={e => set("valorEmpresa", e.target.value)} placeholder="1800" />
             <Input label="Auxílio Transporte (R$)" type="number" value={form.auxTransporte} onChange={e => set("auxTransporte", e.target.value)} placeholder="200" />
             <Input label="Benefícios" value={form.beneficios} onChange={e => set("beneficios", e.target.value)} placeholder="Auxílio Transporte" />

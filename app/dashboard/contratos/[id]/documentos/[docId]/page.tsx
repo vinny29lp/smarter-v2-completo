@@ -66,6 +66,11 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
   const [loading, setLoading]       = useState(false);
   const [extraModal, setExtraModal] = useState(false);
   const [extraFields, setExtraFields] = useState<Record<string,string>>({});
+  // Valores extras (ex: Vale-Transporte) — recibo mensal (rpb) e de rescisão
+  // (rr) só tinham a bolsa; agora aceitam qualquer valor adicional manual,
+  // que soma certinho no total do recibo.
+  const [extrasDoc, setExtrasDoc] = useState<Array<{descricao:string;valor:number}>>([]);
+  const temExtras = doc?.tipo === "rpb" || doc?.tipo === "rr";
   const [alertas, setAlertas]       = useState<string[]>([]);
 
   // Emails do contrato para pré-preenchimento
@@ -119,6 +124,8 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
       .then(d => {
         setDoc(d.document);
         if (d.document?.htmlContent) setHtml(d.document.htmlContent);
+        const extrasSalvos = (d.document?.metaData as any)?.extras;
+        if (Array.isArray(extrasSalvos)) setExtrasDoc(extrasSalvos);
         if (d.contractEmails) {
           setContractEmails(d.contractEmails);
           // Pré-preencher slots TCE com emails do contrato
@@ -649,9 +656,37 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
               📊 Dias trabalhados, bolsa proporcional e recesso (avos, com o adicional de 14/12 quando aplicável) são calculados automaticamente a partir da data de início do contrato e do último dia informado acima — nenhum valor precisa ser digitado.
             </div>
           )}
+          {temExtras && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-600 block">Valores Extras (ex: Vale-Transporte) — opcional, soma no total</label>
+              {extrasDoc.map((x, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    type="text" placeholder="Descrição (ex: Vale-Transporte)"
+                    className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                    value={x.descricao}
+                    onChange={e => setExtrasDoc(p => p.map((item, idx) => idx === i ? { ...item, descricao: e.target.value } : item))}
+                  />
+                  <input
+                    type="number" step="0.01" placeholder="Valor"
+                    className="w-32 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                    value={x.valor || ""}
+                    onChange={e => setExtrasDoc(p => p.map((item, idx) => idx === i ? { ...item, valor: parseFloat(e.target.value) || 0 } : item))}
+                  />
+                  <button className="text-slate-400 hover:text-red-500 px-2 text-lg" onClick={() => setExtrasDoc(p => p.filter((_, idx) => idx !== i))}>×</button>
+                </div>
+              ))}
+              <button
+                className="text-sm text-[#0f2a5e] font-semibold hover:underline"
+                onClick={() => setExtrasDoc(p => [...p, { descricao: "", valor: 0 }])}
+              >
+                + Adicionar valor extra
+              </button>
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" onClick={() => setExtraModal(false)}>Cancelar</Button>
-            <Button onClick={() => gerarDoc(extraFields)} disabled={loading}>{loading?"Gerando...":"Gerar Documento"}</Button>
+            <Button onClick={() => gerarDoc({ ...extraFields, extras: extrasDoc })} disabled={loading}>{loading?"Gerando...":"Gerar Documento"}</Button>
           </div>
         </div>
       </Modal>

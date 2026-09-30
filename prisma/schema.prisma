@@ -328,6 +328,7 @@ model Contract {
   institutionId    String?
   franchiseId      String
   bolsa            Float
+  remunerado       Boolean              @default(true)
   valorEmpresa     Float?
   auxTransporte    Float?
   beneficios       String?

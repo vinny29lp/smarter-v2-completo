@@ -33,6 +33,7 @@ export interface ContratoData {
   };
   estagio: {
     dataInicio: string; dataFim: string;
+    remunerado: boolean;
     valorBolsa: number; valorBolsaExtenso: string;
     auxilioTransporte: number; beneficios: string;
     chDiaria: number; chSemanal: number;

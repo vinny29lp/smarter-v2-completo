@@ -42,7 +42,8 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
     ultimoDia: string;
     motivo: string;
     descontos: Array<{descricao: string; valor: number}>;
-  }>({ ultimoDia: "", motivo: "", descontos: [] });
+    extras: Array<{descricao: string; valor: number}>;
+  }>({ ultimoDia: "", motivo: "", descontos: [], extras: [] });
   const [calc, setCalc] = useState<any>(null);
   const [gerandoRecibo, setGerandoRecibo] = useState(false);
   const [reciboGerado, setReciboGerado] = useState(false);
@@ -138,6 +139,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
     if (!contract) return;
     setEditForm({
       status:          contract.status || "PENDENTE",
+      remunerado:      contract.remunerado !== false,
       bolsa:           String(contract.bolsa || ""),
       valorEmpresa:    String(contract.valorEmpresa || ""),
       auxTransporte:   String(contract.auxTransporte || ""),
@@ -286,6 +288,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           descontos: rescisao.descontos,
+          extras: rescisao.extras,
           ultimoDia: rescisao.ultimoDia,
           motivo: rescisao.motivo,
         }),
@@ -707,12 +710,27 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
             </select>
           </div>
 
+          {/* Remunerado ou não — condiciona o texto do TCE (cláusulas de bolsa e recesso) */}
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={editForm.remunerado !== false}
+              onChange={e => { setF("remunerado", e.target.checked); if (!e.target.checked) setF("bolsa", "0"); }}
+              className="w-4 h-4"
+            />
+            Estágio remunerado
+          </label>
+          {editForm.remunerado === false && (
+            <p className="text-xs text-amber-600">⚠️ Estágio não remunerado — facultado apenas pro estágio obrigatório (Lei 11.788/2008, art. 12 §1º). A bolsa fica zerada; regenere o TCE pra atualizar o texto do documento.</p>
+          )}
+
           {/* Valores financeiros */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Bolsa (R$)</label>
-              <input type="number" step="0.01" value={editForm.bolsa} onChange={e => setF("bolsa", e.target.value)}
-                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" placeholder="0.00"/>
+              <input type="number" step="0.01" value={editForm.bolsa} disabled={editForm.remunerado === false}
+                onChange={e => setF("bolsa", e.target.value)}
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] disabled:bg-slate-100 disabled:text-slate-400" placeholder="0.00"/>
             </div>
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Valor Empresa (R$)</label>
@@ -980,7 +998,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           setCalc(null);
           setReciboGerado(false);
           setReciboError(null);
-          setRescisao({ ultimoDia: "", motivo: "", descontos: [] });
+          setRescisao({ ultimoDia: "", motivo: "", descontos: [], extras: [] });
         }}
         title="🧮 Calculadora de Rescisão"
       >
@@ -1035,6 +1053,58 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
                 onChange={e => setRescisao(p => ({ ...p, motivo: e.target.value }))}
               />
             </div>
+          </div>
+
+          {/* Seção de Acréscimos (ex: Vale-Transporte) */}
+          <div className="border-2 border-slate-100 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-600">Acréscimos (ex: Vale-Transporte)</label>
+              <button
+                type="button"
+                onClick={() => setRescisao(p => ({ ...p, extras: [...p.extras, { descricao: "", valor: 0 }] }))}
+                className="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 font-semibold transition-colors"
+              >
+                + Adicionar Acréscimo
+              </button>
+            </div>
+            {rescisao.extras.length === 0 && (
+              <p className="text-xs text-slate-400 italic">Nenhum valor extra. Clique em "+ Adicionar Acréscimo" para incluir.</p>
+            )}
+            {rescisao.extras.map((x, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Descrição (ex: Vale Transporte)"
+                  className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                  value={x.descricao}
+                  onChange={e => {
+                    const items = [...rescisao.extras];
+                    items[i] = { ...items[i], descricao: e.target.value };
+                    setRescisao(p => ({ ...p, extras: items }));
+                  }}
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  className="w-28 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"
+                  value={x.valor || ""}
+                  onChange={e => {
+                    const items = [...rescisao.extras];
+                    items[i] = { ...items[i], valor: parseFloat(e.target.value) || 0 };
+                    setRescisao(p => ({ ...p, extras: items }));
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setRescisao(p => ({ ...p, extras: p.extras.filter((_, j) => j !== i) }))}
+                  className="text-red-400 hover:text-red-600 font-bold px-2 text-base"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
           </div>
 
           {/* Seção de Descontos */}

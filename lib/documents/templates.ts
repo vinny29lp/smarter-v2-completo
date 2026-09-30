@@ -228,7 +228,12 @@ function infoBar(cells: Array<{l:string;v:string}>): string {
 export function gerarTCE(c: ContratoData): string {
   const { estudante: e, empresa: emp, instituicao: ies, smarter: sm, estagio: est } = c;
   const did = docId(c.numero, ies.razaoSocial, c.cidadeAssinatura);
-  const bolsaFmt = `R$ ${Number(est.valorBolsa).toLocaleString("pt-BR",{minimumFractionDigits:2})} (${valorExtenso(Number(est.valorBolsa))})`;
+  // Valor da bolsa nunca pode virar texto negativo/absurdo num documento
+  // legal — estágio não remunerado não tem bolsa, então o valor não entra
+  // na frase (ver clausulaBolsa abaixo); um valor negativo residual de
+  // cadastro antigo também é tratado como zero, nunca impresso como está.
+  const valorBolsaSeguro = Math.max(0, Number(est.valorBolsa) || 0);
+  const bolsaFmt = `R$ ${valorBolsaSeguro.toLocaleString("pt-BR",{minimumFractionDigits:2})} (${valorExtenso(valorBolsaSeguro)})`;
   const auxFmt = est.auxilioTransporte > 0 ? `R$ ${Number(est.auxilioTransporte).toLocaleString("pt-BR",{minimumFractionDigits:2})}` : "Não previsto";
   const diasDesc = (() => {
     const ativos = est.horarios.filter((h:any) => h.inicio !== "—" && h.inicio);
@@ -350,8 +355,10 @@ ${clause(4, "Redução de Jornada em Período de Avaliação",
   `Durante o período de avaliação, previamente comunicado pelo(a) ESTAGIÁRIO(A) no início do período letivo à UNIDADE CONCEDENTE, a jornada diária poderá ser reduzida à metade, sem prejuízo do pagamento integral da bolsa-auxílio.`,
   "Art. 10, §2°, Lei 11.788/2008")}
 
-${clause(5, "Recesso Remunerado",
-  `O(A) ESTAGIÁRIO(A) tem direito ao recesso remunerado de 30 (trinta) dias após 12 (doze) meses de estágio na mesma empresa. Caso a vigência seja inferior a 12 meses, o recesso será concedido proporcionalmente, calculado à razão de 2,5 (dois vírgula cinco) dias por mês trabalhado, a ser gozado preferencialmente durante as férias ou recessos escolares.`,
+${clause(5, est.remunerado ? "Recesso Remunerado" : "Recesso",
+  est.remunerado
+    ? `O(A) ESTAGIÁRIO(A) tem direito ao recesso remunerado de 30 (trinta) dias após 12 (doze) meses de estágio na mesma empresa. Caso a vigência seja inferior a 12 meses, o recesso será concedido proporcionalmente, calculado à razão de 2,5 (dois vírgula cinco) dias por mês trabalhado, a ser gozado preferencialmente durante as férias ou recessos escolares.`
+    : `O(A) ESTAGIÁRIO(A) tem direito ao recesso de 30 (trinta) dias após 12 (doze) meses de estágio na mesma empresa. Caso a vigência seja inferior a 12 meses, o recesso será concedido proporcionalmente, calculado à razão de 2,5 (dois vírgula cinco) dias por mês trabalhado, a ser gozado preferencialmente durante as férias ou recessos escolares. Por se tratar de estágio <strong>não remunerado</strong>, o recesso não gera direito a bolsa-auxílio, nos termos do art. 13, §2° da Lei 11.788/2008.`,
   "Art. 13, Lei 11.788/2008")}
 
 ${clause(6, "Compatibilidade das Atividades com o Curso",
@@ -362,8 +369,10 @@ ${clause(7, "Atividades a Serem Desenvolvidas",
   `São atividades inicialmente previstas para o(a) ESTAGIÁRIO(A): ${est.atividades}`,
   "Art. 7°, Lei 11.788/2008")}
 
-${clause(8, "Bolsa-Auxílio e Benefícios",
-  `A UNIDADE CONCEDENTE remunerará o(a) ESTAGIÁRIO(A) com bolsa-auxílio no valor de <strong>${bolsaFmt}</strong> mensais, paga a partir do mês subsequente ao vencimento, podendo variar conforme frequência mensal. Vale-Transporte: <strong>${auxFmt}</strong>. O não pagamento da bolsa configura inadimplência e é causa de rescisão imediata.`,
+${clause(8, est.remunerado ? "Bolsa-Auxílio e Benefícios" : "Benefícios — Estágio Não Remunerado",
+  est.remunerado
+    ? `A UNIDADE CONCEDENTE remunerará o(a) ESTAGIÁRIO(A) com bolsa-auxílio no valor de <strong>${bolsaFmt}</strong> mensais, paga a partir do mês subsequente ao vencimento, podendo variar conforme frequência mensal. Vale-Transporte: <strong>${auxFmt}</strong>. O não pagamento da bolsa configura inadimplência e é causa de rescisão imediata.`
+    : `O presente estágio é <strong>não remunerado</strong>, não fazendo jus o(a) ESTAGIÁRIO(A) a bolsa-auxílio, conforme facultado pelo art. 12, §1° da Lei 11.788/2008 para estágio obrigatório. Vale-Transporte: <strong>${auxFmt}</strong>.`,
   "Art. 12, Lei 11.788/2008")}
 
 ${clause(9, "Normas Internas e Programa de Estágio",
@@ -635,17 +644,30 @@ function wrap(content: string): string {
 }
 
 // ── RECIBO DE BOLSA ────────────────────────────────────────────────────────────
-export function gerarReciboBolsa(c: ContratoData, mesRef: string): string {
+export type ItemValor = { descricao: string; valor: number };
+
+export function gerarReciboBolsa(c: ContratoData, mesRef: string, extras: ItemValor[] = []): string {
   const { estudante: e, empresa: emp, estagio: est, smarter: sm } = c;
-  const valor = Number(est.valorBolsa);
+  const valorBolsa = Number(est.valorBolsa);
+  const totalExtras = extras.reduce((s, x) => s + (Number(x.valor) || 0), 0);
+  const total = valorBolsa + totalExtras;
+  const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2});
   const hoje = new Date().toLocaleDateString("pt-BR");
+
+  const extrasRows = extras.length > 0
+    ? extras.map(x => fld(`(+) ${x.descricao || "Valor adicional"}`, "") + fld("Valor", fmt(x.valor || 0))).join("")
+    : "";
+  const descricaoExtras = extras.length > 0
+    ? ` acrescida de ${extras.map(x => `${x.descricao || "valor adicional"} no valor de ${fmt(x.valor || 0)}`).join(", ")},`
+    : "";
+
   return wrap(`
 ${premiumHeader("Recibo de Pagamento de Bolsa-Auxílio", "Lei Nº 11.788/2008", c.numero, sm)}
 ${infoBar([
   {l:"Estagiário(a)", v: e.nome},
   {l:"Mês de Referência", v: mesRef},
   {l:"Empresa", v: emp.nomeFan},
-  {l:"Valor", v: "R$ " + valor.toLocaleString("pt-BR",{minimumFractionDigits:2})},
+  {l:"Valor Total", v: fmt(total)},
 ])}
 
 <div class="sec" style="margin-top:12px">${secHead("R", "Dados do Recibo")}
@@ -653,11 +675,16 @@ ${infoBar([
 ${fld("Estagiário(a)", e.nome, true)}
 ${fld("CPF", e.cpf)}${fld("Mês de Referência", mesRef)}
 ${fld("Empresa Concedente", emp.razaoSocial, true)}
-${fld("CNPJ", emp.cnpj)}${fld("Valor da Bolsa", "R$ " + valor.toLocaleString("pt-BR",{minimumFractionDigits:2}))}
+${fld("CNPJ", emp.cnpj)}${fld("Valor da Bolsa", fmt(valorBolsa))}
+${extrasRows}
+<div class="fld full" style="background:#f0f9ff;border-top:2px solid #0f2a5e;padding:6px 8px">
+  <label style="font-size:8px;font-weight:900;text-transform:uppercase;color:#0f2a5e;display:block;margin-bottom:2px">VALOR TOTAL</label>
+  <span style="font-size:14px;font-weight:900;color:#0f2a5e">${fmt(total)}</span>
+</div>
 </div></div>
 
 <div class="obj-box" style="margin:14px 0">
-  Eu, <strong>${e.nome}</strong>, portador(a) do CPF <strong>${e.cpf}</strong>, declaro ter recebido da empresa <strong>${emp.razaoSocial}</strong>, CNPJ: <strong>${emp.cnpj}</strong>, a importância de <strong>R$ ${valor.toLocaleString("pt-BR",{minimumFractionDigits:2})} (${valorExtenso(valor)})</strong>, referente à bolsa-auxílio do estágio desenvolvido no mês de <strong>${mesRef}</strong>.
+  Eu, <strong>${e.nome}</strong>, portador(a) do CPF <strong>${e.cpf}</strong>, declaro ter recebido da empresa <strong>${emp.razaoSocial}</strong>, CNPJ: <strong>${emp.cnpj}</strong>, a importância de <strong>${fmt(total)} (${valorExtenso(total)})</strong>, referente à bolsa-auxílio do estágio desenvolvido no mês de <strong>${mesRef}</strong>${descricaoExtras}.
 </div>
 
 <p style="text-align:right;font-size:10px;margin:14px 0">${c.cidadeAssinatura}, ${hoje}</p>
@@ -738,7 +765,7 @@ ${docFooter("Rescisão ao TCE", c.numero, sm)}`);
 }
 
 // ── RECIBO DE RESCISÃO ─────────────────────────────────────────────────────────
-export type DescontoRescisao = { descricao: string; valor: number };
+export type DescontoRescisao = ItemValor;
 
 export function gerarReciboRescisao(
   c: ContratoData,
@@ -747,7 +774,8 @@ export function gerarReciboRescisao(
   descontos: DescontoRescisao[],
   diasRecesso?: number,
   avosRecesso?: number,
-  regraEspecialRecesso?: boolean
+  regraEspecialRecesso?: boolean,
+  extras: ItemValor[] = []
 ): string {
   const { estudante: e, empresa: emp, smarter: sm, estagio: est } = c;
   const bolsaDia  = Number(est.valorBolsa) / 30;
@@ -765,9 +793,14 @@ export function gerarReciboRescisao(
     : "";
 
   const totalDescontos = descontos.reduce((s, d) => s + (d.valor || 0), 0);
-  const total = bolsaProp + recessoValor - totalDescontos;
+  const totalExtras = extras.reduce((s, x) => s + (Number(x.valor) || 0), 0);
+  const total = bolsaProp + recessoValor + totalExtras - totalDescontos;
   const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   const hoje = new Date().toLocaleDateString("pt-BR");
+
+  const extrasRows = extras.length > 0
+    ? extras.map(x => fld(`(+) ${x.descricao || "Valor adicional"}`, "") + fld("Valor", fmt(x.valor || 0))).join("")
+    : "";
 
   const descontosRows = descontos.length > 0
     ? descontos.map(d => fld(`(-) ${d.descricao || "Desconto"}`, "") + fld("Valor", fmt(d.valor || 0))).join("")
@@ -793,6 +826,7 @@ ${fld("Empresa Concedente", emp.razaoSocial, true)}
 ${fld("Total de Dias Trabalhados", String(diasTrabalhados || 0) + " dia(s)")}${fld("Bolsa Mensal", fmt(Number(est.valorBolsa)))}
 ${fld("Bolsa Proporcional (último mês)", String(diasBolsa) + " dia(s)")}${fld("Valor", fmt(bolsaProp))}
 ${recessoRow}
+${extrasRows}
 ${descontosRows}
 <div class="fld full" style="background:#f0f9ff;border-top:2px solid #0f2a5e;padding:6px 8px">
   <label style="font-size:8px;font-weight:900;text-transform:uppercase;color:#0f2a5e;display:block;margin-bottom:2px">TOTAL A RECEBER</label>
@@ -817,10 +851,11 @@ ${docFooter("Recibo de Rescisão", c.numero, sm)}`);
 
 // ── TERMO DE RECESSO ──────────────────────────────────────────────────────────
 export function gerarTermoRecesso(c: ContratoData, diasRecesso: number, dataIni: string, dataFim: string, periodo: string): string {
-  const { estudante: e, empresa: emp, smarter: sm } = c;
+  const { estudante: e, empresa: emp, smarter: sm, estagio: est } = c;
   const hoje = new Date().toLocaleDateString("pt-BR");
+  const titulo = est.remunerado ? "Termo de Recesso Remunerado" : "Termo de Recesso";
   return wrap(`
-${premiumHeader("Termo de Recesso Remunerado", "Art. 13 da Lei Nº 11.788/2008", c.numero, sm)}
+${premiumHeader(titulo, "Art. 13 da Lei Nº 11.788/2008", c.numero, sm)}
 ${infoBar([
   {l:"Estagiário(a)", v: e.nome},
   {l:"Empresa", v: emp.nomeFan},
@@ -838,12 +873,12 @@ ${fld("Início do Recesso", dataIni || "—")}${fld("Fim do Recesso", dataFim ||
 </div></div>
 
 <div class="obj-box" style="margin:14px 0">
-  As partes acordam a concessão do recesso remunerado de <strong>${diasRecesso} dia(s)</strong> ao(à) estagiário(a) <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, da empresa <strong>${emp.razaoSocial}</strong>, a ser gozado de <strong>${dataIni||"—"}</strong> a <strong>${dataFim||"—"}</strong>, referente ao período aquisitivo <strong>${periodo||"—"}</strong> efetivamente cumprido. O recesso remunerado é garantido pelo art. 13 da Lei 11.788/2008, sendo devida a bolsa-auxílio integral durante o período.
+  As partes acordam a concessão do recesso${est.remunerado ? " remunerado" : ""} de <strong>${diasRecesso} dia(s)</strong> ao(à) estagiário(a) <strong>${e.nome}</strong>, CPF: <strong>${e.cpf}</strong>, da empresa <strong>${emp.razaoSocial}</strong>, a ser gozado de <strong>${dataIni||"—"}</strong> a <strong>${dataFim||"—"}</strong>, referente ao período aquisitivo <strong>${periodo||"—"}</strong> efetivamente cumprido. O recesso é garantido pelo art. 13 da Lei 11.788/2008${est.remunerado ? ", sendo devida a bolsa-auxílio integral durante o período" : ", sem direito a bolsa-auxílio por se tratar de estágio não remunerado"}.
 </div>
 
 <p style="text-align:right;font-size:10px;margin:14px 0">${c.cidadeAssinatura}, ${hoje}</p>
 ${sign2([e.nome, "ESTAGIÁRIO(A)"], [emp.razaoSocial, "EMPRESA CONCEDENTE"])}
-${docFooter("Termo de Recesso Remunerado", c.numero, sm)}`);
+${docFooter(titulo, c.numero, sm)}`);
 }
 
 // ── TERMO DE REALIZAÇÃO ───────────────────────────────────────────────────────

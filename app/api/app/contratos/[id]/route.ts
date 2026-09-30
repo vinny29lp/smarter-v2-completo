@@ -78,7 +78,7 @@ export async function PATCH(
 
   // Campos permitidos para edição
   const allowed = [
-    "status","bolsa","valorEmpresa","auxTransporte","beneficios","vencimento",
+    "status","bolsa","remunerado","valorEmpresa","auxTransporte","beneficios","vencimento",
     "dataInicio","dataFim","atividades","localEstagio","cidade","uf",
     "chDiaria","chSemanal","diasSemana","horarioInicio","horarioFim","intervalo",
     "supervisorNome","supervisorCargo","supervisorEmail","supervisorTel","supervisorAssina",
@@ -96,12 +96,15 @@ export async function PATCH(
 
   // Converte campos numéricos — string vazia vira null, string/number vira Float
   const toFloat = (v: any) => (v === "" || v === null || v === undefined) ? null : Number(v);
-  if (data.bolsa         !== undefined) data.bolsa         = toFloat(data.bolsa) ?? 0;
+  if (data.bolsa         !== undefined) data.bolsa         = Math.max(0, toFloat(data.bolsa) ?? 0);
   if (data.valorEmpresa  !== undefined) data.valorEmpresa  = toFloat(data.valorEmpresa);
   if (data.auxTransporte !== undefined) data.auxTransporte = toFloat(data.auxTransporte);
   if (data.chDiaria   !== undefined) data.chDiaria  = data.chDiaria   === "" ? null : parseInt(String(data.chDiaria));
   if (data.chSemanal  !== undefined) data.chSemanal = data.chSemanal  === "" ? null : parseInt(String(data.chSemanal));
   if (data.vencimento !== undefined) data.vencimento= data.vencimento === "" ? null : parseInt(String(data.vencimento));
+  // Estágio não remunerado nunca tem bolsa — zera, independente do que veio
+  // no body (defesa em profundidade contra a gambiarra antiga de bolsa=-1).
+  if (data.remunerado === false) data.bolsa = 0;
 
   // Trocar o estudante vinculado ao contrato — pra corrigir um cadastro errado
   // selecionado na criação (ex: homônimo, duplicata). Tratado à parte da

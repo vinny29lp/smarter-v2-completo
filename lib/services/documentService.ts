@@ -300,6 +300,7 @@ export async function buildContratoData(contractId: string): Promise<ContratoDat
     estagio: {
       dataInicio: new Date(contract.dataInicio).toLocaleDateString("pt-BR"),
       dataFim: new Date(contract.dataFim).toLocaleDateString("pt-BR"),
+      remunerado: (contract as any).remunerado ?? true,
       valorBolsa: contract.bolsa ?? 0,
       valorBolsaExtenso: valorParaExtenso(contract.bolsa ?? 0),
       auxilioTransporte: contract.auxTransporte ?? 0,
