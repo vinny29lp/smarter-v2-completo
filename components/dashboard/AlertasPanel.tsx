@@ -76,7 +76,7 @@ const TIPO_FEEDBACK_LABEL: Record<string, string> = {
   bug: "🐛 Bug", elogio: "⭐ Elogio", critica: "⚠️ Crítica", sugestao: "💡 Sugestão",
 };
 
-function Section({ title, tipo, count, children }: { title: string; tipo: "critico" | "atencao" | "info"; count: number; children: React.ReactNode }) {
+function Section({ title, subtitle, tipo, count, children }: { title: string; subtitle?: string; tipo: "critico" | "atencao" | "info"; count: number; children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
   if (count === 0) return null;
   return (
@@ -94,6 +94,7 @@ function Section({ title, tipo, count, children }: { title: string; tipo: "criti
           <span className="ml-1">{open ? "▲" : "▼"}</span>
         </span>
       </button>
+      {subtitle && <p className="text-[11px] text-gray-400 px-3 mt-1">{subtitle}</p>}
       {open && <div className="mt-1 divide-y divide-gray-100 rounded-lg border border-gray-100 bg-white">{children}</div>}
     </div>
   );
@@ -172,7 +173,12 @@ export default function AlertasPanel({ isMaster }: { isMaster: boolean }) {
         ))}
       </Section>
 
-      <Section title="Contratos ativos sem Taxa de Gestão cobrada este mês" tipo="critico" count={alertas.contratosGestaoSemCobertura.length}>
+      <Section
+        title="Contratos ativos sem Taxa de Gestão cobrada este mês"
+        subtitle={!isMaster ? "Mostrando apenas contratos da sua própria unidade." : undefined}
+        tipo="critico"
+        count={alertas.contratosGestaoSemCobertura.length}
+      >
         {alertas.contratosGestaoSemCobertura.map(c => (
           <AlertRow key={c.contractId} href={`/dashboard/contratos/${c.contractId}`}>
             <span className="text-red-500 mt-0.5">💸</span>
