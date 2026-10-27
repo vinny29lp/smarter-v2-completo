@@ -37,7 +37,15 @@ export function InstituicaoEdit({ instituicao }: { instituicao: any }) {
       }),
     });
     if (res.ok) { setMsg("Salvo com sucesso! ✓"); router.refresh(); }
-    else { setMsg("Erro ao salvar."); }
+    else {
+      // Mostra o motivo real em vez de um "Erro ao salvar." genérico — 401 (sessão
+      // expirada) e 403 (perfil sem permissão pra editar instituição) eram
+      // indistinguíveis de um erro de servidor pra quem estava tentando salvar.
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) setMsg("Erro: sua sessão expirou. Saia e entre novamente no sistema.");
+      else if (res.status === 403) setMsg(`Erro: ${data.error || "seu perfil não tem permissão para editar instituições."}`);
+      else setMsg(`Erro ao salvar${data.message ? ": " + data.message : "."}`);
+    }
     setSaving(false);
   };
 
