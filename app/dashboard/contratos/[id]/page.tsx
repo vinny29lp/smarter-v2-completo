@@ -154,6 +154,10 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
       supervisorCargo: contract.supervisorCargo || "",
       supervisorEmail: contract.supervisorEmail || "",
       supervisorTel:   contract.supervisorTel   || "",
+      coordNome:       contract.coordNome       || "",
+      coordCargo:      contract.coordCargo      || "",
+      coordEmail:      contract.coordEmail      || "",
+      coordTel:        contract.coordTel        || "",
       apoliceSeguro:   contract.apoliceSeguro   || "",
       seguradora:      contract.seguradora      || "",
       localEstagio:    contract.localEstagio    || "",
@@ -917,6 +921,34 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
                   className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
               </div>
             </div>
+          </div>
+
+          {/* Orientador / Coordenador da Instituição de Ensino */}
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Orientador / Coordenador da Instituição</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Nome</label>
+                <input type="text" value={editForm.coordNome} onChange={e => setF("coordNome", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Cargo</label>
+                <input type="text" value={editForm.coordCargo} onChange={e => setF("coordCargo", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">E-mail</label>
+                <input type="email" value={editForm.coordEmail} onChange={e => setF("coordEmail", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">Telefone</label>
+                <input type="text" value={editForm.coordTel} onChange={e => setF("coordTel", e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]"/>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Aparece no Plano de Estágio. Regenere o documento depois de salvar para atualizar o texto.</p>
           </div>
 
           {/* Seguro */}
