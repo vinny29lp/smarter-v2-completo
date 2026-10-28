@@ -105,9 +105,19 @@ describe("getSupportCase", () => {
 describe("getSupportMapping", () => {
   it("mapeia organização e unidade sem consultar banco externo", () => {
     vi.stubEnv("SUPPORT_PARTNER_ORG_ID", payload.orgId);
+    const matrixUnitId = "44444444-4444-4444-8444-444444444444";
+    vi.stubEnv("SUPPORT_PARTNER_UNIT_MAP", JSON.stringify({
+      matrixUnitId,
+      units: { "franquia-smarter": payload.unitId },
+    }));
+    expect(getSupportMapping("franquia-smarter")).toEqual({ orgId: payload.orgId, unitId: payload.unitId });
+    expect(getSupportMapping("FRANQUEADORA")).toEqual({ orgId: payload.orgId, unitId: matrixUnitId });
+    expect(getSupportMapping("nao-mapeada")).toBeNull();
+  });
+
+  it("mantém compatibilidade com o mapa plano da fase 1", () => {
+    vi.stubEnv("SUPPORT_PARTNER_ORG_ID", payload.orgId);
     vi.stubEnv("SUPPORT_PARTNER_UNIT_MAP", JSON.stringify({ "franquia-smarter": payload.unitId }));
     expect(getSupportMapping("franquia-smarter")).toEqual({ orgId: payload.orgId, unitId: payload.unitId });
-    expect(getSupportMapping("FRANQUEADORA")).toEqual({ orgId: payload.orgId, unitId: null });
-    expect(getSupportMapping("nao-mapeada")).toBeNull();
   });
 });

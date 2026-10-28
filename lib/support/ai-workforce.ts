@@ -156,11 +156,17 @@ export async function getSupportCase(
 export function getSupportMapping(franchiseId?: string | null): { orgId: string; unitId: string | null } | null {
   const orgId = process.env.SUPPORT_PARTNER_ORG_ID?.trim();
   if (!orgId || !UUID_RE.test(orgId)) return null;
-  if (!franchiseId || franchiseId === "FRANQUEADORA") return { orgId, unitId: null };
 
   try {
     const map = JSON.parse(process.env.SUPPORT_PARTNER_UNIT_MAP || "{}") as Record<string, unknown>;
-    const unitId = map[franchiseId];
+    const matrixUnitId = map.matrixUnitId;
+    if (!franchiseId || franchiseId === "FRANQUEADORA") {
+      return typeof matrixUnitId === "string" && UUID_RE.test(matrixUnitId.trim())
+        ? { orgId, unitId: matrixUnitId.trim() }
+        : { orgId, unitId: null };
+    }
+    const units = map.units && typeof map.units === "object" ? map.units as Record<string, unknown> : map;
+    const unitId = units[franchiseId];
     return typeof unitId === "string" && UUID_RE.test(unitId.trim()) ? { orgId, unitId: unitId.trim() } : null;
   } catch {
     return null;
