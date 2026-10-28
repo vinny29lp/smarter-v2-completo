@@ -4,6 +4,7 @@
  * Reutilizável nos 4 contextos logados: FRANQUEADO, EMPRESA, ESTUDANTE, IES.
  */
 import { useEffect, useRef, useState } from "react";
+import { SupportCaseForm } from "@/components/support/SupportCaseForm";
 
 type LiaContexto = "FRANQUEADO" | "EMPRESA" | "ESTUDANTE" | "IES";
 
@@ -34,6 +35,7 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [historicoCarregado, setHistoricoCarregado] = useState(false);
+  const [reportingBug, setReportingBug] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const endpoint = contexto === "IES" ? `/api/ies/${iesToken}/lia` : "/api/app/ai/lia";
@@ -75,6 +77,7 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
         return;
       }
       setMensagens((prev) => [...prev, { role: "assistant", content: data.resposta }]);
+      if (data.bugDetectado) setReportingBug(true);
     } catch {
       setErro("Erro de conexão. Tente novamente.");
     }
@@ -117,7 +120,21 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
               <p className="text-sm font-bold leading-tight">Lia</p>
               <p className="text-[11px] text-blue-200 leading-tight">Assistente de suporte Smarter</p>
             </div>
+            {contexto !== "IES" && (
+              <button
+                type="button"
+                onClick={() => setReportingBug((value) => !value)}
+                className="ml-auto rounded-lg border border-white/30 px-2 py-1 text-[11px] font-bold hover:bg-white/10"
+              >
+                {reportingBug ? "Voltar à Lia" : "Reportar erro"}
+              </button>
+            )}
           </div>
+
+          {reportingBug ? (
+            <SupportCaseForm onClose={() => setReportingBug(false)} />
+          ) : (
+            <>
 
           {/* Mensagens */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-slate-50">
@@ -177,6 +194,8 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
               ➤
             </button>
           </div>
+            </>
+          )}
         </div>
       )}
     </>

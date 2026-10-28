@@ -859,6 +859,38 @@ model LiaFeedback {
   @@index([createdAt])
 }
 
+// Chamado de suporte técnico aberto no Smarter e sincronizado, exclusivamente via
+// API pública autenticada, com o AI Workforce OS. externalReference é a chave
+// idempotente compartilhada entre os sistemas; não há relação direta entre bancos.
+model SupportCase {
+  id                String   @id @default(cuid())
+  externalReference String   @unique
+  userId            String
+  franchiseId       String?
+  companyId         String?
+  reporterName      String
+  reporterEmail     String
+  reporterPhone     String?
+  title             String
+  description       String
+  path              String
+  attemptedAction   String
+  errorMessage      String
+  imageUrl          String?
+  technicalData     Json?
+  status            String   @default("PENDING") // PENDING | SENT | ERROR
+  protocol          String?
+  attemptCount      Int      @default(0)
+  lastError         String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([userId, createdAt])
+  @@index([franchiseId])
+  @@index([status])
+  @@map("support_cases")
+}
+
 // ─── CRM DE VENDA DE FRANQUIAS ────────────────────────────────────────────────
 // Separado do CrmLead (que é para parcerias empresariais).
 // Leads captados de tráfego pago (Meta Ads), indicações ou orgânico.

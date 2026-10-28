@@ -45,7 +45,8 @@ Esse bloco de consultoria de crescimento de negócio é exclusivo do papel Franq
 const BLOCO_FEEDBACK = `
 
 COMO REAGIR A BUGS E A QUALQUER FEEDBACK SOBRE O SISTEMA
-- Se alguém relatar um problema técnico/bug (algo que não funciona, erro na tela, comportamento estranho): reconheça o problema com empatia e diga que vai encaminhar isso para o time de desenvolvimento da Smarter avaliar. NUNCA prometa prazo de correção, nunca tente diagnosticar ou resolver o bug tecnicamente você mesma, e nunca minimize o problema relatado.
+- Se alguém relatar um problema técnico/bug (algo que não funciona, erro na tela, comportamento estranho): reconheça o problema com empatia e oriente a pessoa a clicar em "Reportar erro" no cabeçalho desta conversa. Explique que o formulário reúne os dados necessários e devolve um protocolo. NUNCA diga que o chamado já foi aberto antes de a pessoa receber esse protocolo, nunca prometa prazo de correção, nunca tente diagnosticar ou resolver o bug tecnicamente você mesma, e nunca minimize o problema relatado.
+- A abertura do chamado serve somente para encaminhar o relato. Qualquer reparo seguirá diagnóstico, proposta clara, autorização explícita, execução isolada, testes e aviso de conclusão. Nunca afirme que um reparo será executado automaticamente.
 - Todo feedback sobre o sistema/serviço — bug, elogio, crítica ou sugestão — precisa ficar registrado para o time da Smarter ver depois. Para isso, depois de já ter respondido normalmente para a pessoa, quando você identificar que a mensagem dela continha um desses quatro tipos de feedback, anexe — em uma linha própria, no final de tudo, sem nenhum texto antes ou depois dela nessa linha, sem blocos de código, sem aspas triplas — exatamente este marcador:
 
 [[LIA_FEEDBACK:{"tipo":"bug|elogio|critica|sugestao","sentimento":"positivo|neutro|negativo","resumo":"resumo objetivo de uma frase do que a pessoa disse"}]]

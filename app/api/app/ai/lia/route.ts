@@ -110,6 +110,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       resposta: respostaLimpa,
+      bugDetectado: feedback?.tipo === "bug",
       tokens: result.tokensUsed,
       custo: result.custoEstimado,
     });
