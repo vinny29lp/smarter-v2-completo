@@ -829,6 +829,7 @@ model LiaMessage {
   actorId     String
   role        String   // "user" | "assistant"
   content     String
+  supportCaseId String?  @unique // preenchido apenas na notificação final, evitando entrega duplicada
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("lia_messages")
@@ -869,7 +870,7 @@ model SupportCase {
   franchiseId       String?
   companyId         String?
   reporterName      String
-  reporterEmail     String
+  reporterEmail     String?
   reporterPhone     String?
   title             String
   description       String
@@ -878,8 +879,23 @@ model SupportCase {
   errorMessage      String
   imageUrl          String?
   technicalData     Json?
+  category          String   @default("bug")
+  actorType         String?
+  actorId           String?
+  sourceMessageId   String?
+  mediaConsentAt    DateTime? @db.Timestamptz(6)
+  mediaCount        Int      @default(0)
   status            String   @default("PENDING") // PENDING | SENT | ERROR
+  remoteStatus      String?
+  lastNotifiedStatus String?
   protocol          String?
+  repairProposal    String?
+  resolution        String?
+  remoteUpdatedAt   DateTime? @db.Timestamptz(6)
+  remoteResolvedAt  DateTime? @db.Timestamptz(6)
+  resolutionDeliveredAt DateTime? @db.Timestamptz(6)
+  nextRetryAt       DateTime? @db.Timestamptz(6)
+  lastCheckedAt     DateTime? @db.Timestamptz(6)
   attemptCount      Int      @default(0)
   lastError         String?
   createdAt         DateTime @default(now()) @db.Timestamptz(6)
@@ -888,6 +904,8 @@ model SupportCase {
   @@index([userId, createdAt])
   @@index([franchiseId])
   @@index([status])
+  @@index([remoteStatus, lastCheckedAt])
+  @@index([nextRetryAt])
   @@map("support_cases")
 }
 

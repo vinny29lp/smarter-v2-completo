@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { getSupportMapping, sendSupportCase, type AiWorkforceSupportPayload } from "./ai-workforce";
+import { getSupportCase, getSupportMapping, sendSupportCase, type AiWorkforceSupportPayload } from "./ai-workforce";
 
 const payload: AiWorkforceSupportPayload = {
   orgId: "11111111-1111-4111-8111-111111111111",
@@ -31,7 +31,7 @@ describe("sendSupportCase", () => {
 
     const result = await sendSupportCase(payload, { token: "segredo-servidor", fetchImpl: fetchImpl as typeof fetch });
 
-    expect(result).toEqual({ ok: true, status: 201, protocol: "SUP-123", alreadyExisted: false });
+    expect(result).toEqual({ ok: true, status: 201, protocol: "SUP-123", alreadyExisted: false, supportCase: null });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect((capturedInit?.headers as Record<string, string>).Authorization).toBe("Bearer segredo-servidor");
     expect(JSON.parse(String(capturedInit?.body))).toEqual(payload);
@@ -40,7 +40,7 @@ describe("sendSupportCase", () => {
   it("trata HTTP 200 como chamado idempotente já existente", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ case: { protocol: "SUP-EXISTENTE" } }), { status: 200 }));
     const result = await sendSupportCase(payload, { token: "token", fetchImpl: fetchImpl as typeof fetch });
-    expect(result).toEqual({ ok: true, status: 200, protocol: "SUP-EXISTENTE", alreadyExisted: true });
+    expect(result).toEqual({ ok: true, status: 200, protocol: "SUP-EXISTENTE", alreadyExisted: true, supportCase: null });
   });
 
   it("repete falha temporária com a mesma externalReference, sem criar duplicidade", async () => {
@@ -78,6 +78,27 @@ describe("sendSupportCase", () => {
     const result = await sendSupportCase(payload, { fetchImpl: fetchImpl as typeof fetch });
     expect(result).toMatchObject({ ok: false, status: 401, code: "unauthorized" });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe("getSupportCase", () => {
+  it("consulta por organização e referência com token somente no servidor", async () => {
+    let requestedUrl = "";
+    let headers: HeadersInit | undefined;
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestedUrl = String(input);
+      headers = init?.headers;
+      return new Response(JSON.stringify({
+        id: "case-1", protocol: "SUP-1", status: "resolved", repairProposal: null,
+        resolution: "Limpe o filtro e tente novamente.", updatedAt: "2026-10-28T12:00:00.000Z", resolvedAt: "2026-10-28T12:00:00.000Z",
+      }), { status: 200 });
+    });
+    const result = await getSupportCase({ orgId: payload.orgId }, payload.externalReference, { token: "segredo", fetchImpl: fetchImpl as typeof fetch });
+    expect(result.ok).toBe(true);
+    expect(requestedUrl).toContain(`orgId=${payload.orgId}`);
+    expect(requestedUrl).toContain("externalReference=smarter-support%3A");
+    expect((headers as Record<string, string>).Authorization).toBe("Bearer segredo");
+    expect(JSON.stringify(result)).not.toContain("segredo");
   });
 });
 

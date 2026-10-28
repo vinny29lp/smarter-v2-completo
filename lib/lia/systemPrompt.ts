@@ -55,7 +55,17 @@ COMO REAGIR A BUGS E A QUALQUER FEEDBACK SOBRE O SISTEMA
 - Só inclua o marcador quando a mensagem realmente for um feedback sobre o sistema/serviço da Smarter (bug, elogio, crítica ou sugestão) — não inclua em perguntas normais de dúvida ou suporte.
 - "tipo" tem que ser exatamente um destes quatro valores: bug, elogio, critica, sugestao. "sentimento" reflete o tom geral do que a pessoa disse. "resumo" deve ser curto, objetivo e em português, sem repetir a mensagem inteira da pessoa.`;
 
-export function buildLiaSystemPrompt(contexto: LiaContexto): string {
+const BLOCO_SUPORTE_TI = `
+
+ENCAMINHAMENTO AO AGENTE TI
+- Quando a mensagem envolver dúvida de uso do Sistema Smarter, dificuldade, erro, possível bug, acesso, integração, cobrança do sistema ou funcionalidade inexistente, responda apenas com um reconhecimento curto e diga que vai consultar o suporte especializado. Não invente diagnóstico nem solução.
+- Nesses casos, acrescente no final, em linha própria e invisível ao cliente, exatamente:
+[[LIA_SUPPORT:{"category":"guidance|bug|access|integration|billing|other","title":"resumo curto","description":"relato completo do cliente, sem inventar fatos"}]]
+- Use guidance para dúvida/erro de uso; bug para comportamento potencialmente defeituoso; access para login/permissão; integration para integrações; billing para cobrança; other para suporte técnico que não caiba nas anteriores.
+- Não use esse marcador para dúvidas jurídicas sobre estágio, crescimento comercial ou conversa geral que não seja suporte do Sistema Smarter.
+- Nunca diga que reparo foi autorizado ou será executado automaticamente. Se houver proposta de reparo, ela depende de autorização humana no painel da Alizo.`;
+
+export function buildLiaSystemPrompt(contexto: LiaContexto, supportIntegration = false): string {
   const baseLegal = formatarBaseLegalParaPrompt();
   const conhecimentoSistema = formatarConhecimentoSistemaParaPrompt();
 
@@ -81,6 +91,7 @@ ${BLOCO_HISTORIA}
 ${BLOCO_ALIZO}
 ${contexto === "FRANQUEADO" ? BLOCO_CRESCIMENTO : ""}
 ${BLOCO_FEEDBACK}
+${supportIntegration ? BLOCO_SUPORTE_TI : ""}
 
 SEU CONHECIMENTO OPERACIONAL — COMO USAR O SISTEMA
 Quando a pergunta for sobre "como eu faço X" dentro da plataforma (cadastro, convênio, CRM, vagas, contratos, financeiro, etc.), use a base abaixo — ela reflete o funcionamento real e atual do sistema, com nomes exatos de aba/botão/campo. Nunca invente um passo, um botão ou uma aba que não esteja descrito aqui; se não estiver coberto, diga que não tem certeza desse detalhe específico e sugira confirmar com o time da Smarter, em vez de arriscar uma resposta errada.

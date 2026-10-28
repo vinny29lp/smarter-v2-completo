@@ -14,6 +14,15 @@ interface LiaMensagem {
   createdAt?: string;
 }
 
+interface PendingMedia {
+  kind: "image" | "audio";
+  mimeType: string;
+  base64: string;
+  caption: string;
+  sourceMessageId: string;
+  name: string;
+}
+
 interface LiaWidgetProps {
   contexto: LiaContexto;
   /** Obrigatório apenas quando contexto === "IES" (identifica a instituição via token do portal). */
@@ -36,6 +45,8 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
   const [erro, setErro] = useState("");
   const [historicoCarregado, setHistoricoCarregado] = useState(false);
   const [reportingBug, setReportingBug] = useState(false);
+  const [media, setMedia] = useState<PendingMedia[]>([]);
+  const [mediaConsent, setMediaConsent] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const endpoint = contexto === "IES" ? `/api/ies/${iesToken}/lia` : "/api/app/ai/lia";
@@ -54,12 +65,27 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
   }, [open, historicoCarregado, endpoint]);
 
   useEffect(() => {
+    if (!open || !historicoCarregado || reportingBug) return;
+    const timer = window.setInterval(() => {
+      fetch(endpoint)
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => { if (data?.mensagens) setMensagens(data.mensagens); })
+        .catch(() => undefined);
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [open, historicoCarregado, reportingBug, endpoint]);
+
+  useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [mensagens, enviando, open]);
 
   const enviar = async () => {
     const texto = input.trim();
     if (!texto || enviando) return;
+    if (media.length && !mediaConsent) {
+      setErro("Confirme a autorização para análise da mídia por IA antes de enviar.");
+      return;
+    }
     setErro("");
     setInput("");
     setMensagens((prev) => [...prev, { role: "user", content: texto }]);
@@ -68,7 +94,18 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensagem: texto }),
+        body: JSON.stringify({
+          mensagem: texto,
+          path: window.location.pathname + window.location.search,
+          mediaConsent: media.length ? mediaConsent : undefined,
+          media: media.map(({ name: _name, ...item }) => item),
+          technicalData: {
+            userAgent: navigator.userAgent,
+            viewport: `${window.innerWidth}x${window.innerHeight}`,
+            locale: navigator.language,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -77,11 +114,35 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
         return;
       }
       setMensagens((prev) => [...prev, { role: "assistant", content: data.resposta }]);
+      setMedia([]);
+      setMediaConsent(false);
       if (data.bugDetectado) setReportingBug(true);
     } catch {
       setErro("Erro de conexão. Tente novamente.");
     }
     setEnviando(false);
+  };
+
+  const anexar = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setErro("");
+    const selected = Array.from(files).slice(0, 3 - media.length);
+    const next: PendingMedia[] = [];
+    for (const file of selected) {
+      const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : null;
+      if (!kind) { setErro("Envie somente imagens ou áudios."); continue; }
+      const limit = kind === "image" ? 8 * 1024 * 1024 : 16 * 1024 * 1024;
+      if (file.size > limit) { setErro(`${kind === "image" ? "Imagem" : "Áudio"} ${file.name} excede o limite.`); continue; }
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      next.push({ kind, mimeType: file.type, base64: dataUrl.split(",", 2)[1] || "", caption: file.name, sourceMessageId: crypto.randomUUID(), name: file.name });
+    }
+    setMedia((current) => [...current, ...next].slice(0, 3));
+    setMediaConsent(false);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -176,7 +237,20 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
           </div>
 
           {/* Input */}
-          <div className="border-t border-slate-100 p-2.5 flex items-end gap-2 bg-white shrink-0">
+          <div className="border-t border-slate-100 p-2.5 bg-white shrink-0 space-y-2">
+            {media.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 space-y-2">
+                <p><strong>Autorização necessária:</strong> estas mídias serão enviadas ao suporte e analisadas por inteligência artificial exclusivamente para atendimento técnico.</p>
+                <div className="flex flex-wrap gap-1">{media.map((item) => <span key={item.sourceMessageId} className="rounded bg-white px-2 py-1">{item.kind === "image" ? "🖼️" : "🎧"} {item.name}</span>)}</div>
+                <label className="flex items-start gap-2 font-semibold"><input type="checkbox" checked={mediaConsent} onChange={(e) => setMediaConsent(e.target.checked)} /> Autorizo o envio e a análise destas mídias por IA para o atendimento técnico.</label>
+                <button type="button" className="text-red-700 underline" onClick={() => { setMedia([]); setMediaConsent(false); }}>Remover mídias</button>
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+            {contexto !== "IES" && <label className="cursor-pointer rounded-xl border border-slate-200 px-3 py-2 text-sm" title="Anexar imagem ou áudio">
+              📎
+              <input type="file" accept="image/*,audio/*" multiple className="hidden" onChange={(e) => { void anexar(e.target.files); e.target.value = ""; }} disabled={media.length >= 3 || enviando} />
+            </label>}
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -188,11 +262,12 @@ export function LiaWidget({ contexto, iesToken }: LiaWidgetProps) {
             <button
               type="button"
               onClick={enviar}
-              disabled={enviando || !input.trim()}
+              disabled={enviando || !input.trim() || (media.length > 0 && !mediaConsent)}
               className="rounded-xl bg-[#0f2a5e] text-white px-3 py-2 text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#15367a] transition-colors"
             >
               ➤
             </button>
+            </div>
           </div>
             </>
           )}

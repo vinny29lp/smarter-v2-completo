@@ -18,6 +18,10 @@
       "schedule": "0 10 * * *"
     },
     {
+      "path": "/api/cron/support-cases",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/cron/fechar-mes",
       "schedule": "0 8 23 * *"
     },
