@@ -51,12 +51,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Edição de instituição restrita a FRANQUEADORA e FRANQUEADO
-  // Instituições são compartilhadas na rede — apenas admins podem editar
-  const role = session.user.role || "";
-  if (!["FRANQUEADORA", "FRANQUEADO"].includes(role)) {
-    return NextResponse.json({ error: "Sem permissão para editar instituições." }, { status: 403 });
-  }
+  // Edição liberada pra todas as unidades: FRANQUEADORA/FRANQUEADO sempre; FUNCIONARIO/EQUIPE
+  // quando têm a permissão "instituicoes" (mesma regra que já vale pra criar e listar
+  // instituições — antes só FRANQUEADORA/FRANQUEADO editavam, e quem abria a tela
+  // com a permissão levava 403 ao salvar). Excluir continua só FRANQUEADORA.
+  const permCheck = checkPermission(session, "instituicoes");
+  if (permCheck) return permCheck;
 
   const body = await req.json();
   const inst = await prisma.institution.update({
