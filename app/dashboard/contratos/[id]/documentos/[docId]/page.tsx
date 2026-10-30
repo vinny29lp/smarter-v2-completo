@@ -31,6 +31,8 @@ const EXTRA_FIELDS: Record<string, {label:string;key:string;type?:string;options
   rr: [
     { label:"Último Dia de Estágio (em branco = hoje)", key:"ultimoDia", type:"date" },
     { label:"Descontos (R$)", key:"descontos", type:"number" },
+    { label:"Ajustar bolsa proporcional (R$) — deixe em branco para o valor automático", key:"bolsaProporcionalManual", type:"number" },
+    { label:"Ajustar recesso (R$) — deixe em branco para o valor automático", key:"recessoValorManual", type:"number" },
   ],
   rec: [
     { label:"Dias de Recesso", key:"diasRecesso", type:"number" },
@@ -85,6 +87,9 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
   const [autentiqueEmails, setAutentiqueEmails] = useState<string[]>([""]);
   // Autentique — slots TCE (3 fixos)
   const [tceEmails, setTceEmails] = useState<Record<string,string>>({ company:"", institution:"", student:"" });
+  // Signatários adicionais além dos 3 obrigatórios do TCE — cada clique em "+ Adicionar signatário"
+  // abre mais um campo de e-mail, e cada um vira mais uma assinatura no documento.
+  const [signatariosExtras, setSignatariosExtras] = useState<string[]>([]);
 
   const [autentiqueLoading, setAutentiqueLoading] = useState(false);
   const [autentiqueSuccess, setAutentiqueSuccess] = useState<string|null>(null);
@@ -141,6 +146,66 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
       });
   }, [params.id, params.docId]);
 
+
+  // Monta a lista final de signatários do TCE: os 3 fixos (obrigatórios) + os adicionais preenchidos.
+  // Campos adicionais em branco são ignorados; e-mail repetido é barrado (a Autentique rejeitaria).
+  const montarSignatariosTce = (): { emails: string[]; labels: string[]; erro?: string } => {
+    const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+    const fixos = TCE_SIGNERS.map(s => ({ email: tceEmails[s.key]?.trim() || "", label: s.label }));
+    const invalidosFixos = fixos.filter(s => !s.email || !emailOk(s.email));
+    if (invalidosFixos.length > 0) {
+      return { emails: [], labels: [], erro: `E-mails inválidos: ${invalidosFixos.map(s => s.label).join(", ")}` };
+    }
+    const extras = signatariosExtras
+      .map((e, i) => ({ email: e.trim(), label: `Signatário adicional ${i + 1}` }))
+      .filter(s => s.email.length > 0);
+    const invalidosExtras = extras.filter(s => !emailOk(s.email));
+    if (invalidosExtras.length > 0) {
+      return { emails: [], labels: [], erro: `E-mails inválidos: ${invalidosExtras.map(s => s.label).join(", ")}` };
+    }
+    const todos = [...fixos, ...extras];
+    const vistos = new Set<string>();
+    for (const s of todos) {
+      const k = s.email.toLowerCase();
+      if (vistos.has(k)) return { emails: [], labels: [], erro: `O e-mail ${s.email} aparece mais de uma vez — cada signatário precisa de um e-mail diferente.` };
+      vistos.add(k);
+    }
+    return { emails: todos.map(s => s.email), labels: todos.map(s => s.label) };
+  };
+
+  // Campos de e-mail dos signatários adicionais + botão de adicionar (usado nos dois modais do TCE)
+  const renderSignatariosExtras = () => (
+    <div className="space-y-3">
+      {signatariosExtras.map((email, i) => (
+        <div key={i}>
+          <label className="text-xs font-bold text-slate-600 block mb-1">Signatário adicional {i + 1}</label>
+          <div className="flex gap-2">
+            <input
+              type="email"
+              placeholder="E-mail do signatário"
+              className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
+              value={email}
+              onChange={e => setSignatariosExtras(p => p.map((v, idx) => idx === i ? e.target.value : v))}
+            />
+            <button
+              type="button"
+              className="text-slate-400 hover:text-red-500 px-2 text-lg"
+              onClick={() => setSignatariosExtras(p => p.filter((_, idx) => idx !== i))}
+              aria-label="Remover signatário"
+            >×</button>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="text-sm text-[#0f2a5e] font-semibold hover:underline"
+        onClick={() => setSignatariosExtras(p => [...p, ""])}
+      >
+        + Adicionar signatário
+      </button>
+    </div>
+  );
+
   const abrirModalAutentique = () => {
     setAutentiqueSuccess(null);
     setAlertas([]);
@@ -187,15 +252,14 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
     let labels: string[];
 
     if (isTce) {
-      // TCE: 3 slots fixos com labels
-      const slots = TCE_SIGNERS.map(s => ({ email: tceEmails[s.key]?.trim() || "", label: s.label }));
-      const invalidos = slots.filter(s => !s.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email));
-      if (invalidos.length > 0) {
-        setAlertas([`E-mails inválidos: ${invalidos.map(s => s.label).join(", ")}`]);
+      // TCE: 3 slots fixos com labels + signatários adicionais
+      const montado = montarSignatariosTce();
+      if (montado.erro) {
+        setAlertas([montado.erro]);
         setAutentiqueLoading(false); return;
       }
-      emailsValidos = slots.map(s => s.email);
-      labels = slots.map(s => s.label);
+      emailsValidos = montado.emails;
+      labels = montado.labels;
     } else {
       emailsValidos = autentiqueEmails.map(e => e.trim()).filter(e => e.length > 0);
       labels = [];
@@ -251,10 +315,9 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
     setPdfExternoErro(null); setPdfExternoSuccess(null);
     if (!pdfExternoBase64) { setPdfExternoErro("Anexe o PDF do modelo da faculdade."); return; }
 
-    const slots = TCE_SIGNERS.map(s => ({ email: tceEmails[s.key]?.trim() || "", label: s.label }));
-    const invalidos = slots.filter(s => !s.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email));
-    if (invalidos.length > 0) {
-      setPdfExternoErro(`E-mails inválidos: ${invalidos.map(s => s.label).join(", ")}`);
+    const montado = montarSignatariosTce();
+    if (montado.erro) {
+      setPdfExternoErro(montado.erro);
       return;
     }
 
@@ -267,8 +330,8 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
           body: JSON.stringify({
             pdfBase64: pdfExternoBase64,
             nomeArquivo: pdfExternoArquivo?.name,
-            emails: slots.map(s => s.email),
-            labels: slots.map(s => s.label),
+            emails: montado.emails,
+            labels: montado.labels,
           }),
         }
       );
@@ -696,7 +759,7 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
             {isTce
-              ? <>A <strong>TCE</strong> requer <strong>3 assinaturas obrigatórias</strong>. O estágio será ativado automaticamente quando todos assinarem.</>
+              ? <>A <strong>TCE</strong> requer <strong>3 assinaturas obrigatórias</strong> — use "+ Adicionar signatário" para incluir mais pessoas. O estágio será ativado automaticamente quando todos assinarem.</>
               : isTr
               ? <>O <strong>Termo de Rescisão</strong> será enviado para assinatura. O estágio ficará <strong>INATIVO</strong> imediatamente após o envio.</>
               : <>Informe os e-mails dos signatários para <strong>{doc?.titulo}</strong>. Cada pessoa receberá um link único por e-mail.</>
@@ -724,6 +787,7 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                       />
                     </div>
                   ))}
+                  {renderSignatariosExtras()}
                 </div>
               ) : (
                 /* Outros documentos: lista dinâmica */
@@ -821,6 +885,7 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                     />
                   </div>
                 ))}
+                {renderSignatariosExtras()}
               </div>
 
               <div className="p-3 border rounded-xl text-xs bg-blue-50 border-blue-200 text-blue-700">

@@ -153,13 +153,29 @@ export async function POST(
         return NextResponse.json({ error: "Último dia de estágio não pode ser anterior ao início do contrato." }, { status: 400 });
       }
 
+      // Ajustes manuais feitos na tela antes de emitir (só valores numéricos válidos e >= 0)
+      const numOuNull = (v: any) => (v === null || v === undefined || v === "" || isNaN(Number(v)) || Number(v) < 0) ? null : Number(v);
+      const bolsaManual = numOuNull(body.bolsaProporcionalManual);
+      const recessoManual = numOuNull(body.recessoValorManual);
+
       rrCalc = calcularRescisao({
         dataInicioContrato: contratoRaw.dataInicio,
         bolsaMensal: Number(contratoRaw.bolsa) || 0,
         ultimoDia: ultimoDiaDate,
         recessoJaTiradoAte,
         descontos: totalDescontosRR,
+        bolsaProporcionalManual: bolsaManual,
+        recessoValorManual: recessoManual,
       });
+
+      // Prévia: devolve só o cálculo (nada é gravado) pra a tela mostrar e permitir ajuste antes de emitir.
+      if (body.previa === true) {
+        const totalExtrasPrevia = extrasRR.reduce((s, x) => s + (Number(x.valor) || 0), 0);
+        return NextResponse.json({
+          previa: true,
+          calculo: { ...rrCalc, totalBruto: rrCalc.totalBruto + totalExtrasPrevia, totalLiquido: rrCalc.totalLiquido + totalExtrasPrevia },
+        });
+      }
 
       html = gerarReciboRescisao(
         contratoData,
@@ -169,7 +185,8 @@ export async function POST(
         rrCalc.diasRecesso,
         rrCalc.avosRecesso,
         rrCalc.regraEspecialAplicada,
-        extrasRR
+        extrasRR,
+        { bolsaProp: bolsaManual, recessoValor: recessoManual }
       );
       break;
     }

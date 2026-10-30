@@ -47,6 +47,10 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const [calc, setCalc] = useState<any>(null);
   const [gerandoRecibo, setGerandoRecibo] = useState(false);
   const [reciboGerado, setReciboGerado] = useState(false);
+  // Prévia editável antes de emitir o recibo de rescisão
+  const [previaOk, setPreviaOk] = useState(false);
+  const [manualBolsa, setManualBolsa] = useState("");
+  const [manualRecesso, setManualRecesso] = useState("");
   const [reciboError, setReciboError] = useState<string | null>(null);
   const [enviandoAval, setEnviandoAval] = useState(false);
   const [avalMsg, setAvalMsg] = useState<string|null>(null);
@@ -276,13 +280,50 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   // no servidor a partir das datas do contrato — ver lib/documents/rescisaoCalc.ts.
   // Aqui só enviamos o que realmente é uma escolha do usuário: último dia,
   // motivo e descontos.
+  const numBR = (v: string) => { const n = Number(String(v).replace(",", ".")); return isNaN(n) ? 0 : n; };
+
+  // 1º passo: só calcula (nada é gravado) e preenche os valores editáveis.
+  const calcularPreviaRescisao = async () => {
+    if (!rescisao.ultimoDia || gerandoRecibo) return;
+    setGerandoRecibo(true);
+    setReciboError(null);
+    setReciboGerado(false);
+    setCalc(null);
+    setPreviaOk(false);
+    try {
+      const rrDoc = contract.documents?.find((d: any) => d.tipo === "rr");
+      if (!rrDoc) throw new Error("Documento de recibo não encontrado no contrato");
+      const res = await fetch(`/api/app/contratos/${contract.id}/documentos/${rrDoc.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          previa: true,
+          descontos: rescisao.descontos,
+          extras: rescisao.extras,
+          ultimoDia: rescisao.ultimoDia,
+          motivo: rescisao.motivo,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao calcular rescisão");
+      setCalc(data.calculo);
+      setManualBolsa(String(Math.round(data.calculo.bolsaProporcionalAuto * 100) / 100));
+      setManualRecesso(String(Math.round(data.calculo.recessoValorAuto * 100) / 100));
+      setPreviaOk(true);
+    } catch (e: any) {
+      setReciboError(e.message || "Erro ao calcular rescisão");
+    } finally {
+      setGerandoRecibo(false);
+    }
+  };
+
+  // 2º passo: emite o recibo com os valores (automáticos ou ajustados à mão).
   const calcularRescisao = async () => {
     if (!rescisao.ultimoDia || gerandoRecibo) return;
 
     setGerandoRecibo(true);
     setReciboError(null);
     setReciboGerado(false);
-    setCalc(null);
     try {
       const rrDoc = contract.documents?.find((d: any) => d.tipo === "rr");
       if (!rrDoc) throw new Error("Documento de recibo não encontrado no contrato");
@@ -295,12 +336,15 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           extras: rescisao.extras,
           ultimoDia: rescisao.ultimoDia,
           motivo: rescisao.motivo,
+          bolsaProporcionalManual: previaOk ? numBR(manualBolsa) : undefined,
+          recessoValorManual: previaOk ? numBR(manualRecesso) : undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao gerar recibo");
 
       setCalc(data.calculo);
+      setPreviaOk(false);
 
       // Abre o recibo em nova aba
       const w = window.open("", "_blank");
@@ -1028,6 +1072,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         onClose={() => {
           setRescisaoModal(false);
           setCalc(null);
+          setPreviaOk(false);
           setReciboGerado(false);
           setReciboError(null);
           setRescisao({ ultimoDia: "", motivo: "", descontos: [], extras: [] });
@@ -1072,7 +1117,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
                 type="date"
                 className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
                 value={rescisao.ultimoDia}
-                onChange={e => setRescisao(p => ({ ...p, ultimoDia: e.target.value }))}
+                onChange={e => { setRescisao(p => ({ ...p, ultimoDia: e.target.value })); setPreviaOk(false); setCalc(null); }}
               />
             </div>
             <div>
@@ -1191,11 +1236,61 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
             ))}
           </div>
 
-          <Button onClick={calcularRescisao} disabled={!rescisao.ultimoDia || gerandoRecibo}>
-            {gerandoRecibo ? "⏳ Gerando recibo..." : "🧮 Calcular e Gerar Recibo"}
+          <Button onClick={calcularPreviaRescisao} disabled={!rescisao.ultimoDia || gerandoRecibo}>
+            {gerandoRecibo && !previaOk ? "⏳ Calculando..." : "🧮 Calcular"}
           </Button>
 
-          {calc && (
+          {/* Prévia editável — ajuste o valor antes de emitir o documento */}
+          {previaOk && calc && (() => {
+            const bolsaN = numBR(manualBolsa);
+            const recN = numBR(manualRecesso);
+            const somaExtras = rescisao.extras.reduce((a, x) => a + (Number(x.valor) || 0), 0);
+            const somaDesc = rescisao.descontos.reduce((a, x) => a + (Number(x.valor) || 0), 0);
+            const totalPrevia = bolsaN + recN + somaExtras - somaDesc;
+            const editado = Math.abs(bolsaN - calc.bolsaProporcionalAuto) > 0.005 || Math.abs(recN - calc.recessoValorAuto) > 0.005;
+            return (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Prévia — confira e ajuste antes de emitir</p>
+                <p className="text-xs text-slate-500">
+                  Estágio de {calc.diasTrabalhados} dia(s). Bolsa {fmt(contract.bolsa)} ÷ 30 × {calc.diasBolsa} dia(s) = {fmt(calc.bolsaProporcionalAuto)}.
+                  {calc.mesesTrabalhados === 0 && " Menos de 1 mês de estágio: só os dias trabalhados, sem recesso."}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Bolsa proporcional (R$)</label>
+                    <input type="number" step="0.01" min="0" value={manualBolsa} onChange={e => setManualBolsa(e.target.value)}
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" />
+                    <button type="button" className="text-[11px] text-[#0f2a5e] underline mt-1"
+                      onClick={() => setManualBolsa(String(Math.round(calc.bolsaProporcionalAuto * 100) / 100))}>
+                      voltar ao automático ({fmt(calc.bolsaProporcionalAuto)})
+                    </button>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Recesso proporcional (R$)</label>
+                    <input type="number" step="0.01" min="0" value={manualRecesso} onChange={e => setManualRecesso(e.target.value)}
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" />
+                    <button type="button" className="text-[11px] text-[#0f2a5e] underline mt-1"
+                      onClick={() => setManualRecesso(String(Math.round(calc.recessoValorAuto * 100) / 100))}>
+                      voltar ao automático ({fmt(calc.recessoValorAuto)})
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Para somar ou abater outros valores, use "Acréscimos" e "Descontos" acima — o total abaixo já acompanha.
+                </p>
+                {editado && <p className="text-xs text-amber-700">✏️ Valor ajustado manualmente — o recibo sairá com os valores acima.</p>}
+                <div className="border-t border-amber-200 pt-3 flex justify-between items-center">
+                  <span className="font-bold text-slate-700">Total a receber:</span>
+                  <span className="text-xl font-black text-[#0f2a5e]">{fmt(totalPrevia)}</span>
+                </div>
+                <Button onClick={calcularRescisao} disabled={gerandoRecibo || totalPrevia < 0}>
+                  {gerandoRecibo ? "⏳ Gerando recibo..." : "📄 Emitir Recibo"}
+                </Button>
+              </div>
+            );
+          })()}
+
+          {calc && !previaOk && (
             <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Resultado do Cálculo</p>
               <div className="space-y-2 text-sm">

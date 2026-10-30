@@ -775,11 +775,13 @@ export function gerarReciboRescisao(
   diasRecesso?: number,
   avosRecesso?: number,
   regraEspecialRecesso?: boolean,
-  extras: ItemValor[] = []
+  extras: ItemValor[] = [],
+  // Valores ajustados manualmente na tela antes de emitir (substituem o cálculo automático)
+  ajustes?: { bolsaProp?: number | null; recessoValor?: number | null }
 ): string {
   const { estudante: e, empresa: emp, smarter: sm, estagio: est } = c;
   const bolsaDia  = Number(est.valorBolsa) / 30;
-  const bolsaProp = bolsaDia * diasBolsa;
+  const bolsaProp = ajustes?.bolsaProp != null ? ajustes.bolsaProp : bolsaDia * diasBolsa;
 
   // Recesso proporcional: calcula internamente se não informado
   // Lei 11.788/2008, Art. 13 — 30 dias/ano; proporcional por dias trabalhados
@@ -787,7 +789,7 @@ export function gerarReciboRescisao(
   const diasRec = diasRecesso !== undefined
     ? diasRecesso
     : (diasTrabalhados >= 12 ? Math.ceil(diasTrabalhados / 365 * 30 * 2) / 2 : 0);
-  const recessoValor = diasRec * bolsaDia;
+  const recessoValor = ajustes?.recessoValor != null ? ajustes.recessoValor : diasRec * bolsaDia;
   const avosLabel = avosRecesso !== undefined
     ? ` — ${avosRecesso} avo(s)${regraEspecialRecesso ? " (14/12, recesso não usufruído em 12 meses)" : ""}`
     : "";
@@ -806,7 +808,7 @@ export function gerarReciboRescisao(
     ? descontos.map(d => fld(`(-) ${d.descricao || "Desconto"}`, "") + fld("Valor", fmt(d.valor || 0))).join("")
     : "";
 
-  const recessoRow = diasRec > 0
+  const recessoRow = (diasRec > 0 || recessoValor > 0)
     ? `${fld("Recesso Proporcional", `${diasRec} dia(s)${avosLabel}`)}${fld("Valor", fmt(recessoValor))}`
     : `${fld("Recesso Proporcional", "Não devido (nenhum mês completo de estágio)")}${fld("Valor", fmt(0))}`;
 

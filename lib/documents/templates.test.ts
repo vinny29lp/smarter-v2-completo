@@ -139,3 +139,18 @@ describe("gerarReciboRescisao — valores extras somam junto com bolsa/recesso e
     expect(html).toContain("R$ 2.720,00");
   });
 });
+
+describe("gerarReciboRescisao — ajuste manual de valores antes de emitir", () => {
+  it("bolsa proporcional ajustada à mão substitui o cálculo automático e o total acompanha", () => {
+    // R$800, 4 dias => automático 106,67; ajustado para 150
+    const html = gerarReciboRescisao(baseContrato({ valorBolsa: 800 }), 4, 4, [], 0, 0, false, [], { bolsaProp: 150, recessoValor: 0 });
+    expect(html).toContain("R$ 150,00");
+    expect(html).not.toContain("R$ 106,67");
+  });
+
+  it("sem ajuste, usa o cálculo automático (R$800 ÷ 30 × 4 = R$106,67)", () => {
+    const html = gerarReciboRescisao(baseContrato({ valorBolsa: 800 }), 4, 4, [], 0, 0, false);
+    expect(html).toContain("R$ 106,67");
+  });
+});
+

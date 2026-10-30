@@ -153,3 +153,65 @@ describe("calcularRescisao", () => {
     expect(c.mesesTrabalhados).toBe(24);
   });
 });
+
+describe("calcularRescisao — estágio de menos de 1 mês (bug: pagava desde o dia 1)", () => {
+  it("exemplo do negócio: bolsa R$800, 4 dias trabalhados = R$106,67", () => {
+    const c = calcularRescisao({
+      dataInicioContrato: "2026-10-25",
+      bolsaMensal: 800,
+      ultimoDia: "2026-10-28",
+    });
+    expect(c.diasBolsa).toBe(4); // 25,26,27,28 — antes dava 28
+    expect(c.bolsaProporcional).toBeCloseTo(106.67, 2);
+    expect(c.avosRecesso).toBe(0);
+    expect(c.recessoValor).toBe(0);
+    expect(c.totalLiquido).toBeCloseTo(106.67, 2);
+  });
+
+  it("1 dia só (início = último dia) conta 1 dia", () => {
+    const c = calcularRescisao({ dataInicioContrato: "2026-10-10", bolsaMensal: 900, ultimoDia: "2026-10-10" });
+    expect(c.diasBolsa).toBe(1);
+    expect(c.bolsaProporcional).toBeCloseTo(30, 5);
+  });
+
+  it("menos de 1 mês com 15+ dias trabalhados: só os dias, sem recesso", () => {
+    const c = calcularRescisao({ dataInicioContrato: "2026-10-05", bolsaMensal: 600, ultimoDia: "2026-10-24" });
+    expect(c.diasBolsa).toBe(20);
+    expect(c.bolsaProporcional).toBeCloseTo(400, 5);
+    expect(c.recessoValor).toBe(0);
+  });
+
+  it("mês inteiro de 31 dias nunca passa da bolsa mensal (teto de 30 dias)", () => {
+    const c = calcularRescisao({ dataInicioContrato: "2026-10-01", bolsaMensal: 900, ultimoDia: "2026-10-31" });
+    expect(c.diasBolsa).toBe(30);
+    expect(c.bolsaProporcional).toBeCloseTo(900, 5);
+  });
+
+  it("contrato de vários meses continua pagando do dia 1 até o último dia do último mês", () => {
+    const c = calcularRescisao({ dataInicioContrato: "2026-07-25", bolsaMensal: 900, ultimoDia: "2026-10-28" });
+    expect(c.diasBolsa).toBe(28);
+    expect(c.bolsaProporcional).toBeCloseTo(840, 5);
+  });
+});
+
+describe("calcularRescisao — ajuste manual antes de emitir", () => {
+  it("valor manual substitui o automático e o total acompanha", () => {
+    const c = calcularRescisao({
+      dataInicioContrato: "2026-10-25",
+      bolsaMensal: 800,
+      ultimoDia: "2026-10-28",
+      bolsaProporcionalManual: 120,
+      descontos: 20,
+    });
+    expect(c.bolsaProporcionalAuto).toBeCloseTo(106.67, 2);
+    expect(c.bolsaProporcional).toBe(120);
+    expect(c.totalLiquido).toBe(100);
+  });
+
+  it("ajuste manual de 0 é respeitado (não cai no automático)", () => {
+    const c = calcularRescisao({
+      dataInicioContrato: "2026-10-25", bolsaMensal: 800, ultimoDia: "2026-10-28", bolsaProporcionalManual: 0,
+    });
+    expect(c.bolsaProporcional).toBe(0);
+  });
+});

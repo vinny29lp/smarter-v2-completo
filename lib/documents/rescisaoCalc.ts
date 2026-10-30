@@ -88,8 +88,10 @@ export function calcularRecessoProporcional(inicio: Date, referencia: Date): Rec
 export interface CalculoRescisao {
   /** Dias de bolsa proporcional do último mês (dia 1 até o último dia de estágio). */
   diasBolsa: number;
-  /** Valor da bolsa proporcional do último mês (bolsa mensal ÷ 30 × diasBolsa — mesma convenção do recibo). */
+  /** Valor da bolsa proporcional do último mês (bolsa mensal ÷ 30 × diasBolsa — mesma convenção do recibo), ou o valor ajustado manualmente. */
   bolsaProporcional: number;
+  /** Bolsa proporcional pelo cálculo automático (ignora ajuste manual) — referência pra tela. */
+  bolsaProporcionalAuto: number;
   /** Total de dias corridos do estágio (início do contrato até o último dia), só informativo. */
   diasTrabalhados: number;
   /** Meses completos do estágio inteiro (início do contrato até o último dia), só informativo. */
@@ -98,8 +100,10 @@ export interface CalculoRescisao {
   avosRecesso: number;
   /** Dias de recesso remunerado proporcional. */
   diasRecesso: number;
-  /** Valor do recesso remunerado. */
+  /** Valor do recesso remunerado (ou o valor ajustado manualmente). */
   recessoValor: number;
+  /** Recesso pelo cálculo automático (ignora ajuste manual) — referência pra tela. */
+  recessoValorAuto: number;
   /** true quando passou 1 ano sem o recesso ser concedido e o adicional (14/12 avos) foi aplicado. */
   regraEspecialAplicada: boolean;
   /** Data a partir da qual os avos de recesso passaram a ser contados (início do contrato, ou dia seguinte ao fim do último recesso já concedido). */
@@ -123,6 +127,10 @@ export interface CalcularRescisaoInput {
   recessoJaTiradoAte?: Date | string | null;
   /** Soma de descontos a abater do total (R$). */
   descontos?: number;
+  /** Ajuste manual: substitui a bolsa proporcional calculada (R$). Omitido = valor automático. */
+  bolsaProporcionalManual?: number | null;
+  /** Ajuste manual: substitui o valor do recesso calculado (R$). Omitido = valor automático. */
+  recessoValorManual?: number | null;
 }
 
 /**
@@ -135,9 +143,18 @@ export function calcularRescisao(input: CalcularRescisaoInput): CalculoRescisao 
   const bolsaMensal = input.bolsaMensal || 0;
   const totalDescontos = input.descontos || 0;
 
-  const diasBolsa = diaDoMes(fim);
+  // Dias de bolsa do último mês. Se o estágio começou e terminou no MESMO mês
+  // (menos de 1 mês de contrato), conta só do início ao último dia — antes
+  // usava sempre o dia do mês do último dia (assumia início no dia 1), então um
+  // estágio de 4 dias terminando no dia 28 pagava 28 dias. Mês comercial de 30
+  // dias: nunca passa de 30 (bolsa mensal ÷ 30 × dias).
+  const mesmoMes =
+    inicio.getUTCFullYear() === fim.getUTCFullYear() && inicio.getUTCMonth() === fim.getUTCMonth();
+  const diasBolsa = Math.min(mesmoMes ? diasTotaisEntre(inicio, fim) : diaDoMes(fim), 30);
   const bolsaDia = bolsaMensal / 30;
-  const bolsaProporcional = bolsaDia * diasBolsa;
+  const bolsaProporcionalAuto = bolsaDia * diasBolsa;
+  const bolsaProporcional =
+    input.bolsaProporcionalManual != null ? input.bolsaProporcionalManual : bolsaProporcionalAuto;
 
   const diasTrabalhados = diasTotaisEntre(inicio, fim);
   const mesesTrabalhados = mesesCompletos(inicio, fim);
@@ -145,8 +162,12 @@ export function calcularRescisao(input: CalcularRescisaoInput): CalculoRescisao 
   const baseCalculoRecesso = input.recessoJaTiradoAte
     ? new Date(paraDataCalendario(input.recessoJaTiradoAte).getTime() + MS_DIA)
     : inicio;
-  const recesso = calcularRecessoProporcional(baseCalculoRecesso, fim);
-  const recessoValor = recesso.dias * bolsaDia;
+  // Menos de 1 mês completo de estágio: só os dias trabalhados, sem recesso.
+  const recesso = mesesTrabalhados === 0
+    ? { avos: 0, dias: 0, regraEspecialAplicada: false }
+    : calcularRecessoProporcional(baseCalculoRecesso, fim);
+  const recessoValorAuto = recesso.dias * bolsaDia;
+  const recessoValor = input.recessoValorManual != null ? input.recessoValorManual : recessoValorAuto;
 
   const totalBruto = bolsaProporcional + recessoValor;
   const totalLiquido = totalBruto - totalDescontos;
@@ -154,11 +175,13 @@ export function calcularRescisao(input: CalcularRescisaoInput): CalculoRescisao 
   return {
     diasBolsa,
     bolsaProporcional,
+    bolsaProporcionalAuto,
     diasTrabalhados,
     mesesTrabalhados,
     avosRecesso: recesso.avos,
     diasRecesso: recesso.dias,
     recessoValor,
+    recessoValorAuto,
     regraEspecialAplicada: recesso.regraEspecialAplicada,
     baseCalculoRecesso,
     totalDescontos,
