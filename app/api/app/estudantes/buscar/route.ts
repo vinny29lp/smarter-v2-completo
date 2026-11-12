@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { checkPermission } from "@/lib/permissions";
+import { filtroBuscaEstudante } from "@/lib/students-search";
 
 export const dynamic = "force-dynamic";
 
@@ -22,13 +23,7 @@ export async function GET(req: Request) {
 
   try {
     const estudantes = await prisma.student.findMany({
-      where: {
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { cpf:  { contains: q, mode: "insensitive" } },
-          { email:{ contains: q, mode: "insensitive" } },
-        ],
-      },
+      where: await filtroBuscaEstudante(q),
       select: {
         id: true,
         name: true,

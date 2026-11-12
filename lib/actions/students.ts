@@ -1,6 +1,7 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { filtroBuscaEstudante } from "@/lib/students-search";
 
 const PAGE_SIZE = 50;
 
@@ -18,12 +19,8 @@ export async function getStudents(params?: {
   // Filtros direto no banco — suporta qualquer volume de estudantes
   const where: any = {};
 
-  if (params?.q) {
-    where.OR = [
-      { name:  { contains: params.q, mode: "insensitive" } },
-      { email: { contains: params.q, mode: "insensitive" } },
-      { cpf:   { contains: params.q } },
-    ];
+  if (params?.q?.trim()) {
+    Object.assign(where, await filtroBuscaEstudante(params.q));
   }
   if (params?.status)  where.status     = params.status;
   if (params?.cidade)  where.cidade     = { contains: params.cidade, mode: "insensitive" };

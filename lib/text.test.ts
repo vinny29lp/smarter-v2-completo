@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizarBusca, contemTexto, nomeArquivoSeguro } from "./text";
+import { normalizarBusca, contemTexto, nomeArquivoSeguro, variantesCpf, padraoLikeSemAcento } from "./text";
 
 describe("normalizarBusca", () => {
   it("remove acentuação", () => {
@@ -69,3 +69,31 @@ describe("nomeArquivoSeguro", () => {
     expect(nomeArquivoSeguro(longo).length).toBeLessThanOrEqual(100);
   });
 });
+
+describe("variantesCpf", () => {
+  it("CPF formatado digitado casa também com a forma só-dígitos gravada no banco", () => {
+    const v = variantesCpf("135.253.756-70");
+    expect(v).toContain("13525375670");
+    expect(v).toContain("135.253.756-70");
+  });
+  it("CPF só dígitos também gera a forma formatada", () => {
+    expect(variantesCpf("13525375670")).toContain("135.253.756-70");
+  });
+  it("trecho de CPF (3+ dígitos) busca pelos dígitos", () => {
+    expect(variantesCpf("135.253")).toContain("135253");
+  });
+  it("texto que não parece CPF não gera variante", () => {
+    expect(variantesCpf("ana julia")).toEqual([]);
+    expect(variantesCpf("12")).toEqual([]);
+  });
+});
+
+describe("padraoLikeSemAcento", () => {
+  it("tira acento, caixa e colapsa espaços", () => {
+    expect(padraoLikeSemAcento("  Ana   JÚLIA ")).toBe("%ana julia%");
+  });
+  it("escapa curingas do LIKE", () => {
+    expect(padraoLikeSemAcento("100%_x")).toBe("%100\\%\\_x%");
+  });
+});
+
