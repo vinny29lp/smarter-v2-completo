@@ -6,7 +6,7 @@ import { Badge }  from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input }  from "@/components/ui/Input";
 import { Modal }  from "@/components/ui/Modal";
-import { estaVencido, diasEmAtraso } from "@/lib/financeiro/atraso";
+import { estaVencido, diasEmAtraso, DIAS_ATRASO_BLOQUEIO } from "@/lib/financeiro/atraso";
 
 // ─── Utils ───────────────────────────────────────────────────────────────────
 const STATUS_V: Record<string,"green"|"yellow"|"red"> = {
@@ -300,7 +300,7 @@ export default function FinanceiroPage() {
   const franquiaAtrasadas = lancamentosFranquia.filter(l => isAtrasado(l));
   const franquiaFuturas   = lancamentosFranquia.filter(l => isPendenteFuturo(l));
 
-  // 🚨 Inadimplência 30+ dias por unidade (só franqueadora) — base do bloqueio automático
+  // 🚨 Inadimplência (DIAS_ATRASO_BLOQUEIO+ dias) por unidade (só franqueadora) — base do bloqueio automático
   // Dias em atraso pela MESMA regra de todo o resto do financeiro (dia-calendário
   // UTC, lib/financeiro/atraso.ts) — antes calculava com Date.now() - vencMs em
   // milissegundos direto, divergente da regra única e sujeito a variar por fuso.
@@ -310,7 +310,7 @@ export default function FinanceiroPage() {
     for (const l of lancamentosFranquia) {
       if (!isAtrasado(l) || !l.vencimentoAt || !l.franchiseId) continue;
       const dias = diasEmAtraso(l.vencimentoAt, hoje);
-      if (dias < 30) continue;
+      if (dias < DIAS_ATRASO_BLOQUEIO) continue;
       const atual = porFranquia.get(l.franchiseId) || {
         nome: l.franchise?.name || "—", franchiseId: l.franchiseId, total: 0, dias: 0,
         bloqueada: !!l.franchise?.acessoBloqueado,
@@ -737,11 +737,11 @@ export default function FinanceiroPage() {
         </div>
       )}
 
-      {/* ── Inadimplência 30+ dias (só FRANQUEADORA) — base do bloqueio automático ── */}
+      {/* ── Inadimplência por atraso (só FRANQUEADORA) — base do bloqueio automático ── */}
       {isFranqueadora && inadimplentes30d.length > 0 && (
         <Card className="mb-5 border-2 border-red-300 overflow-hidden">
           <div className="px-5 py-3 bg-red-600 flex items-center justify-between">
-            <p className="text-sm font-black text-white">🚨 Unidades com 30+ dias de atraso na Taxa de Desenvolvimento</p>
+            <p className="text-sm font-black text-white">🚨 Unidades com {DIAS_ATRASO_BLOQUEIO}+ dias de atraso na Taxa de Desenvolvimento</p>
             <span className="text-xs text-red-100">Bloqueio automático: <strong>modo detecção</strong> (não bloqueia sozinho)</span>
           </div>
           <div className="divide-y divide-slate-100">

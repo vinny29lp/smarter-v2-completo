@@ -9,6 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { gerarBoleto } from "@/lib/cora/boleto";
+import { resolverDocumentoCobranca } from "@/lib/financeiro/documento";
 import { enviarCobranca } from "@/lib/email";
 import { NextResponse } from "next/server";
 
@@ -37,11 +38,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unidade não encontrada." }, { status: 404 });
     }
 
-    const documento = (franchise as any).cnpj || (franchise as any).cpf;
-    if (!documento) {
-      return NextResponse.json({
-        error: "CNPJ/CPF da unidade não cadastrado. Cadastre o CNPJ (pessoa jurídica) ou CPF do responsável (pessoa física) antes de gerar o boleto.",
-      }, { status: 400 });
+    const doc = resolverDocumentoCobranca(franchise as any);
+    if (!doc.ok) {
+      return NextResponse.json({ error: doc.erro }, { status: 400 });
     }
 
     const valorNum = parseFloat(String(valor));
@@ -71,9 +70,9 @@ export async function POST(req: Request) {
     try {
       invoice = await gerarBoleto({
         financialId: lancamento.id,
-        nomeCliente: (franchise as any).razaoSocial || franchise.name,
-        documento,
-        tipoDocumento: (franchise as any).cnpj ? "CNPJ" : "CPF",
+        nomeCliente: doc.nomeCliente,
+        documento: doc.documento,
+        tipoDocumento: doc.tipoDocumento,
         email: franchise.email,
         telefone: (franchise as any).telefone || undefined,
         cep: (franchise as any).cep || undefined,

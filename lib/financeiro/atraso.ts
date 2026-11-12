@@ -21,6 +21,13 @@
 
 const MS_DIA = 24 * 60 * 60 * 1000;
 
+/**
+ * Dias de atraso de uma cobrança de Franquia (Taxa de Desenvolvimento) a partir
+ * dos quais a unidade é bloqueada (bloqueio automático) e entra no painel de
+ * inadimplência. Fonte única: tela, cron e reavaliação pós-pagamento usam este valor.
+ */
+export const DIAS_ATRASO_BLOQUEIO = 33;
+
 function chaveDataUTC(d: Date): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }

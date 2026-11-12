@@ -1,5 +1,5 @@
 /**
- * Bloqueio de acesso por inadimplência (Taxa de Desenvolvimento 30+ dias em atraso).
+ * Bloqueio de acesso por inadimplência (Taxa de Desenvolvimento com DIAS_ATRASO_BLOQUEIO+ dias em atraso — hoje 33).
  *
  * ⚠️ FEATURE FLAG — BLOQUEIO EM MODO DETECÇÃO:
  * O bloqueio AUTOMÁTICO só é aplicado se a env BLOQUEIO_INADIMPLENCIA_ATIVO="true"
@@ -12,9 +12,9 @@
  * (liberar acesso com prazo de tolerância) funcionam independentemente da flag.
  */
 import { prisma } from "@/lib/prisma";
-import { diasEmAtraso } from "./atraso";
+import { diasEmAtraso, DIAS_ATRASO_BLOQUEIO } from "./atraso";
 
-export const DIAS_ATRASO_BLOQUEIO = 30;
+export { DIAS_ATRASO_BLOQUEIO };
 
 export function bloqueioAutomaticoAtivo(): boolean {
   return process.env.BLOQUEIO_INADIMPLENCIA_ATIVO === "true";
@@ -33,7 +33,9 @@ export interface InadimplenciaInfo {
 
 /** Unidades com cobrança de Franquia não paga vencida há DIAS_ATRASO_BLOQUEIO+ dias. */
 export async function detectarInadimplentes(): Promise<InadimplenciaInfo[]> {
-  const corte = new Date(Date.now() - DIAS_ATRASO_BLOQUEIO * 86400000);
+  // Pré-filtro com 1 dia de folga (vencimentos ficam à meia-noite/meio-dia UTC);
+  // o corte exato é por dia-calendário (diasEmAtraso) no laço abaixo.
+  const corte = new Date(Date.now() - (DIAS_ATRASO_BLOQUEIO - 1) * 86400000);
 
   const cobrancas = await prisma.financial.findMany({
     where: {
@@ -65,6 +67,7 @@ export async function detectarInadimplentes(): Promise<InadimplenciaInfo[]> {
     // Dia-calendário UTC (lib/financeiro/atraso.ts) — mesma regra única do
     // resto do financeiro, não milissegundos crus (sujeito a fuso/hora exata).
     const dias = diasEmAtraso(c.vencimentoAt, agora);
+    if (dias < DIAS_ATRASO_BLOQUEIO) continue;
     const atual = porFranquia.get(c.franchiseId) || {
       franchiseId: c.franchiseId,
       nome: f.name,
@@ -85,7 +88,7 @@ export async function detectarInadimplentes(): Promise<InadimplenciaInfo[]> {
 }
 
 /**
- * Passo diário do cron: detecta inadimplentes 30+ dias e
+ * Passo diário do cron: detecta inadimplentes (DIAS_ATRASO_BLOQUEIO+ dias) e
  *  - flag ON  → bloqueia o acesso da unidade (respeitando tolerância) e notifica
  *  - flag OFF → apenas notifica a Franqueadora (modo detecção, padrão atual)
  * Notificações são deduplicadas por dia (uma por unidade/dia).
@@ -142,7 +145,7 @@ export async function processarBloqueiosAutomaticos() {
       await prisma.notification.createMany({
         data: admins.map((a) => ({
           userId: a.id,
-          titulo: `🚨 Inadimplência 30+ dias: ${info.nome}`,
+          titulo: `🚨 Inadimplência ${DIAS_ATRASO_BLOQUEIO}+ dias: ${info.nome}`,
           mensagem: `${info.qtdCobrancas} cobrança(s) de Taxa de Desenvolvimento em atraso há até ${info.diasAtrasoMax} dias — total R$ ${info.totalVencido.toFixed(2).replace(".", ",")}. Unidade ${acao}.`,
           tipo: "inadimplencia_30d",
           link: `/dashboard/franqueados/${info.franchiseId}`,
@@ -184,8 +187,11 @@ export async function reavaliarBloqueioAposPagamento(franchiseId: string | null 
     if (!franchise?.acessoBloqueado) return;
     if (!String(franchise.bloqueioMotivo || "").startsWith("AUTO:")) return;
 
-    const corte = new Date(Date.now() - DIAS_ATRASO_BLOQUEIO * 86400000);
-    const aindaVencidas = await prisma.financial.count({
+    // Só desbloqueia quando NÃO resta nenhuma cobrança de Franquia com DIAS_ATRASO_BLOQUEIO+
+    // dias de atraso (a baixa de uma cobrança não libera a unidade se outra, também
+    // antiga, continua em aberto).
+    const corte = new Date(Date.now() - (DIAS_ATRASO_BLOQUEIO - 1) * 86400000);
+    const candidatas = await prisma.financial.findMany({
       where: {
         franchiseId,
         categoria: "Franquia",
@@ -193,7 +199,10 @@ export async function reavaliarBloqueioAposPagamento(franchiseId: string | null 
         cancelado: { not: true },
         vencimentoAt: { lt: corte },
       },
+      select: { vencimentoAt: true },
     });
+    const agora = new Date();
+    const aindaVencidas = candidatas.filter(c => diasEmAtraso(c.vencimentoAt, agora) >= DIAS_ATRASO_BLOQUEIO).length;
 
     if (aindaVencidas === 0) {
       await prisma.franchise.update({

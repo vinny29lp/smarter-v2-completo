@@ -3,7 +3,7 @@
  * Cron diário — pipeline de atraso:
  *  1. Marca PENDENTE → VENCIDO (global, servidor) para vencimentos passados
  *  2. Envia lembrete de cobrança a cada 5 dias após o vencimento (5, 10, 15...)
- *  3. Detecta inadimplência 30+ dias (bloqueio automático atrás de feature flag —
+ *  3. Detecta inadimplência (33+ dias) (bloqueio automático atrás de feature flag —
  *     ver lib/financeiro/bloqueio.ts; padrão: só detecta e notifica a Franqueadora)
  *
  * ?dryRun=true → executa a seleção sem marcar, enviar e-mails ou bloquear.
@@ -148,7 +148,7 @@ export async function GET(req: Request) {
     }
   }
 
-  // 3. Inadimplência 30+ dias — bloqueio automático atrás de feature flag
+  // 3. Inadimplência 33+ dias — bloqueio automático atrás de feature flag
   //    (BLOQUEIO_INADIMPLENCIA_ATIVO; padrão OFF = apenas detecta e notifica)
   let bloqueio: any = null;
   if (!dryRun) {

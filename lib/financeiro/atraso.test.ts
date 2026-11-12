@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { estaVencido, statusAposEditarVencimento, inicioDoDiaUTC, diasEmAtraso } from "./atraso";
+import { estaVencido, statusAposEditarVencimento, inicioDoDiaUTC, diasEmAtraso, DIAS_ATRASO_BLOQUEIO } from "./atraso";
 
 describe("estaVencido", () => {
   it("sem vencimentoAt nunca está vencido", () => {

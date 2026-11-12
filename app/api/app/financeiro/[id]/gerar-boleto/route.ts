@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { gerarBoleto, cancelarBoleto } from "@/lib/cora/boleto";
+import { resolverDocumentoCobranca } from "@/lib/financeiro/documento";
 import { enviarCobranca } from "@/lib/email";
 import { NextResponse } from "next/server";
 
@@ -39,11 +40,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "Unidade não encontrada." }, { status: 400 });
     }
 
-    const documento = franchise.cnpj || franchise.cpf;
-    if (!documento) {
-      return NextResponse.json({
-        error: "CNPJ/CPF da unidade não cadastrado. Acesse o cadastro da unidade e preencha o CNPJ (pessoa jurídica) ou CPF do responsável (pessoa física) antes de gerar o boleto.",
-      }, { status: 400 });
+    // Escolhe CNPJ ou CPF pelo documento VÁLIDO (dígitos verificadores) — um CNPJ
+    // digitado errado não pode mais esconder um CPF válido (bug de Montes Claros).
+    const doc = resolverDocumentoCobranca(franchise);
+    if (!doc.ok) {
+      return NextResponse.json({ error: doc.erro }, { status: 400 });
     }
 
     const vencimento = lancamento.vencimentoAt
@@ -53,9 +54,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // Gera boleto + PIX na Cora
     const invoice = await gerarBoleto({
       financialId: params.id,
-      nomeCliente: franchise.razaoSocial || franchise.name,
-      documento,
-      tipoDocumento: franchise.cnpj ? "CNPJ" : "CPF",
+      nomeCliente: doc.nomeCliente,
+      documento: doc.documento,
+      tipoDocumento: doc.tipoDocumento,
       email: franchise.email,
       telefone: franchise.telefone || undefined,
       cep: franchise.cep || undefined,

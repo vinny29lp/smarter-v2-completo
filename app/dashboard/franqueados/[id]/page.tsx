@@ -204,7 +204,7 @@ export default function FranqueadoDetailPage() {
                 </div>
               ))}
             </div>
-            {/* Bloqueio por inadimplência (Taxa de Desenvolvimento 30+ dias) */}
+            {/* Bloqueio por inadimplência (Taxa de Desenvolvimento com 33+ dias de atraso) */}
             <div className={`mt-4 p-3 rounded-xl border ${data.acessoBloqueado ? "bg-red-50 border-red-200" : data.bloqueioLiberadoAte && new Date(data.bloqueioLiberadoAte) > new Date() ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-100"}`}>
               <div className="flex items-start justify-between gap-2">
                 <div>

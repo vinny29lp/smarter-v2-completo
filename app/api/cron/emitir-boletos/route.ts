@@ -18,6 +18,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { gerarBoleto } from "@/lib/cora/boleto";
+import { resolverDocumentoCobranca } from "@/lib/financeiro/documento";
 import { enviarCobranca } from "@/lib/email";
 import { NextResponse } from "next/server";
 
@@ -50,7 +51,9 @@ export async function GET(req: Request) {
   const pendentes: any[] = await (prisma.financial as any).findMany({
     where: {
       categoria: "Franquia",
-      status: "PENDENTE",
+      // VENCIDO também: se a emissão falhou no dia 2 e a cobrança venceu depois, ela
+      // continua sem boleto e precisa aparecer aqui (e no aviso de falhas abaixo).
+      status: { in: ["PENDENTE", "VENCIDO"] },
       cancelado: { not: true },
       coraInvoiceId: null,
       franchiseId: { not: null },
@@ -72,10 +75,10 @@ export async function GET(req: Request) {
     const franchise = l.franchise;
     const base = { lancamentoId: l.id, franquia: franchise?.name, valor: l.valor };
 
-    const documento = franchise?.cnpj || franchise?.cpf;
-    if (!franchise || !documento) {
+    const doc = franchise ? resolverDocumentoCobranca(franchise) : null;
+    if (!franchise || !doc || !doc.ok) {
       pulados++;
-      results.push({ ...base, skipped: true, reason: "Unidade sem CNPJ/CPF cadastrado" });
+      results.push({ ...base, skipped: true, reason: doc && !doc.ok ? doc.erro : "Unidade não encontrada" });
       continue;
     }
 
@@ -93,9 +96,9 @@ export async function GET(req: Request) {
       // Mesmo padrão da rota manual [id]/gerar-boleto — integração Cora intocada
       const invoice = await gerarBoleto({
         financialId: l.id,
-        nomeCliente: franchise.razaoSocial || franchise.name,
-        documento,
-        tipoDocumento: franchise.cnpj ? "CNPJ" : "CPF",
+        nomeCliente: doc.nomeCliente,
+        documento: doc.documento,
+        tipoDocumento: doc.tipoDocumento,
         email: franchise.email,
         telefone: franchise.telefone || undefined,
         cep: franchise.cep || undefined,
@@ -150,6 +153,30 @@ export async function GET(req: Request) {
       const msg = e?.body?.message || e?.message || "Erro ao gerar boleto";
       results.push({ ...base, error: msg });
       console.error(`[emitir-boletos] ❌ ${franchise.name}:`, msg);
+    }
+  }
+
+  // Falha ou unidade pulada = boleto que NÃO saiu. Antes isso só ficava no log da
+  // Vercel e ninguém via (Montes Claros ficou sem boleto automático por meses).
+  // Avisa a FRANQUEADORA no sino do sistema.
+  if (!dryRun && (erros > 0 || pulados > 0)) {
+    try {
+      const admins = await prisma.user.findMany({ where: { role: "FRANQUEADORA", active: true }, select: { id: true } });
+      const falhas = results.filter(r => r.error || r.skipped);
+      const resumo = falhas.map(r => `${r.franquia}: ${r.error || r.reason}`).join(" | ").slice(0, 900);
+      if (admins.length > 0) {
+        await prisma.notification.createMany({
+          data: admins.map(a => ({
+            userId: a.id,
+            titulo: `⚠️ Boleto automático não saiu para ${falhas.length} unidade(s)`,
+            mensagem: resumo,
+            tipo: "boleto_nao_emitido",
+            link: "/dashboard/financeiro",
+          })),
+        });
+      }
+    } catch (notifErr) {
+      console.error("[emitir-boletos] Erro ao notificar falhas:", notifErr);
     }
   }
 

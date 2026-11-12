@@ -222,7 +222,7 @@ export const FLUXOS_SISTEMA: FluxoSistema[] = [
     ],
     observacoes: [
       "NÃO confundir \"📅 Fechar Mês\" da tela Financeiro (cobrança de franquias, exclusivo Franqueadora) com \"Mês Atual\" em /dashboard/mes (ferramenta operacional de metas do Franqueado — abrir mês com metas, fechar com relatório comparando real vs. meta). São coisas totalmente diferentes com nomes parecidos.",
-      "Bloqueio de acesso por inadimplência (30+ dias) não é automático por padrão — hoje o sistema só detecta e avisa a Franqueadora, não bloqueia ninguém sozinho (depende de uma configuração do ambiente).",
+      "Bloqueio de acesso por inadimplência (33+ dias de atraso) só é automático quando a configuração do ambiente está ligada; por padrão — hoje o sistema só detecta e avisa a Franqueadora, não bloqueia ninguém sozinho (depende de uma configuração do ambiente).",
       "\"Assinaturas\" no menu (/dashboard/assinaturas) NÃO é sobre plano pago — é o painel de status de assinatura digital dos documentos de contrato.",
     ],
   },
