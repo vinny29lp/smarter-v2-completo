@@ -1261,3 +1261,28 @@ model UserSessionLog {
   @@index([inicio])
   @@map("user_session_logs")
 }
+
+/// Registro de cada envio automático da Lia (lembrete de assinatura, renovação, avaliação).
+model AutomacaoEnvio {
+  id           String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tipo         String
+  refId        String
+  destinatario String
+  canal        String   @default("email")
+  detalhe      String?
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([tipo, refId])
+  @@index([createdAt])
+  @@map("automacao_envios")
+}
+
+/// Contatos que pediram para não receber mensagens automáticas (LGPD).
+model ContatoOptOut {
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  email     String   @unique
+  motivo    String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("contatos_optout")
+}

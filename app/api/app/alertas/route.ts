@@ -99,7 +99,7 @@ export async function GET() {
 
     // ─── 5. Avaliação semestral devida (ATIVO há +6 meses) ───────────────────
     const avaliacoesDevidas = await prisma.contract.findMany({
-      where: { ...fwhere, status: "ATIVO", dataInicio: { lte: ha6m } },
+      where: { ...fwhere, status: "ATIVO", dataInicio: { lte: ha6m }, evaluations: { none: { status: "respondido", respondidoAt: { gte: ha6m } } } },
       select: {
         id: true, numero: true, dataInicio: true,
         student: { select: { name: true } },
