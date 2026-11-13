@@ -50,6 +50,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
   FRANQUEADORA: [[
     {href:"/dashboard",label:"Dashboard",icon:LayoutDashboard},
     {href:"/dashboard/crescimento",label:"Crescimento 📈",icon:LineChart},
+    {href:"/dashboard/resultados",label:"Resultados 📊",icon:LineChart},
     {href:"/dashboard/franqueados",label:"Franqueados",icon:Users},
     {href:"/dashboard/engajamento",label:"Engajamento",icon:Activity},
   ],[
@@ -77,6 +78,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
   FRANQUEADO: [[
     {href:"/dashboard",label:"Dashboard",icon:LayoutDashboard},
     {href:"/dashboard/mes",label:"Mês Atual",icon:Calendar},
+    {href:"/dashboard/resultados",label:"Resultados 📊",icon:LineChart},
   ],[
     {href:"/dashboard/empresas",label:"Empresas",icon:Building2},
     {href:"/dashboard/estudantes",label:"Estudantes",icon:GraduationCap},

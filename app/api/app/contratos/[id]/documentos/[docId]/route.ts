@@ -6,6 +6,7 @@ import {
   gerarAvaliacaoSemestral, gerarParecerTecnico,
 } from "@/lib/documents/templates";
 import { validateTCE } from "@/lib/documents/validate";
+import { motivoValido } from "@/lib/contratos/motivoRescisao";
 import { calcularRescisao, paraDataCalendario, type CalculoRescisao } from "@/lib/documents/rescisaoCalc";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -101,6 +102,9 @@ export async function POST(
       break;
     }
     case "tr":
+      if (!motivoValido(body.motivoCategoria)) {
+        return NextResponse.json({ error: "Selecione o motivo da rescisão antes de gerar o documento." }, { status: 400 });
+      }
       html = gerarRescisao(
         contratoData,
         body.ultimoDia || "—",
@@ -111,6 +115,9 @@ export async function POST(
       );
       break;
     case "rr": {
+      if (!body.previa && !motivoValido(body.motivoCategoria)) {
+        return NextResponse.json({ error: "Selecione o motivo da rescisão antes de emitir o recibo." }, { status: 400 });
+      }
       // normaliza descontos: aceita número legado ou array novo
       const descontosRR = Array.isArray(body.descontos)
         ? body.descontos
@@ -224,7 +231,7 @@ export async function POST(
   const updated = await saveDocumentHtml(params.docId, html);
 
   // Salva metaData para TR e RR
-  if ((doc.tipo === "tr" || doc.tipo === "rr") && (body.ultimoDia || body.motivo || body.tipoRescisao || body.descontos || body.extras || rrCalc)) {
+  if ((doc.tipo === "tr" || doc.tipo === "rr") && (body.ultimoDia || body.motivo || body.motivoCategoria || body.tipoRescisao || body.descontos || body.extras || rrCalc)) {
     await prisma.internshipDocument.update({
       where: { id: params.docId },
       data: {
@@ -232,6 +239,7 @@ export async function POST(
           ...((doc.metaData as any) || {}),
           ...(body.ultimoDia ? { ultimoDia: body.ultimoDia } : {}),
           ...(body.motivo ? { motivo: body.motivo } : {}),
+          ...(motivoValido(body.motivoCategoria) ? { motivoCategoria: body.motivoCategoria } : {}),
           ...(body.tipoRescisao ? { tipoRescisao: body.tipoRescisao } : {}),
           // Valores calculados automaticamente (ver lib/documents/rescisaoCalc.ts) —
           // guardados para auditoria, não para reuso manual.

@@ -80,9 +80,14 @@ export default function ContratosPage() {
             {totalPages > 1 && ` • Página ${page} de ${totalPages}`}
           </p>
         </div>
-        <Link href="/dashboard/contratos/novo">
-          <Button>+ Novo Estágio</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/dashboard/contratos/travados" className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-100 text-amber-800 hover:bg-amber-200">
+            ⚠ Contratos travados
+          </Link>
+          <Link href="/dashboard/contratos/novo">
+            <Button>+ Novo Estágio</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filtros de Status */}

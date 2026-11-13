@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
+import { MOTIVOS_RESCISAO } from "@/lib/contratos/motivoRescisao";
 
 const STATUS_BADGE: Record<string,string> = {
   NAO_GERADO:"gray",RASCUNHO:"yellow",GERADO:"purple",
@@ -23,6 +24,7 @@ const EXTRA_FIELDS: Record<string, {label:string;key:string;type?:string;options
       "Pedido do Estagiário","Pedido da Empresa","Término do Contrato",
       "Conclusão do Curso","Trancamento de Matrícula","Desligamento Disciplinar","Outro",
     ]},
+    { label:"Motivo da rescisão * (alimenta o relatório de saídas)", key:"motivoCategoria", type:"select" },
     { label:"Último Dia de Estágio *", key:"ultimoDia", type:"date" },
     { label:"Motivo / Observações", key:"motivo", type:"text" },
     { label:"Estagiário(a) é Menor de Idade?", key:"menorDeIdade", type:"select", options:["Não","Sim"] },
@@ -701,7 +703,13 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
                 <select className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
                   value={extraFields[field.key]||""} onChange={e => setExtraFields(p => ({...p,[field.key]:e.target.value}))}>
                   <option value="">Selecione...</option>
-                  {field.options?.map(o => <option key={o}>{o}</option>)}
+                  {field.key === "motivoCategoria"
+                    ? Array.from(new Set(MOTIVOS_RESCISAO.map(m => m.grupo))).map(g => (
+                        <optgroup key={g} label={g}>
+                          {MOTIVOS_RESCISAO.filter(m => m.grupo === g).map(m => <option key={m.valor} value={m.valor}>{m.rotulo}</option>)}
+                        </optgroup>
+                      ))
+                    : field.options?.map(o => <option key={o}>{o}</option>)}
                 </select>
               ) : (
                 <input type={field.type||"text"} className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
@@ -749,7 +757,7 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
           )}
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" onClick={() => setExtraModal(false)}>Cancelar</Button>
-            <Button onClick={() => gerarDoc({ ...extraFields, extras: extrasDoc })} disabled={loading}>{loading?"Gerando...":"Gerar Documento"}</Button>
+            <Button onClick={() => gerarDoc({ ...extraFields, extras: extrasDoc })} disabled={loading || (doc?.tipo === "tr" && !extraFields.motivoCategoria)}>{loading?"Gerando...":"Gerar Documento"}</Button>
           </div>
         </div>
       </Modal>

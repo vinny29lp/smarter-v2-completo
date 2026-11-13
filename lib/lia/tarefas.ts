@@ -32,7 +32,7 @@ export function montarTarefas(alertas: any, opts: { financeiro?: boolean } = {})
   add({ id: "pend60", prioridade: "critico", lista: alertas.contratosPendentes2Mes,
     titulo: "Contratos sem assinatura há mais de 60 dias",
     detalhe: "Estão parados e podem ser excluídos. Reenvie para assinatura ou cancele.",
-    acao: "Resolver contratos", href: "/dashboard/contratos?status=AGUARDANDO_ASSINATURA" });
+    acao: "Resolver contratos", href: "/dashboard/contratos/travados" });
   add({ id: "vencidos", prioridade: "critico", lista: alertas.contratosVencidosSemFinalizar,
     titulo: "Contratos com data de término vencida",
     detalhe: "O estágio terminou e o contrato continua ativo. Finalize ou renove.",
@@ -50,7 +50,7 @@ export function montarTarefas(alertas: any, opts: { financeiro?: boolean } = {})
   add({ id: "pend30", prioridade: "atencao", lista: alertas.contratosPendentes1Mes,
     titulo: "Contratos aguardando assinatura há mais de 30 dias",
     detalhe: "Cobre a assinatura antes que passe de 60 dias.",
-    acao: "Cobrar assinaturas", href: "/dashboard/contratos?status=AGUARDANDO_ASSINATURA" });
+    acao: "Cobrar assinaturas", href: "/dashboard/contratos/travados" });
   add({ id: "avaliacoes", prioridade: "atencao", lista: alertas.avaliacoesDevidas,
     titulo: "Avaliações semestrais devidas",
     detalhe: "Estágios com mais de 6 meses sem avaliação registrada.",

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type BlocoJornada, DIAS_LABELS, getDiasCount, calcBlocoCh, blocosDoContrato, serializarBlocos } from "@/lib/contratos/jornada";
 import { parseJsonResponse } from "@/lib/http";
+import { MOTIVOS_RESCISAO } from "@/lib/contratos/motivoRescisao";
 import { Autocomplete } from "@/components/ui/Autocomplete";
 
 // O upload do documento físico vai como base64 dentro do corpo da
@@ -41,9 +42,10 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
   const [rescisao, setRescisao] = useState<{
     ultimoDia: string;
     motivo: string;
+    motivoCategoria: string;
     descontos: Array<{descricao: string; valor: number}>;
     extras: Array<{descricao: string; valor: number}>;
-  }>({ ultimoDia: "", motivo: "", descontos: [], extras: [] });
+  }>({ ultimoDia: "", motivo: "", motivoCategoria: "", descontos: [], extras: [] });
   const [calc, setCalc] = useState<any>(null);
   const [gerandoRecibo, setGerandoRecibo] = useState(false);
   const [reciboGerado, setReciboGerado] = useState(false);
@@ -284,7 +286,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
 
   // 1º passo: só calcula (nada é gravado) e preenche os valores editáveis.
   const calcularPreviaRescisao = async () => {
-    if (!rescisao.ultimoDia || gerandoRecibo) return;
+    if (!rescisao.ultimoDia || !rescisao.motivoCategoria || gerandoRecibo) return;
     setGerandoRecibo(true);
     setReciboError(null);
     setReciboGerado(false);
@@ -302,6 +304,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           extras: rescisao.extras,
           ultimoDia: rescisao.ultimoDia,
           motivo: rescisao.motivo,
+          motivoCategoria: rescisao.motivoCategoria,
         }),
       });
       const data = await res.json();
@@ -319,7 +322,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
 
   // 2º passo: emite o recibo com os valores (automáticos ou ajustados à mão).
   const calcularRescisao = async () => {
-    if (!rescisao.ultimoDia || gerandoRecibo) return;
+    if (!rescisao.ultimoDia || !rescisao.motivoCategoria || gerandoRecibo) return;
 
     setGerandoRecibo(true);
     setReciboError(null);
@@ -336,6 +339,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           extras: rescisao.extras,
           ultimoDia: rescisao.ultimoDia,
           motivo: rescisao.motivo,
+          motivoCategoria: rescisao.motivoCategoria,
           bolsaProporcionalManual: previaOk ? numBR(manualBolsa) : undefined,
           recessoValorManual: previaOk ? numBR(manualRecesso) : undefined,
         }),
@@ -1075,7 +1079,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
           setPreviaOk(false);
           setReciboGerado(false);
           setReciboError(null);
-          setRescisao({ ultimoDia: "", motivo: "", descontos: [], extras: [] });
+          setRescisao({ ultimoDia: "", motivo: "", motivoCategoria: "", descontos: [], extras: [] });
         }}
         title="🧮 Calculadora de Rescisão"
       >
@@ -1120,8 +1124,23 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
                 onChange={e => { setRescisao(p => ({ ...p, ultimoDia: e.target.value })); setPreviaOk(false); setCalc(null); }}
               />
             </div>
+            <div className="col-span-2">
+              <label className="text-xs font-bold text-slate-600 block mb-1">Motivo da rescisão * <span className="font-normal text-slate-400">(alimenta o relatório de saídas)</span></label>
+              <select
+                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e] bg-white"
+                value={rescisao.motivoCategoria}
+                onChange={e => setRescisao(p => ({ ...p, motivoCategoria: e.target.value }))}
+              >
+                <option value="">Selecione...</option>
+                {Array.from(new Set(MOTIVOS_RESCISAO.map(m => m.grupo))).map(g => (
+                  <optgroup key={g} label={g}>
+                    {MOTIVOS_RESCISAO.filter(m => m.grupo === g).map(m => <option key={m.valor} value={m.valor}>{m.rotulo}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
             <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Motivo</label>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Observações do motivo</label>
               <input
                 type="text"
                 className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#0f2a5e]"
@@ -1236,7 +1255,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
             ))}
           </div>
 
-          <Button onClick={calcularPreviaRescisao} disabled={!rescisao.ultimoDia || gerandoRecibo}>
+          <Button onClick={calcularPreviaRescisao} disabled={!rescisao.ultimoDia || !rescisao.motivoCategoria || gerandoRecibo}>
             {gerandoRecibo && !previaOk ? "⏳ Calculando..." : "🧮 Calcular"}
           </Button>
 
