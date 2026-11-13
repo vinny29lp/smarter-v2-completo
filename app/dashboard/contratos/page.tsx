@@ -54,6 +54,12 @@ export default function ContratosPage() {
 
   useEffect(() => { carregarContratos(1); }, []);
 
+  // Links da Lia (e de alertas) abrem a lista já filtrada: /dashboard/contratos?status=ATIVO
+  useEffect(() => {
+    const st = new URLSearchParams(window.location.search).get("status");
+    if (st) setFiltro(st);
+  }, []);
+
   // Detecta se há múltiplas unidades nos contratos (visão admin)
   const multiUnidade = contratos.some((c, _, arr) => c.franchise?.name && c.franchise?.name !== arr[0]?.franchise?.name);
 

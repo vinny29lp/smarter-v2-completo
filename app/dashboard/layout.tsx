@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MesGate } from "@/components/MesGate";
 import { LiaWidget } from "@/components/lia/LiaWidget";
+import { CentralAcoes } from "@/components/lia/CentralAcoes";
 import { SupportWidget } from "@/components/support/SupportWidget";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -54,6 +55,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 pb-20 md:p-7 md:pb-7">{children}</main>
         </MesGate>
       </div>
+      {(role === "FRANQUEADO" || role === "FUNCIONARIO") && <CentralAcoes financeiro={role === "FRANQUEADO"} />}
       {role === "FRANQUEADO" && <LiaWidget contexto="FRANQUEADO" />}
       {role !== "FRANQUEADO" && <SupportWidget />}
     </div>
