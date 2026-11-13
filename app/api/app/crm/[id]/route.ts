@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { handleApiError } from "@/lib/api-response";
+import { enviarLeadParaAlizo, gatilhoLeadsAtivo } from "@/lib/alizo/sync";
 import { sendMail } from "@/lib/email";
 import { getEmailTemplate, resolveSubject } from "@/lib/crm/email-templates";
 import { SLA_CONFIG } from "@/lib/crm/sla-config";
@@ -184,6 +185,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           tipo: "etapa",
         },
       });
+
+      // Integração Alizo (Sales Rep no WhatsApp): só com aceite (optIn) e a flag ALIZO_GATILHO_LEADS_ATIVO=true.
+      if (gatilhoLeadsAtivo() && body.etapa === "primeiro_contato" && fullLead?.optIn) {
+        enviarLeadParaAlizo(params.id, { primeiroContato: true }).catch(e => console.error("[crm] alizo:", e?.message));
+      }
 
       // E-mail comercial (só com optIn)
       if (fullLead?.email && fullLead.optIn) {

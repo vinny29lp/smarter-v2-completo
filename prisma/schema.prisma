@@ -455,6 +455,7 @@ model CrmLead {
   origem          String?
   setor           String?
   contratoHtml    String?   @db.Text
+  alizoLeadId     String?   // id do lead na Alizo (integração interna)
 
   // ─── Apresentação Comercial Rastreável ───────────────────────────────────────
   apresentacaoToken      String?   @unique
@@ -1285,4 +1286,26 @@ model ContatoOptOut {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("contatos_optout")
+}
+
+/// Mapeia unidade Smarter (id da franquia, ou "MATRIZ" = Franqueadora) para a unidade da Alizo.
+model AlizoUnidade {
+  id           String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  franchiseKey String   @unique
+  alizoUnitId  String
+  nome         String?
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("alizo_unidades")
+}
+
+/// Eventos já processados vindos da Alizo (idempotência do webhook).
+model AlizoEvento {
+  id        String   @id
+  tipo      String
+  unitId    String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([createdAt])
+  @@map("alizo_eventos")
 }
