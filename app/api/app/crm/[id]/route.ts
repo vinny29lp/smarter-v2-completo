@@ -139,6 +139,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...(body.prioridade     !== undefined ? { prioridade: body.prioridade }                 : {}),
       ...(body.valorNegociado !== undefined ? { valorNegociado: body.valorNegociado ? parseFloat(body.valorNegociado) : null } : {}),
       ...(body.retornoAt      !== undefined ? { retornoAt: body.retornoAt ? new Date(body.retornoAt) : null } : {}),
+      // Lead nunca fica sem próxima data: ao mudar de etapa sem informar retorno, a Lia agenda pelo prazo (SLA) da etapa.
+      ...(body.etapa !== undefined && body.retornoAt === undefined
+        ? { retornoAt: (SLA_CONFIG[body.etapa]?.diasMax ?? 0) > 0 ? new Date(Date.now() + SLA_CONFIG[body.etapa].diasMax * 86_400_000) : null }
+        : {}),
       ...(body.reuniaoAt      !== undefined ? { reuniaoAt: body.reuniaoAt ? new Date(body.reuniaoAt) : null } : {}),
       ...(body.linkReuniao    !== undefined ? { linkReuniao: body.linkReuniao }               : {}),
       ...(body.enderecoReuniao!== undefined ? { enderecoReuniao: body.enderecoReuniao }       : {}),

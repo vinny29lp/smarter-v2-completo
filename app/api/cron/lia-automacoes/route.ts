@@ -1,6 +1,6 @@
 /**
  * GET /api/cron/lia-automacoes
- * Cron diário das automações da Lia (#14 assinaturas, #17 renovação, #19 avaliações).
+ * Cron diário das automações da Lia (#14 assinaturas, #17 renovação, #19 avaliações, #2 follow-up do CRM).
  * ?dryRun=true → só mostra o que seria enviado, sem enviar nem gravar nada.
  * Kill-switch: LIA_AUTOMACOES_DESLIGADO=true na Vercel desliga tudo sem novo deploy de código.
  * Agendado em vercel.json: 12h UTC = 09h BRT.
@@ -33,6 +33,7 @@ export async function GET(req: Request) {
       assinaturas: resultado.assinaturas.enviados,
       renovacoes: resultado.renovacoes.enviados,
       avaliacoes: resultado.avaliacoes.enviados,
+      crm: resultado.crm.enviados,
     }));
     return NextResponse.json({ ok: true, ...resultado });
   } catch (e: any) {

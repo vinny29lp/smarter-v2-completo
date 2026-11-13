@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/email";
 import { buscarStatusAutentique } from "@/lib/autentique";
 import { tokenOptOut } from "./token";
+import { proximoFollowup, mensagemFollowup, ETAPAS_FOLLOWUP, LIMITE_DIARIO_UNIDADE, MAX_FOLLOWUPS } from "./crmFollowup";
 import {
   diasEntre, marcoRenovacao, marcoAvaliacao, limiteDeDoisAnos,
   deveLembrarAssinatura, normalizarEmail, emailValido, MAX_LEMBRETES_ASSINATURA, IDADE_MAX_DOC_DIAS,
@@ -57,18 +58,18 @@ interface Ctx {
   restante: { n: number };
   optOut: Set<string>;
   vistos: Set<string>;
-  porUnidade: Map<string, { renovacao: number; avaliacao: number; assinatura: number }>;
+  porUnidade: Map<string, { renovacao: number; avaliacao: number; assinatura: number; crm: number }>;
 }
 
-function contar(ctx: Ctx, franchiseId: string, k: "renovacao" | "avaliacao" | "assinatura") {
-  const c = ctx.porUnidade.get(franchiseId) || { renovacao: 0, avaliacao: 0, assinatura: 0 };
+function contar(ctx: Ctx, franchiseId: string, k: "renovacao" | "avaliacao" | "assinatura" | "crm") {
+  const c = ctx.porUnidade.get(franchiseId) || { renovacao: 0, avaliacao: 0, assinatura: 0, crm: 0 };
   c[k] += 1;
   ctx.porUnidade.set(franchiseId, c);
 }
 
 async function enviar(ctx: Ctx, r: Resultado, p: {
   tipo: string; refId: string; para: string | null | undefined; assunto: string; titulo: string;
-  corpo: string; detalhe: string; franchiseId: string; contador: "renovacao" | "avaliacao" | "assinatura";
+  corpo: string; detalhe: string; franchiseId: string; contador: "renovacao" | "avaliacao" | "assinatura" | "crm";
 }): Promise<boolean> {
   r.candidatos++;
   const email = normalizarEmail(p.para);
@@ -287,6 +288,81 @@ ${botao(link, "Preencher avaliação")}
   return r;
 }
 
+
+// ───────────────────────────── #2 Follow-up automático do CRM ─────────────────────────────
+async function followupsCrm(ctx: Ctx): Promise<Resultado> {
+  const r = novoResultado();
+  const leads = await prisma.crmLead.findMany({
+    where: {
+      situacao: "ativo", convertido: false, optIn: true, email: { not: null },
+      etapa: { in: [...ETAPAS_FOLLOWUP] },
+    },
+    select: {
+      id: true, empresa: true, contato: true, email: true, etapa: true, franchiseId: true,
+      etapaChangedAt: true, createdAt: true, ultimoContato: true,
+      franchise: { select: { name: true } },
+    },
+    orderBy: { etapaChangedAt: "asc" },
+    take: 600,
+  });
+  if (leads.length === 0) return r;
+
+  const logs = await prisma.automacaoEnvio.findMany({
+    where: { tipo: "CRM_FOLLOWUP", refId: { in: leads.map(l => l.id) } },
+    select: { refId: true, createdAt: true },
+  });
+  const porLead = new Map<string, Date[]>();
+  for (const l of logs) porLead.set(l.refId, [...(porLead.get(l.refId) || []), l.createdAt]);
+
+  const enviadosPorUnidade = new Map<string, number>();
+  for (const l of leads) {
+    if (ctx.restante.n <= 0) break;
+    const unidade = l.franchiseId || "__rede__";
+    if ((enviadosPorUnidade.get(unidade) || 0) >= LIMITE_DIARIO_UNIDADE) continue;
+
+    const naEtapaDesde = l.etapaChangedAt || l.createdAt || ctx.agora;
+    // A sequência recomeça quando o lead muda de etapa.
+    const meus = (porLead.get(l.id) || []).filter(d => d.getTime() >= naEtapaDesde.getTime());
+    const ultimo = meus.length ? Math.max(...meus.map(d => d.getTime())) : null;
+    // Contato humano recente: a Lia não atropela.
+    if (l.ultimoContato && diasEntre(l.ultimoContato, ctx.agora) < 4) continue;
+
+    const numero = proximoFollowup({
+      etapa: l.etapa,
+      diasNaEtapa: diasEntre(naEtapaDesde, ctx.agora),
+      enviados: meus.length,
+      diasDesdeUltimo: ultimo === null ? null : diasEntre(new Date(ultimo), ctx.agora),
+    });
+    if (numero === null) continue;
+
+    const msg = mensagemFollowup(l.etapa as string, numero, { empresa: l.empresa, contato: l.contato, unidade: l.franchise?.name });
+    const ok = await enviar(ctx, r, {
+      tipo: "CRM_FOLLOWUP", refId: l.id, para: l.email,
+      assunto: msg.assunto, titulo: msg.assunto, corpo: msg.corpo,
+      detalhe: `Follow-up CRM ${numero}/${MAX_FOLLOWUPS}: ${l.empresa} (${l.etapa})`,
+      franchiseId: unidade, contador: "crm",
+    });
+    if (!ok) continue;
+    enviadosPorUnidade.set(unidade, (enviadosPorUnidade.get(unidade) || 0) + 1);
+    if (ctx.dryRun) continue;
+
+    await prisma.crmNota.create({
+      data: { leadId: l.id, texto: `🤖 Follow-up automático da Lia enviado (${numero}/${MAX_FOLLOWUPS}): "${msg.assunto}"`, tipo: "email" },
+    }).catch(() => {});
+    const proximoRetorno = new Date(ctx.agora.getTime() + 4 * 86_400_000);
+    await prisma.crmLead.update({ where: { id: l.id }, data: { retornoAt: proximoRetorno } }).catch(() => {});
+    if (numero >= MAX_FOLLOWUPS) {
+      await prisma.crmTask.create({
+        data: {
+          leadId: l.id, dueAt: ctx.agora,
+          descricao: `[LIA] ${MAX_FOLLOWUPS} follow-ups sem resposta de ${l.empresa}. Ligue ou mande WhatsApp; se não houver interesse, marque como perdido.`,
+        },
+      }).catch(() => {});
+    }
+  }
+  return r;
+}
+
 // ───────────────────────────── Aviso à unidade (sino) ─────────────────────────────
 async function avisarUnidades(ctx: Ctx) {
   if (ctx.dryRun) return 0;
@@ -296,6 +372,7 @@ async function avisarUnidades(ctx: Ctx) {
     if (c.assinatura) partes.push(`${c.assinatura} lembrete(s) de assinatura`);
     if (c.renovacao) partes.push(`${c.renovacao} aviso(s) de renovação a empresas`);
     if (c.avaliacao) partes.push(`${c.avaliacao} pedido(s) de avaliação a empresas`);
+    if (c.crm) partes.push(`${c.crm} follow-up(s) a empresas do seu CRM`);
     if (partes.length === 0) continue;
     const usuarios = await prisma.user.findMany({ where: { franchiseId, role: "FRANQUEADO", active: true }, select: { id: true } });
     if (usuarios.length === 0) continue;
@@ -327,10 +404,11 @@ export async function rodarAutomacoesLia(opts: { dryRun?: boolean } = {}) {
   const assinaturas = await lembretesAssinatura(ctx);
   const renov = await renovacoes(ctx);
   const aval = await avaliacoes(ctx);
+  const crm = await followupsCrm(ctx);
   const unidadesAvisadas = await avisarUnidades(ctx);
   return {
     dryRun: ctx.dryRun,
     teto: TETO_ENVIOS_POR_EXECUCAO,
-    assinaturas, renovacoes: renov, avaliacoes: aval, unidadesAvisadas,
+    assinaturas, renovacoes: renov, avaliacoes: aval, crm, unidadesAvisadas,
   };
 }
