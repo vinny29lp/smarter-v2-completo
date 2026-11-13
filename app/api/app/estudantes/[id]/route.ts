@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { normalizarDataOpcional, dataOpcionalEhValida } from "@/lib/dates";
 import bcrypt from "bcryptjs";
+import { logAudit, getClientIP } from "@/lib/audit";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -140,14 +141,35 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "FRANQUEADORA") {
     return NextResponse.json({ error: "Apenas FRANQUEADORA pode excluir estudantes" }, { status: 403 });
   }
 
-  const estudante = await prisma.student.findUnique({ where: { id: params.id } });
+  const estudante = await prisma.student.findUnique({
+    where: { id: params.id },
+    include: {
+      institution: { select: { name: true } },
+      franchise: { select: { name: true } },
+      contracts: { select: { numero: true, status: true, bolsa: true, dataInicio: true, dataFim: true, company: { select: { name: true } } } },
+    },
+  });
   if (!estudante) return NextResponse.json({ error: "Estudante não encontrado" }, { status: 404 });
+
+  // Foto dos dados ANTES de apagar. Esta exclusão remove estudante, usuário e contratos de uma vez
+  // e (por restrição de FK) limpa o histórico do próprio usuário — sem este registro, nada sobra pra
+  // reconstruir o cadastro (caso real: estudante sumiu e nenhum dado pôde ser recuperado).
+  // É gravado em nome de quem excluiu (não do estudante) e a limpeza de 90 dias não apaga *EXCLUID*.
+  const snapshot = {
+    id: estudante.id, nome: estudante.name, cpf: estudante.cpf, rg: estudante.rg,
+    email: estudante.email, celular: estudante.celular, telefone: estudante.telefone,
+    dataNasc: estudante.dataNasc, endereco: estudante.endereco, bairro: estudante.bairro,
+    cidade: estudante.cidade, uf: estudante.uf, cep: estudante.cep,
+    curso: estudante.curso, periodo: estudante.periodo, previsaoConclusao: estudante.previsaoConclusao,
+    instituicao: estudante.institution?.name, unidade: estudante.franchise?.name, status: estudante.status,
+    contratos: estudante.contracts.map(c => ({ numero: c.numero, status: c.status, empresa: c.company?.name, bolsa: c.bolsa, inicio: c.dataInicio, fim: c.dataFim })),
+  };
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -175,6 +197,15 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Erro ao excluir estudante." }, { status: 500 });
   }
+
+  await logAudit({
+    userId: session.user.id,
+    role: session.user.role || "",
+    acao: "ESTUDANTE_EXCLUIDO",
+    modulo: "estudantes",
+    detalhes: `snapshot:${JSON.stringify(snapshot).slice(0, 3500)}`,
+    ip: getClientIP(req),
+  });
 
   return NextResponse.json({ ok: true });
 }

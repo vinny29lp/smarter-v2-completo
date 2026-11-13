@@ -50,7 +50,7 @@ async function runCleanup(trigger: string) {
 
   const [activityResult, notificacoesResult] = await Promise.all([
     prisma.activityLog.deleteMany({
-      where: { createdAt: { lt: corteActivityLog } },
+      where: { createdAt: { lt: corteActivityLog }, NOT: { acao: { contains: "EXCLUID" } } },
     }),
     prisma.notification.deleteMany({
       where: { lida: true, createdAt: { lt: corteNotification } },
@@ -97,7 +97,7 @@ export async function GET(req: Request) {
 
     const [activityLogsCount, notificacoesCount] = await Promise.all([
       prisma.activityLog.count({
-        where: { createdAt: { lt: corteActivityLog } },
+        where: { createdAt: { lt: corteActivityLog }, NOT: { acao: { contains: "EXCLUID" } } },
       }),
       prisma.notification.count({
         where: { lida: true, createdAt: { lt: corteNotification } },
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
     if (searchParams.get("dry_run") === "true") {
       const { corteActivityLog, corteNotification } = getCortes();
       const [activityLogsCount, notificacoesCount] = await Promise.all([
-        prisma.activityLog.count({ where: { createdAt: { lt: corteActivityLog } } }),
+        prisma.activityLog.count({ where: { createdAt: { lt: corteActivityLog }, NOT: { acao: { contains: "EXCLUID" } } } }),
         prisma.notification.count({ where: { lida: true, createdAt: { lt: corteNotification } } }),
       ]);
       return NextResponse.json({

@@ -124,7 +124,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "FRANQUEADORA") {
     return NextResponse.json({ error: "Apenas FRANQUEADORA pode excluir empresas" }, { status: 403 });
@@ -138,6 +138,15 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     },
   });
   if (!empresa) return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
+
+  // Foto dos dados antes de apagar (empresa + contratos + vagas saem juntos) — ver ESTUDANTE_EXCLUIDO.
+  const snapshotEmpresa = {
+    id: empresa.id, nome: empresa.name, razaoSocial: (empresa as any).razaoSocial, cnpj: (empresa as any).cnpj,
+    email: (empresa as any).email, responsavel: (empresa as any).responsavel, telefone: (empresa as any).telefone,
+    cidade: (empresa as any).cidade, uf: (empresa as any).uf, franchiseId: (empresa as any).franchiseId,
+    contratos: empresa.contracts.map((c: any) => ({ id: c.id, numero: c.numero, status: c.status, studentId: c.studentId, bolsa: c.bolsa, inicio: c.dataInicio, fim: c.dataFim })),
+    vagas: empresa.vacancies.map((v: any) => ({ id: v.id, titulo: v.titulo, status: v.status })),
+  };
 
   await prisma.$transaction(async (tx) => {
     // Delete evaluations linked to contracts
@@ -162,6 +171,15 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     await tx.user.deleteMany({ where: { companyId: params.id } });
     // Delete the company
     await tx.company.delete({ where: { id: params.id } });
+  });
+
+  await logAudit({
+    userId: session.user.id,
+    role: session.user.role || "",
+    acao: "EMPRESA_EXCLUIDA",
+    modulo: "empresas",
+    detalhes: `snapshot:${JSON.stringify(snapshotEmpresa).slice(0, 3500)}`,
+    ip: getClientIP(req),
   });
 
   return NextResponse.json({ ok: true });
