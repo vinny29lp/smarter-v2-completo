@@ -1309,3 +1309,17 @@ model AlizoEvento {
   @@index([createdAt])
   @@map("alizo_eventos")
 }
+
+/// #1 — Meta mensal de contratos ativados por unidade (cockpit "o que fazer hoje").
+model MetaUnidade {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  franchiseId String
+  mes         String   // "AAAA-MM"
+  contratos   Int
+  definidaPor String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([franchiseId, mes])
+  @@map("metas_unidade")
+}
