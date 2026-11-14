@@ -25,7 +25,6 @@ const PERM_NAV_MAP: Record<string, {href:string;label:string;icon:any}> = {
   franqueados:   {href:"/dashboard/franqueados",  label:"Franqueados",         icon:Users},
   engajamento:   {href:"/dashboard/engajamento",  label:"Engajamento",         icon:Activity},
   marketing:     {href:"/dashboard/marketing",    label:"Marketing Hub 📣",    icon:Megaphone},
-  integracoes:   {href:"/dashboard/integracoes",  label:"Integração",          icon:Plug},
 };
 
 // Bottom nav items for mobile — most important 4 + "Mais"
@@ -69,7 +68,6 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/crm",label:"CRM Parcerias",icon:Phone},
     {href:"/dashboard/franquia-crm",label:"CRM Franquias 🏢",icon:TrendingUp},
     {href:"/dashboard/marketing",label:"Marketing Hub 📣",icon:Megaphone},
-    {href:"/dashboard/integracoes",label:"Integração",icon:Plug},
     {href:"/dashboard/seguros",label:"Seguros",icon:Shield},
     {href:"/dashboard/gamificacao",label:"Gamificação",icon:Star},
     {href:"/dashboard/equipe",label:"Equipe",icon:Users},
@@ -96,7 +94,6 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/financeiro",label:"Financeiro",icon:DollarSign},
     {href:"/dashboard/crm",label:"CRM",icon:Phone},
     {href:"/dashboard/marketing",label:"Marketing Hub 📣",icon:Megaphone},
-    {href:"/dashboard/integracoes",label:"Integração",icon:Plug},
     {href:"/dashboard/gamificacao",label:"Gamificação",icon:Star},
     {href:"/dashboard/equipe",label:"Equipe",icon:Users},
   ]],
