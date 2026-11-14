@@ -44,17 +44,17 @@ export function mensagemFollowup(
   };
 
   const abertura = numero === 1
-    ? "Passando para saber se você conseguiu ver o material."
+    ? "Você chegou a ver o material que enviamos?"
     : numero === 2
-      ? "Sei que a rotina é corrida, então vou ser direto: posso ajudar com alguma dúvida?"
-      : "Este é meu último contato por aqui, para não incomodar.";
+      ? "Sei que a rotina é corrida. Ficou alguma dúvida que eu possa tirar?"
+      : "Este é meu último contato por aqui, para não incomodar. Faz sentido retomarmos mais para frente?";
 
   const fechamento = fim
-    ? "<p>Se fizer sentido conversar mais pra frente, é só responder este e-mail que retomamos. Se preferir não receber mais mensagens, use o link ao final.</p>"
-    : "<p>Se preferir, me diga o melhor dia e horário e eu te ligo — são 15 minutos.</p>";
+    ? "<p>Se sim, é só responder este e-mail com uma palavra que eu retomo. Se preferir não receber mais mensagens, use o link ao final.</p>"
+    : "<p>Pode responder este e-mail com o melhor dia e horário para uma conversa rápida de 15 minutos?</p>";
 
   return {
-    assunto: fim ? `Último contato — ${p.empresa}` : numero === 1 ? `${p.empresa}: conseguiu ver nosso material?` : `Retomando — ${p.empresa}`,
+    assunto: fim ? `Último contato — ${p.empresa}` : numero === 1 ? `${p.empresa}: você viu nosso material?` : `Retomando — ${p.empresa}`,
     corpo: `<p>${oi}</p><p>${trecho[etapa] || trecho.primeiro_contato}</p><p>${abertura}</p>${fechamento}${assina}`,
   };
 }

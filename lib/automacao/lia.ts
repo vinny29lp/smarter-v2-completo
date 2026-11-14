@@ -426,8 +426,8 @@ async function reativarEmpresas(ctx: Ctx): Promise<Resultado> {
       assunto: `Estagiários na ${e.name}`,
       titulo: "Estagiários para a " + e.name,
       corpo: `<p>Olá${e.responsavel ? ", " + esc(e.responsavel.split(" ")[0]) : ""}!</p>
-<p>Notamos que a <b>${esc(e.name)}</b> está cadastrada na Smarter, mas hoje não tem estagiário conosco. Temos estudantes qualificados e prontos para começar, e cuidamos de toda a parte burocrática: contrato, seguro e acompanhamento.</p>
-<p>Basta nos contar o perfil que você procura — leva menos de 2 minutos:</p>${botao(APP_URL + "/solicitar-vaga", "Solicitar uma vaga")}`,
+<p>A <b>${esc(e.name)}</b> pretende ter estagiários neste semestre?</p>
+<p>Se sim, responda este e-mail com o curso e o horário que você procura que eu já separo candidatos. A Smarter cuida do contrato, do seguro e do acompanhamento.</p>`,
       detalhe: `Reativação ${n}/${MAX_REATIVACOES} — ${e.name}`, franchiseId: e.franchiseId!, contador: "reativacao",
     });
     if (ok) feitos++;
