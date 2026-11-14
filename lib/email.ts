@@ -14,7 +14,7 @@ const RESEND_URL = "https://api.resend.com/emails";
 const FROM_CONTATO    = process.env.RESEND_FROM_CONTATO    || "Smarter Estágios <contato@smarterestagios.com.br>";
 const FROM_FINANCEIRO = process.env.RESEND_FROM_FINANCEIRO || "Smarter Estágios <financeiro@smarterestagios.com.br>";
 
-async function getApiKey(): Promise<string | null> {
+export async function getApiKey(): Promise<string | null> {
   if (process.env.RESEND_API_KEY) return process.env.RESEND_API_KEY;
   const cfg = await getSystemConfig();
   return cfg?.resendApiKey || null;
@@ -57,6 +57,7 @@ export async function sendMail(
   html: string,
   attachments?: EmailAttachment[],
   from?: string,
+  opts?: { replyTo?: string; headers?: Record<string, string> },
 ): Promise<boolean> {
   const apiKey = await getApiKey();
   if (!apiKey) {
@@ -66,6 +67,8 @@ export async function sendMail(
   try {
     const body: Record<string, unknown> = { from: from ?? FROM_CONTATO, to: [to], subject, html };
     if (attachments?.length) body.attachments = attachments;
+    if (opts?.replyTo) body.reply_to = opts.replyTo;
+    if (opts?.headers) body.headers = opts.headers;
 
     const res = await fetch(RESEND_URL, {
       method: "POST",

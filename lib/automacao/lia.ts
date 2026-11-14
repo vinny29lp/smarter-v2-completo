@@ -11,6 +11,8 @@ import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/email";
 import { buscarStatusAutentique } from "@/lib/autentique";
 import { tokenOptOut } from "./token";
+import { randomUUID } from "crypto";
+import { esc, botao, templateLiaEmail, linksPorTipo, enderecoResposta, type Topico } from "./emailBrand";
 import { proximoFollowup, mensagemFollowup, ETAPAS_FOLLOWUP, LIMITE_DIARIO_UNIDADE, MAX_FOLLOWUPS } from "./crmFollowup";
 import { reativacaoDevida, ativacaoPortalDevida, vagaPrecisaShortlist, lembreteEntrevistaDevido, MAX_REATIVACOES, MAX_AVISOS_PORTAL, MAX_CONVITES_ESTUDANTE_SEMANA, SCORE_MINIMO_CONVITE, TAMANHO_SHORTLIST } from "./engajamento";
 import { rankear } from "@/lib/matching/matching";
@@ -27,22 +29,12 @@ const APP_URL = _raw && !_raw.includes("localhost") && !_raw.includes("127.0.0")
   ? _raw.replace(/\/$/, "")
   : "https://sistema.smarterestagios.com.br";
 
-const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+const APP = APP_URL;
 
-function templateEmail(titulo: string, corpo: string, email: string): string {
-  const optout = `${APP_URL}/optout?e=${encodeURIComponent(email)}&t=${tokenOptOut(email)}`;
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:14px;line-height:1.6;margin:0;padding:20px;background:#ffffff">
-  <p style="margin:0 0 2px;font-weight:700;font-size:15px;color:#0f2a5e">${esc(titulo)}</p>
-  <hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0 16px"/>
-  ${corpo}
-  <p style="margin-top:28px;font-size:11px;color:#94a3b8">Smarter Estágios — aviso automático da Lia, assistente da sua unidade.<br/>
-  Não quer mais receber estes avisos? <a href="${optout}" style="color:#94a3b8">Clique aqui para parar de receber</a>.</p>
-</body></html>`;
+function templateEmail(titulo: string, corpo: string, email: string, tipo: string, extras: Topico[] = []): string {
+  const optoutUrl = `${APP_URL}/optout?e=${encodeURIComponent(email)}&t=${tokenOptOut(email)}`;
+  return templateLiaEmail({ titulo, corpo, app: APP_URL, optoutUrl, links: linksPorTipo(tipo, APP_URL, extras) });
 }
-
-const botao = (href: string, texto: string) =>
-  `<p style="margin:18px 0"><a href="${href}" style="background:#0f2a5e;color:#ffffff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:700">${esc(texto)}</a></p>`;
 
 export interface Resultado {
   candidatos: number;
@@ -96,13 +88,15 @@ async function enviar(ctx: Ctx, r: Resultado, p: {
   if (r.amostra.length < 8) r.amostra.push(p.detalhe);
   if (ctx.dryRun) { ctx.restante.n--; r.enviados++; return true; }
 
-  const ok = await sendMail(email, p.assunto, templateEmail(p.titulo, p.corpo, email));
+  const envioId = randomUUID();
+  const replyTo = enderecoResposta(process.env.LIA_EMAIL_RESPOSTAS, envioId);
+  const ok = await sendMail(email, p.assunto, templateEmail(p.titulo, p.corpo, email, p.tipo), undefined, undefined, replyTo ? { replyTo } : undefined);
   if (!ok) { r.falhas++; return false; }
   ctx.restante.n--;
   r.enviados++;
   contar(ctx, p.franchiseId, p.contador);
   await prisma.automacaoEnvio.create({
-    data: { tipo: p.tipo, refId: p.refId, destinatario: email, detalhe: p.detalhe.slice(0, 300) },
+    data: { id: envioId, tipo: p.tipo, refId: p.refId, destinatario: email, detalhe: p.detalhe.slice(0, 300), franchiseId: p.franchiseId },
   }).catch(e => console.error("[lia] falha ao registrar envio:", e?.message));
   return true;
 }

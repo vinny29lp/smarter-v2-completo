@@ -1273,6 +1273,7 @@ model AutomacaoEnvio {
   destinatario String
   canal        String   @default("email")
   detalhe      String?
+  franchiseId  String?
   createdAt    DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([tipo, refId])

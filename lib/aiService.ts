@@ -16,7 +16,8 @@ export type AITipoUso =
   | "sugestao_testes"
   | "sugestao_requisitos"
   | "disc_perfil"
-  | "lia_chat";
+  | "lia_chat"
+  | "lia_email";
 
 export interface AICallOptions {
   franchiseId: string;
