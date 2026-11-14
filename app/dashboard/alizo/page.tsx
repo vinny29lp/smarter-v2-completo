@@ -19,7 +19,7 @@ function TesteEmail({ emailInicial }: { emailInicial: string }) {
       const r = await fetch(`/api/app/admin/lia-teste-email?to=${encodeURIComponent(para)}`, { cache: "no-store" });
       const j = await r.json();
       if (!r.ok) setMsg(j.error || "Não foi possível enviar.");
-      else if (j.enviados?.leve && j.enviados?.completo) setMsg(`Enviados 2 e-mails de teste (leve e completo) para ${j.para}. Confira em qual aba do Gmail cada um chegou.`);
+      else if (j.enviados?.transacional && j.enviados?.comercial) setMsg(`Enviados 2 e-mails de teste (transacional e comercial) para ${j.para}. Confira em qual aba do Gmail cada um chegou.`);
       else setMsg("O envio falhou em pelo menos um dos e-mails. Verifique a configuração da Resend.");
     } catch { setMsg("Erro de conexão ao enviar o teste."); }
     setBusy(false);
@@ -28,7 +28,7 @@ function TesteEmail({ emailInicial }: { emailInicial: string }) {
   return (
     <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100">
       <p className="text-sm font-bold text-slate-700">E-mail de teste da Lia</p>
-      <p className="text-xs text-slate-500 mt-0.5">Envia o modelo leve (padrão) e o completo (com logo) para você ver em qual aba do Gmail cada um cai.</p>
+      <p className="text-xs text-slate-500 mt-0.5">Envia um e-mail transacional (entrevista) e um comercial (reativação), no estilo texto padrão, para ver em qual aba do Gmail cada um cai.</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <input type="email" value={para} onChange={e => setPara(e.target.value)} placeholder="seu@email.com"
           className="w-72 rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />

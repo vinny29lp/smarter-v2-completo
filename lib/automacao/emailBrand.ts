@@ -5,10 +5,11 @@
 export const COR_AZUL = "#0f2a5e";
 export const COR_AMARELO = "#f5c400";
 
-/** "leve" (padrão): sem imagens/botões grandes — parece e-mail pessoal/transacional e tende a cair na caixa principal.
- *  "completo": cabeçalho com logo e botões (mais bonito, mais chance de ir para Promoções). Troca: LIA_EMAIL_ESTILO=completo. */
-export type ModoEmail = "leve" | "completo";
-export const modoEmail = (): ModoEmail => (process.env.LIA_EMAIL_ESTILO === "completo" ? "completo" : "leve");
+/** "texto" (padrão): parece e-mail pessoal — sem cabeçalho, imagem, botão ou bloco de links; a marca vem no nome e na assinatura.
+ *  "leve": nome em destaque + links; "completo": logo e botões (mais bonito, quase sempre vai para Promoções).
+ *  Troca: LIA_EMAIL_ESTILO=leve|completo. */
+export type ModoEmail = "texto" | "leve" | "completo";
+export const modoEmail = (): ModoEmail => (process.env.LIA_EMAIL_ESTILO === "completo" ? "completo" : process.env.LIA_EMAIL_ESTILO === "leve" ? "leve" : "texto");
 
 /** Remetente com nome de pessoa ("Lia da Smarter Estágios"): melhora a confiança e a entrega na caixa principal. */
 export const remetenteLia = () => process.env.LIA_EMAIL_FROM || "Lia da Smarter Estágios <contato@smarterestagios.com.br>";
@@ -64,6 +65,10 @@ export function linksPorTipo(tipo: string, app: string, extras: Topico[] = []): 
 
 export function blocoLinks(links: LinkUtil[], modo: ModoEmail = modoEmail()): string {
   if (links.length === 0) return "";
+  if (modo === "texto") {
+    const l = links[0];
+    return `<p style="margin:14px 0 0">Mais informações: <a href="${esc(l.href)}" style="color:${COR_AZUL}">${esc(l.href.replace(/^https?:\/\//, ""))}</a></p>`;
+  }
   if (modo === "leve") {
     const itens = links.slice(0, 3).map(l => `<li style="margin:3px 0"><a href="${esc(l.href)}" style="color:${COR_AZUL}">${esc(l.rotulo)}</a></li>`).join("");
     return `<p style="margin:18px 0 4px;color:#475569">Links que podem ajudar:</p><ul style="margin:0;padding-left:20px">${itens}</ul>`;
@@ -75,6 +80,9 @@ export function blocoLinks(links: LinkUtil[], modo: ModoEmail = modoEmail()): st
 }
 
 export function botao(href: string, texto: string, modo: ModoEmail = modoEmail()): string {
+  if (modo === "texto") {
+    return `<p style="margin:14px 0">${esc(texto)}: <a href="${esc(href)}" style="color:${COR_AZUL}">${esc(href.replace(/^https?:\/\//, ""))}</a></p>`;
+  }
   if (modo === "leve") {
     return `<p style="margin:16px 0"><a href="${esc(href)}" style="color:${COR_AZUL};font-weight:700;text-decoration:underline">${esc(texto)} →</a></p>`;
   }
@@ -83,6 +91,15 @@ export function botao(href: string, texto: string, modo: ModoEmail = modoEmail()
 
 export function templateLiaEmail(p: { titulo: string; corpo: string; app: string; optoutUrl: string; links?: LinkUtil[]; modo?: ModoEmail }): string {
   const modo = p.modo ?? modoEmail();
+  if (modo === "texto") {
+    return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222222;margin:0;padding:16px">
+  ${p.corpo}
+  ${blocoLinks(p.links || [], "texto")}
+  <p style="margin:22px 0 0">Um abraço,<br/>Lia<br/><span style="color:#555555">Assistente digital · <b style="color:${COR_AZUL}">Smarter Estágios</b></span></p>
+  <p style="margin-top:20px;font-size:12px;color:#888888">Não quer mais receber esses avisos? <a href="${esc(p.optoutUrl)}" style="color:#888888">Clique aqui</a>.</p>
+</body></html>`;
+  }
   if (modo === "leve") {
     return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:20px;background:#ffffff;font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:15px;line-height:1.6">

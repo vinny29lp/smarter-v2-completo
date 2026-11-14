@@ -12,9 +12,8 @@ describe("identidade visual", () => {
     expect(h).toContain("Olá &lt;b&gt;");
     expect(h).toContain("/portal-empresa/avaliacoes");
   });
-  it("modo leve (padrão) não tem imagem nem botão grande, mas mantém nome, cores e links", () => {
-    const h = templateLiaEmail({ titulo: "Aviso", corpo: botao("https://x.com", "Abrir"), app: APP, optoutUrl: `${APP}/optout?e=a`, links: linksPorTipo("AVALIACAO", APP) });
-    expect(modoEmail()).toBe("leve");
+  it("modo leve não tem imagem nem botão grande, mas mantém nome, cores e links", () => {
+    const h = templateLiaEmail({ modo: "leve", titulo: "Aviso", corpo: botao("https://x.com", "Abrir", "leve"), app: APP, optoutUrl: `${APP}/optout?e=a`, links: linksPorTipo("AVALIACAO", APP) });
     expect(h).not.toMatch(/<img/i);
     expect(h).not.toContain("display:inline-block;background");
     expect(h).toContain("Smarter Estágios");
@@ -23,10 +22,21 @@ describe("identidade visual", () => {
     expect(h).toContain("/optout?e=a");
     expect(h).toContain("Abrir →");
   });
+  it("modo texto (padrão) parece e-mail pessoal: sem imagem, botão, título em destaque e só 1 link de apoio", () => {
+    expect(modoEmail()).toBe("texto");
+    const h = templateLiaEmail({ titulo: "Aviso", corpo: "<p>Olá!</p>" + botao("https://x.com/a", "Veja"), app: APP, optoutUrl: `${APP}/optout?e=a`, links: linksPorTipo("AVALIACAO", APP) });
+    expect(h).not.toMatch(/<img/i);
+    expect(h).not.toContain("background");
+    expect(h).not.toContain("Aviso");
+    expect((h.match(/<a /g) || []).length).toBe(3); // botão + 1 link de apoio + descadastro
+    expect(h).toContain("Smarter Estágios");
+    expect(h).toContain("Assistente digital");
+    expect(h).toContain("/optout?e=a");
+  });
   it("versão em texto puro mantém links", () => {
     const t = htmlParaTexto(templateLiaEmail({ titulo: "Aviso", corpo: "<p>Olá &amp; tudo bem?</p>" + botao("https://x.com", "Abrir"), app: APP, optoutUrl: "https://o.com" }));
     expect(t).toContain("Olá & tudo bem?");
-    expect(t).toContain("Abrir → (https://x.com)");
+    expect(t).toContain("(https://x.com)");
     expect(t).not.toContain("<");
   });
   it("links por tipo são reais e sem repetição", () => {
