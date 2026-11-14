@@ -1,12 +1,49 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 function Ponto({ ok, txt }: { ok: boolean; txt: string }) {
   return <li className="text-sm"><span className={ok ? "text-green-600" : "text-amber-600"}>●</span> {txt}</li>;
 }
 
+function TesteEmail({ emailInicial }: { emailInicial: string }) {
+  const [para, setPara] = useState(emailInicial);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => { if (!para && emailInicial) setPara(emailInicial); }, [emailInicial]);
+
+  async function enviar() {
+    setBusy(true); setMsg("");
+    try {
+      const r = await fetch(`/api/app/admin/lia-teste-email?to=${encodeURIComponent(para)}`, { cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok) setMsg(j.error || "Não foi possível enviar.");
+      else if (j.enviados?.leve && j.enviados?.completo) setMsg(`Enviados 2 e-mails de teste (leve e completo) para ${j.para}. Confira em qual aba do Gmail cada um chegou.`);
+      else setMsg("O envio falhou em pelo menos um dos e-mails. Verifique a configuração da Resend.");
+    } catch { setMsg("Erro de conexão ao enviar o teste."); }
+    setBusy(false);
+  }
+
+  return (
+    <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100">
+      <p className="text-sm font-bold text-slate-700">E-mail de teste da Lia</p>
+      <p className="text-xs text-slate-500 mt-0.5">Envia o modelo leve (padrão) e o completo (com logo) para você ver em qual aba do Gmail cada um cai.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input type="email" value={para} onChange={e => setPara(e.target.value)} placeholder="seu@email.com"
+          className="w-72 rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+        <button onClick={enviar} disabled={busy || !para}
+          className="rounded-lg bg-[#0f2a5e] px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50">
+          {busy ? "Enviando…" : "Enviar e-mail de teste"}
+        </button>
+      </div>
+      {msg && <p className="mt-2 text-xs text-slate-700">{msg}</p>}
+    </div>
+  );
+}
+
 export default function AlizoPage() {
+  const { data: session } = useSession();
   const [d, setD] = useState<any>(null);
   const [erro, setErro] = useState("");
 
@@ -40,6 +77,8 @@ export default function AlizoPage() {
           </ul>
         </div>
       )}
+
+      {s && (session?.user as any)?.role === "FRANQUEADORA" && <TesteEmail emailInicial={session?.user?.email || ""} />}
 
       {d.unidades.length === 0 ? (
         <p className="text-sm text-slate-500">Esta unidade ainda não está conectada aos funcionários digitais.</p>
