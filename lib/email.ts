@@ -57,7 +57,7 @@ export async function sendMail(
   html: string,
   attachments?: EmailAttachment[],
   from?: string,
-  opts?: { replyTo?: string; headers?: Record<string, string> },
+  opts?: { replyTo?: string; headers?: Record<string, string>; text?: string },
 ): Promise<boolean> {
   const apiKey = await getApiKey();
   if (!apiKey) {
@@ -68,6 +68,7 @@ export async function sendMail(
     const body: Record<string, unknown> = { from: from ?? FROM_CONTATO, to: [to], subject, html };
     if (attachments?.length) body.attachments = attachments;
     if (opts?.replyTo) body.reply_to = opts.replyTo;
+    if (opts?.text) body.text = opts.text;
     if (opts?.headers) body.headers = opts.headers;
 
     const res = await fetch(RESEND_URL, {

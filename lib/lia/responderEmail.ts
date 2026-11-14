@@ -11,7 +11,7 @@ import { formatarConhecimentoSistemaParaPrompt } from "@/lib/lia/sistemaSmarter"
 import { tokenOptOut } from "@/lib/automacao/token";
 import { normalizarEmail } from "@/lib/automacao/regras";
 import {
-  templateLiaEmail, linksPorTipo, linkDoTopico, enderecoResposta, extrairEnvioId, esc, type Topico, type LinkUtil,
+  templateLiaEmail, linksPorTipo, linkDoTopico, enderecoResposta, extrairEnvioId, esc, remetenteLia, htmlParaTexto, type Topico, type LinkUtil,
 } from "@/lib/automacao/emailBrand";
 import {
   limparTextoResposta, detectarOptOut, deveEscalar, ehAutoResposta, podeResponderAutomaticamente,
@@ -62,7 +62,7 @@ async function enviarResposta(p: { para: string; assunto: string; titulo: string
   const html = templateLiaEmail({ titulo: p.titulo, corpo: p.corpoHtml, app: APP_URL, optoutUrl, links: p.links });
   const replyTo = enderecoResposta(process.env.LIA_EMAIL_RESPOSTAS, p.envioId);
   const headers = p.messageId ? { "In-Reply-To": p.messageId, References: p.messageId } : undefined;
-  const ok = await sendMail(p.para, p.assunto, html, undefined, undefined, { ...(replyTo ? { replyTo } : {}), ...(headers ? { headers } : {}) });
+  const ok = await sendMail(p.para, p.assunto, html, undefined, remetenteLia(), { text: htmlParaTexto(html), ...(replyTo ? { replyTo } : {}), ...(headers ? { headers } : {}) });
   if (ok) {
     await prisma.automacaoEnvio.create({
       data: { tipo: "EMAIL_LIA_RESPOSTA", refId: p.envioId, destinatario: p.para, detalhe: p.detalhe.slice(0, 300), franchiseId: p.franchiseId },

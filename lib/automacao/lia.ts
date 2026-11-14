@@ -12,7 +12,7 @@ import { sendMail } from "@/lib/email";
 import { buscarStatusAutentique } from "@/lib/autentique";
 import { tokenOptOut } from "./token";
 import { randomUUID } from "crypto";
-import { esc, botao, templateLiaEmail, linksPorTipo, enderecoResposta, type Topico } from "./emailBrand";
+import { esc, botao, templateLiaEmail, linksPorTipo, enderecoResposta, remetenteLia, htmlParaTexto, type Topico } from "./emailBrand";
 import { proximoFollowup, mensagemFollowup, ETAPAS_FOLLOWUP, LIMITE_DIARIO_UNIDADE, MAX_FOLLOWUPS } from "./crmFollowup";
 import { reativacaoDevida, ativacaoPortalDevida, vagaPrecisaShortlist, lembreteEntrevistaDevido, MAX_REATIVACOES, MAX_AVISOS_PORTAL, MAX_CONVITES_ESTUDANTE_SEMANA, SCORE_MINIMO_CONVITE, TAMANHO_SHORTLIST } from "./engajamento";
 import { rankear } from "@/lib/matching/matching";
@@ -90,7 +90,8 @@ async function enviar(ctx: Ctx, r: Resultado, p: {
 
   const envioId = randomUUID();
   const replyTo = enderecoResposta(process.env.LIA_EMAIL_RESPOSTAS, envioId);
-  const ok = await sendMail(email, p.assunto, templateEmail(p.titulo, p.corpo, email, p.tipo), undefined, undefined, replyTo ? { replyTo } : undefined);
+  const html = templateEmail(p.titulo, p.corpo, email, p.tipo);
+  const ok = await sendMail(email, p.assunto, html, undefined, remetenteLia(), { text: htmlParaTexto(html), ...(replyTo ? { replyTo } : {}) });
   if (!ok) { r.falhas++; return false; }
   ctx.restante.n--;
   r.enviados++;
@@ -422,7 +423,7 @@ async function reativarEmpresas(ctx: Ctx): Promise<Resultado> {
     const n = (porEmpresa.get(e.id) || []).length + 1;
     const ok = await enviar(ctx, r, {
       tipo: "REATIVACAO", refId: e.id, para: e.email,
-      assunto: "Precisa de estagiários? Temos candidatos prontos",
+      assunto: `Estagiários na ${e.name}`,
       titulo: "Estagiários para a " + e.name,
       corpo: `<p>Olá${e.responsavel ? ", " + esc(e.responsavel.split(" ")[0]) : ""}!</p>
 <p>Notamos que a <b>${esc(e.name)}</b> está cadastrada na Smarter, mas hoje não tem estagiário conosco. Temos estudantes qualificados e prontos para começar, e cuidamos de toda a parte burocrática: contrato, seguro e acompanhamento.</p>
@@ -463,7 +464,7 @@ async function ativarPortalEmpresas(ctx: Ctx): Promise<Resultado> {
     const n = (porEmpresa.get(e.id) || []).length + 1;
     const ok = await enviar(ctx, r, {
       tipo: "PORTAL_ATIVACAO", refId: e.id, para: u.email,
-      assunto: "Seu portal da Smarter está pronto — acompanhe seus estagiários",
+      assunto: `Seu acesso ao portal da Smarter — ${e.name}`,
       titulo: "Portal da empresa " + e.name,
       corpo: `<p>Olá${u.name ? ", " + esc(u.name.split(" ")[0]) : ""}!</p>
 <p>A <b>${esc(e.name)}</b> já tem estagiário ativo conosco e o seu acesso ao portal está liberado. Por lá você acompanha tudo em um só lugar:</p>
@@ -528,7 +529,7 @@ async function convidarShortlist(ctx: Ctx): Promise<Resultado> {
       const email = normalizarEmail(c.estudante.email);
       const ok = await enviar(ctx, r, {
         tipo: "CONVITE_VAGA", refId: v.id, para: c.estudante.email,
-        assunto: `Vaga de estágio com a sua cara: ${v.titulo}`,
+        assunto: `Vaga de estágio: ${v.titulo}`,
         titulo: "Uma vaga combina com você",
         corpo: `<p>Olá, ${esc((c.estudante.name || "").split(" ")[0] || "estudante")}!</p>
 <p>Encontramos uma vaga de estágio que combina com o seu perfil${c.motivos.length ? " (" + esc(c.motivos.slice(0, 2).join(", ").toLowerCase()) + ")" : ""}:</p>
