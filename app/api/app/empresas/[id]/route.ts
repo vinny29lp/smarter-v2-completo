@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { arquivarEmpresa } from "@/lib/lixeira";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -149,6 +150,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   };
 
   await prisma.$transaction(async (tx) => {
+    // #27 — cópia completa na lixeira (restaurável por 90 dias) ANTES de apagar
+    await arquivarEmpresa(tx, params.id, session.user.id);
     // Delete evaluations linked to contracts
     await tx.evaluation.deleteMany({ where: { contract: { companyId: params.id } } });
     // Delete internship documents linked to contracts
@@ -171,7 +174,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     await tx.user.deleteMany({ where: { companyId: params.id } });
     // Delete the company
     await tx.company.delete({ where: { id: params.id } });
-  });
+  }, { timeout: 30_000 });
 
   await logAudit({
     userId: session.user.id,

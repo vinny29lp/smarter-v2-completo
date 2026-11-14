@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { arquivarEstudante } from "@/lib/lixeira";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -173,6 +174,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
   try {
     await prisma.$transaction(async (tx) => {
+      // #27 — cópia completa na lixeira (restaurável por 90 dias) ANTES de apagar
+      await arquivarEstudante(tx, params.id, session.user.id);
       // Delete evaluations linked to student's contracts
       await tx.evaluation.deleteMany({ where: { contract: { studentId: params.id } } });
       // Delete internship documents related to student's contracts
@@ -193,7 +196,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
         await tx.notification.deleteMany({ where: { userId: estudante.userId } });
         await tx.user.delete({ where: { id: estudante.userId } });
       }
-    });
+    }, { timeout: 30_000 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Erro ao excluir estudante." }, { status: 500 });
   }
