@@ -54,6 +54,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/resultados",label:"Resultados 📊",icon:LineChart},
     {href:"/dashboard/alizo",label:"Funcionários digitais 🤖",icon:Plug},
     {href:"/dashboard/franqueados",label:"Franqueados",icon:Users},
+    {href:"/dashboard/lixeira",label:"Lixeira 🗑️",icon:Shield},
     {href:"/dashboard/engajamento",label:"Engajamento",icon:Activity},
   ],[
     {href:"/dashboard/empresas",label:"Empresas",icon:Building2},

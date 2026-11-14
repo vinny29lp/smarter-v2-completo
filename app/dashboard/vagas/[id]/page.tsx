@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { VagaActions } from "./VagaActions";
+import { Sugestoes } from "./Sugestoes";
 import { parseMultiField, formatMultiField } from "@/lib/vagas-constants";
 
 const statusBadge: Record<string,"green"|"yellow"|"gray"> = { ABERTA:"green",PAUSADA:"yellow",ENCERRADA:"gray" };
@@ -38,6 +39,8 @@ export default async function VagaDetailPage({ params }: { params: { id: string 
           </Card>
         ))}
       </div>
+
+      <Sugestoes vagaId={params.id} />
 
       <div className="grid grid-cols-3 gap-5 mb-6">
         <Card className="p-5 col-span-2">

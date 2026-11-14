@@ -30,6 +30,8 @@ function ProcessosContent() {
   const [selected, setSelected] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"anotacoes"|"agendamento"|"parecer">("anotacoes");
   const [saving, setSaving] = useState(false);
+  const [sel, setSel] = useState<string[]>([]);
+  const [loteEtapa, setLoteEtapa] = useState("triagem");
   const [msg, setMsg] = useState("");
 
   // Campos editáveis
@@ -85,6 +87,14 @@ function ProcessosContent() {
     setSaving(false);
   };
 
+  const moverLote = async () => {
+    if (sel.length === 0) return;
+    const res = await fetch("/api/app/processos/lote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ids:sel,etapa:loteEtapa})});
+    if (res.ok) {
+      setCandidaturas(cs => cs.map(c => sel.includes(c.id) ? {...c, etapa: loteEtapa} : c));
+      setSel([]);
+    }
+  };
   const moverEtapa = async (id: string, etapa: string) => {
     const res = await fetch(`/api/app/processos/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({etapa})});
     const data = await res.json();
@@ -345,6 +355,9 @@ ${disc ? `
                         {c.recomendacao && <div className={`mt-1 text-[10px] text-center font-bold rounded px-1 ${c.recomendacao==="aprovado"?"bg-green-100 text-green-700":c.recomendacao==="reprovado"?"bg-red-100 text-red-700":"bg-amber-100 text-amber-700"}`}>
                           {c.recomendacao.toUpperCase()}
                         </div>}
+                        <label className="flex items-center gap-1 mt-2 text-[10px] text-slate-500" onClick={e=>e.stopPropagation()}>
+                          <input type="checkbox" checked={sel.includes(c.id)} onChange={e=>setSel(s=>e.target.checked?[...s,c.id]:s.filter(x=>x!==c.id))}/> Selecionar
+                        </label>
                         <select className="w-full mt-2 text-[10px] border border-slate-200 rounded-lg px-1.5 py-1 bg-white outline-none"
                           value={c.etapa} onClick={e=>e.stopPropagation()}
                           onChange={e=>{ e.stopPropagation(); moverEtapa(c.id,e.target.value); }}>
@@ -367,6 +380,18 @@ ${disc ? `
               );
             })}
           </div>
+        </div>
+      )}
+
+      {sel.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-xl bg-[#0f2a5e] px-4 py-2 text-xs text-white shadow-lg">
+          <span className="font-bold">{sel.length} selecionado(s)</span>
+          <span>mover para</span>
+          <select value={loteEtapa} onChange={e=>setLoteEtapa(e.target.value)} className="rounded bg-white px-1.5 py-1 text-slate-800">
+            {ETAPAS.map(e=><option key={e.key} value={e.key}>{e.label}</option>)}
+          </select>
+          <button onClick={moverLote} className="rounded bg-white px-3 py-1 font-bold text-[#0f2a5e]">Mover</button>
+          <button onClick={()=>setSel([])} className="opacity-70 underline">limpar</button>
         </div>
       )}
 

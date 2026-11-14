@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { etapaValida } from "@/lib/automacao/engajamento";
 import { handleApiError } from "@/lib/api-response";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -27,6 +28,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   const body = await req.json();
+  if (body.etapa !== undefined && !etapaValida(body.etapa)) return NextResponse.json({ error: "Etapa inválida." }, { status: 400 });
   const app = await prisma.application.update({
     where: { id: params.id },
     data: {

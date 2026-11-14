@@ -238,9 +238,19 @@ export async function GET() {
       }));
     }
 
+    // ─── #10 Candidaturas paradas em "inscritos" há 5+ dias (vaga aberta) ───────
+    const candidaturasParadas = await prisma.application.findMany({
+      where: {
+        etapa: "inscritos", createdAt: { lte: addDias(hoje, -5) },
+        vacancy: { status: "ABERTA", ...fwhere },
+      },
+      select: { id: true, createdAt: true, student: { select: { name: true } }, vacancy: { select: { titulo: true } } },
+      orderBy: { createdAt: "asc" }, take: 30,
+    });
+
     // ─── Totais por severidade ────────────────────────────────────────────────
     const critico = contratosPendentes2Mes.length + contratosVencidosSemFinalizar.length + unidadesComPendentes2Mes.length + franquiaTarefasVencidas.length + contratosGestaoSemCobertura.length;
-    const atencao = contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length + liaFeedbackBugs.length + solicitacoesVagaPendentes.length;
+    const atencao = contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length + liaFeedbackBugs.length + solicitacoesVagaPendentes.length + candidaturasParadas.length;
     const info    = franquiaLeadsParados.length + liaFeedbackGeral.length;
 
     return NextResponse.json({
@@ -252,6 +262,7 @@ export async function GET() {
         avaliacoesDevidas:           avaliacoesDevidas.map(c => ({ ...c, mesesAtivo: Math.floor(DIAS(c.dataInicio ?? new Date()) / 30) })),
         leadsCrmVencidos,
         solicitacoesVagaPendentes,
+        candidaturasParadas: candidaturasParadas.map(c => ({ ...c, dias: DIAS(c.createdAt ?? new Date()) })),
         contratosGestaoSemCobertura,
         liaFeedbackBugs,
         liaFeedbackGeral,

@@ -1323,3 +1323,21 @@ model MetaUnidade {
   @@unique([franchiseId, mes])
   @@map("metas_unidade")
 }
+
+/// #27 — Lixeira: cópia completa (JSON) de estudantes/empresas excluídos, para restauração por 90 dias.
+model Lixeira {
+  id           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  entidade     String    // ESTUDANTE | EMPRESA
+  entidadeId   String
+  nome         String
+  franchiseId  String?
+  dados        Json
+  excluidoPor  String?
+  expiraEm     DateTime  @db.Timestamptz(6)
+  restauradoEm DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([entidade, restauradoEm])
+  @@index([expiraEm])
+  @@map("lixeira")
+}
