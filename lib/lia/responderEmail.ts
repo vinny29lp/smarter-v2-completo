@@ -8,6 +8,7 @@ import { sendMail, getApiKey } from "@/lib/email";
 import { callAIChat } from "@/lib/aiService";
 import { formatarBaseLegalParaPrompt } from "@/lib/lia/leiEstagio";
 import { formatarConhecimentoSistemaParaPrompt } from "@/lib/lia/sistemaSmarter";
+import { avisarResposta, unidadeValida } from "@/lib/lia/avisoResposta";
 import { tokenOptOut } from "@/lib/automacao/token";
 import { normalizarEmail } from "@/lib/automacao/regras";
 import {
@@ -44,17 +45,6 @@ async function buscarConteudo(emailId: string): Promise<{ texto: string; headers
     const texto = j.text || String(j.html || "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
     return { texto: String(texto || ""), headers: j.headers && typeof j.headers === "object" ? j.headers : {} };
   } catch (e: any) { console.error("[lia-email] buscar conteúdo erro:", e?.message); return null; }
-}
-
-async function avisarUnidade(franchiseId: string | null, titulo: string, mensagem: string, link: string) {
-  const usuarios = await prisma.user.findMany({
-    where: franchiseId ? { franchiseId, role: "FRANQUEADO", active: true } : { role: "FRANQUEADORA", active: true },
-    select: { id: true },
-  });
-  if (usuarios.length === 0) return;
-  await prisma.notification.createMany({
-    data: usuarios.map(u => ({ userId: u.id, titulo, mensagem: mensagem.slice(0, 500), tipo: "lia_email", link })),
-  });
 }
 
 async function enviarResposta(p: { para: string; assunto: string; titulo: string; corpoHtml: string; links: LinkUtil[]; envioId: string; messageId?: string | null; tipoOriginal: string; franchiseId: string | null; detalhe: string }) {
@@ -101,7 +91,12 @@ export async function processarRespostaEmail(ev: EventoRecebido): Promise<{ ok: 
   const remetente = emailDe(ev.from);
   const conteudo = await buscarConteudo(ev.emailId);
   const texto = limparTextoResposta(conteudo?.texto);
-  const franchiseId = original.franchiseId ?? null;
+  let franchiseId = unidadeValida(original.franchiseId);
+  // Follow-up do CRM: a unidade vem do próprio lead (fonte mais fiel que o registro do envio).
+  if (original.tipo === "CRM_FOLLOWUP") {
+    const lead = await prisma.crmLead.findUnique({ where: { id: original.refId }, select: { franchiseId: true } }).catch(() => null);
+    if (lead) franchiseId = unidadeValida(lead.franchiseId);
+  }
 
   // Registra primeiro (deduplicação + contagem semanal) — mesmo se algo falhar depois, não repete.
   await prisma.automacaoEnvio.create({
@@ -113,7 +108,7 @@ export async function processarRespostaEmail(ev: EventoRecebido): Promise<{ ok: 
 
   // 1) A unidade sempre fica sabendo (sino) e o CRM guarda a resposta
   const painel = LINK_PAINEL[original.tipo] || "/dashboard";
-  await avisarUnidade(franchiseId, "📩 Resposta a um e-mail da Lia", `${remetente}: ${texto}`, painel);
+  await avisarResposta({ franchiseId, titulo: "📩 Resposta a um e-mail da Lia", de: remetente, mensagem: texto, link: painel, contexto: "Resposta a um e-mail automático da Lia" });
   if (original.tipo === "CRM_FOLLOWUP") {
     await prisma.crmNota.create({ data: { leadId: original.refId, tipo: "email", texto: `📩 Respondeu por e-mail: ${texto.slice(0, 600)}` } }).catch(() => {});
   }

@@ -2,6 +2,7 @@
  * Integração Smarter ⇄ Alizo: gatilho de envio de lead, processamento de eventos e importação
  * de leads do Google Maps. Toda chamada passa pelo cliente (lib/alizo/client.ts); sem chave → no-op.
  */
+import { avisarResposta } from "@/lib/lia/avisoResposta";
 import { prisma } from "@/lib/prisma";
 import { sincronizarRecrutador } from "./recrutador";
 import { ehOrigemSmarter } from "./origem";
@@ -80,7 +81,17 @@ export async function processarEventoAlizo(ev: { id: string; type: string; unit_
 
   const texto: string = String(d.content ?? d.message?.content ?? d.text ?? "").slice(0, 500);
   if (ev.type === "lead.message.received") {
+    // Avisa a unidade dona do lead (e a franqueadora), no máx. 1 aviso a cada 30 min por lead.
+    const recente = await prisma.crmNota.findFirst({
+      where: { leadId: lead.id, texto: { startsWith: "💬 Lead respondeu" }, createdAt: { gte: new Date(Date.now() - 30 * 60_000) } }, select: { id: true },
+    });
     await prisma.crmNota.create({ data: { leadId: lead.id, tipo: "whatsapp", texto: `💬 Lead respondeu: ${texto || "(mensagem recebida)"}` } });
+    if (!recente) {
+      await avisarResposta({
+        franchiseId: lead.franchiseId, titulo: "💬 Lead respondeu no WhatsApp", de: lead.empresa || lead.contato || "Lead",
+        mensagem: texto || "(mensagem recebida)", link: "/dashboard/crm", contexto: "Resposta ao Sales Rep (WhatsApp)",
+      }).catch(e => console.error("[alizo] aviso de resposta falhou:", e?.message));
+    }
     await prisma.crmLead.update({ where: { id: lead.id }, data: { ultimoContato: new Date() } });
   } else if (ev.type === "lead.message.sent") {
     await prisma.crmNota.create({ data: { leadId: lead.id, tipo: "whatsapp", texto: `🤖 Mensagem enviada pelo Sales Rep: ${texto || "(sem texto)"}` } });
