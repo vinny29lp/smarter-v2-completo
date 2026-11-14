@@ -4,6 +4,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { sincronizarRecrutador } from "./recrutador";
+import { ehOrigemSmarter } from "./origem";
 import { criarAlizoClient, normalizarTelefone, mascararTelefone, AlizoError } from "./client";
 
 const CHAVE_MATRIZ = "MATRIZ";
@@ -101,7 +102,7 @@ export async function sincronizarAlizo(opts: { horas?: number } = {}) {
   const client = criarAlizoClient();
   if (!client) return { ok: false, motivo: "alizo_nao_configurado" };
   const desde = new Date(Date.now() - (opts.horas ?? 2) * 3_600_000).toISOString();
-  const resumo = { importados: 0, ignorados: 0, eventos: 0, erros: 0 };
+  const resumo = { importados: 0, ignorados: 0, eventos: 0, erros: 0, enviados: 0 };
 
   const unidades = await prisma.alizoUnidade.findMany();
   for (const u of unidades) {
@@ -111,15 +112,33 @@ export async function sincronizarAlizo(opts: { horas?: number } = {}) {
       for (let pagina = 0; pagina < 5; pagina++) {
         const r = await client.listarLeads({ unit_id: u.alizoUnitId, updated_since: desde, before, limit: 100 });
         for (const l of r.leads) {
-          if (l.source !== "google_maps") { resumo.ignorados++; continue; }
+          // Leads criados pela própria Smarter voltam com source smarter_* — já estão no CRM.
+          if (ehOrigemSmarter(l.source)) { resumo.ignorados++; continue; }
           const existe = await prisma.crmLead.findFirst({ where: { alizoLeadId: l.id }, select: { id: true } });
           if (existe) { resumo.ignorados++; continue; }
+          const maps = l.source === "google_maps";
+          const fone = normalizarTelefone(l.phone);
+          // Mesmo contato já cadastrado na unidade (ex.: digitado pela equipe)? Só vincula, não duplica.
+          if (!maps && fone) {
+            const ult = fone.slice(-9);
+            const mesmo = await prisma.crmLead.findFirst({
+              where: { franchiseId, situacao: "ativo", alizoLeadId: null, OR: [{ whatsapp: { contains: ult } }, { telefone: { contains: ult } }] },
+              select: { id: true },
+            });
+            if (mesmo) {
+              await prisma.crmLead.update({ where: { id: mesmo.id }, data: { alizoLeadId: l.id } });
+              resumo.ignorados++; continue;
+            }
+          }
           await prisma.crmLead.create({
             data: {
-              empresa: l.company_name || l.name, contato: l.company_name ? l.name : null,
+              empresa: l.company_name || l.name || `Contato WhatsApp (${(fone || l.phone || "").slice(-4)})`,
+              contato: l.company_name ? l.name : null,
               telefone: l.phone, whatsapp: l.phone, email: l.email, franchiseId,
-              origem: "google_maps", etapa: "novo_lead", etapaChangedAt: new Date(), alizoLeadId: l.id,
-              anotacao: l.notes || null,
+              origem: maps ? "google_maps" : "whatsapp", etapa: "novo_lead", etapaChangedAt: new Date(), alizoLeadId: l.id,
+              anotacao: maps ? (l.notes || null) : `Contato recebido por WhatsApp (${l.source}). ${l.notes || ""}`.trim(),
+              // Quem escreve para a unidade pede o contato: conversa iniciada pelo próprio lead.
+              ...(maps ? {} : { optIn: true, optInAt: new Date() }),
             },
           });
           resumo.importados++;
@@ -130,6 +149,30 @@ export async function sincronizarAlizo(opts: { horas?: number } = {}) {
     } catch (e: any) {
       resumo.erros++;
       console.error("[alizo-sync] unidade falhou:", e?.status, e?.message);
+    }
+  }
+
+  // Leads do CRM com aceite que ainda não foram ao Sales Rep (formulário, tráfego pago, cadastro): recupera falhas.
+  if (gatilhoLeadsAtivo()) {
+    try {
+      const mapa = await prisma.alizoUnidade.findMany({ select: { franchiseKey: true } });
+      const donos = mapa.map(m => (m.franchiseKey === CHAVE_MATRIZ ? null : m.franchiseKey));
+      const pendentes = await prisma.crmLead.findMany({
+        where: {
+          optIn: true, alizoLeadId: null, situacao: "ativo", convertido: false,
+          origem: { not: "google_maps" }, createdAt: { gte: new Date(Date.now() - 3 * 86_400_000) },
+          franchiseId: { in: donos as any }, OR: [{ whatsapp: { not: null } }, { telefone: { not: null } }],
+        },
+        select: { id: true, whatsapp: true, telefone: true }, orderBy: { createdAt: "asc" }, take: 20,
+      });
+      for (const l of pendentes) {
+        if (!normalizarTelefone(l.whatsapp || l.telefone)) continue;
+        const r = await enviarLeadParaAlizo(l.id, { primeiroContato: true });
+        if (r.ok) resumo.enviados++;
+      }
+    } catch (e: any) {
+      resumo.erros++;
+      console.error("[alizo-sync] envio de leads falhou:", e?.message);
     }
   }
 

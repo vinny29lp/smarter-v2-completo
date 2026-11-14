@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { gatilhoLeadsAtivo, enviarLeadParaAlizo } from "@/lib/alizo/sync";
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIpFromRequest } from "@/lib/rate-limit";
 import { enviarNotificacaoNovoLead } from "@/lib/email";
@@ -66,6 +67,14 @@ export async function POST(req: Request) {
       etapaChangedAt: new Date(),
     } as any,
   });
+
+  // Sales Rep (Alizo): lead que deixou o contato e deu aceite é atendido no WhatsApp (não é prospecção fria).
+  if (lead.optIn && gatilhoLeadsAtivo()) {
+    await Promise.race([
+      enviarLeadParaAlizo(lead.id, { primeiroContato: true }).catch(() => null),
+      new Promise(r => setTimeout(r, 4000)),
+    ]);
+  }
 
   // Nota inicial automática com destino do lead
   const destino = franchiseId ? `unidade ${franchiseId}` : "FRANQUEADORA";

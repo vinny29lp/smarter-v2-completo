@@ -51,7 +51,6 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/hoje",label:"Hoje ☀️",icon:Calendar},
     {href:"/dashboard/crescimento",label:"Crescimento 📈",icon:LineChart},
     {href:"/dashboard/resultados",label:"Resultados 📊",icon:LineChart},
-    {href:"/dashboard/alizo",label:"Funcionários digitais 🤖",icon:Plug},
     {href:"/dashboard/franqueados",label:"Franqueados",icon:Users},
     {href:"/dashboard/lixeira",label:"Lixeira 🗑️",icon:Shield},
     {href:"/dashboard/engajamento",label:"Engajamento",icon:Activity},
@@ -73,6 +72,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/equipe",label:"Equipe",icon:Users},
     {href:"/dashboard/configuracoes",label:"Configurações",icon:Settings},
     {href:"/dashboard/saude",label:"Saúde do Sistema",icon:HeartPulse},
+    {href:"/dashboard/alizo",label:"Funcionários digitais 🤖",icon:Plug},
   ]],
   EMPRESA: [[]],
   ESTUDANTE: [[]],
@@ -81,7 +81,6 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/hoje",label:"Hoje ☀️",icon:Calendar},
     {href:"/dashboard/mes",label:"Mês Atual",icon:Calendar},
     {href:"/dashboard/resultados",label:"Resultados 📊",icon:LineChart},
-    {href:"/dashboard/alizo",label:"Funcionários digitais 🤖",icon:Plug},
   ],[
     {href:"/dashboard/empresas",label:"Empresas",icon:Building2},
     {href:"/dashboard/estudantes",label:"Estudantes",icon:GraduationCap},
@@ -96,6 +95,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/marketing",label:"Marketing Hub 📣",icon:Megaphone},
     {href:"/dashboard/gamificacao",label:"Gamificação",icon:Star},
     {href:"/dashboard/equipe",label:"Equipe",icon:Users},
+    {href:"/dashboard/alizo",label:"Funcionários digitais 🤖",icon:Plug},
   ]],
 };
 
