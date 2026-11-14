@@ -286,6 +286,7 @@ model Vacancy {
   createdAt     DateTime?      @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime?      @default(now()) @updatedAt @db.Timestamptz(6)
   publicSlug    String?
+  alizoJobId    String?
   applications  Application[]
   company       Company        @relation(fields: [companyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   franchise     Franchise      @relation(fields: [franchiseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -311,6 +312,7 @@ model Application {
   entrevistaLocal String?
   entrevistaLink  String?
   recomendacao    String?
+  etapaChangedAt  DateTime? @default(now()) @db.Timestamptz(6)
   student         Student   @relation(fields: [studentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vacancy         Vacancy   @relation(fields: [vacancyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 

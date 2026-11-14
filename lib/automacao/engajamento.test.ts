@@ -38,10 +38,13 @@ describe("shortlist (#8)", () => {
 });
 
 describe("funil (#10)", () => {
-  it("candidatura parada", () => {
-    expect(candidaturaParada({ etapa: "inscritos", criadaEm: dias(6), agora })).toBe(true);
-    expect(candidaturaParada({ etapa: "triagem", criadaEm: dias(30), agora })).toBe(false);
-    expect(candidaturaParada({ etapa: "inscritos", criadaEm: dias(2), agora })).toBe(false);
+  it("candidatura parada por etapa", () => {
+    expect(candidaturaParada({ etapa: "inscritos", desde: dias(6), agora })).toBe(true);
+    expect(candidaturaParada({ etapa: "inscritos", desde: dias(2), agora })).toBe(false);
+    expect(candidaturaParada({ etapa: "triagem", desde: dias(8), agora })).toBe(true);
+    expect(candidaturaParada({ etapa: "triagem", desde: dias(6), agora })).toBe(false);
+    expect(candidaturaParada({ etapa: "entrevista", desde: dias(8), agora })).toBe(true);
+    expect(candidaturaParada({ etapa: "aprovado", desde: dias(90), agora })).toBe(false);
   });
   it("lembrete de entrevista", () => {
     expect(lembreteEntrevistaDevido(new Date(agora.getTime() + 24 * 3_600_000), agora)).toBe(true);

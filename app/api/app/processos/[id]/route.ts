@@ -32,7 +32,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const app = await prisma.application.update({
     where: { id: params.id },
     data: {
-      ...(body.etapa             !== undefined ? { etapa: body.etapa }                         : {}),
+      ...(body.etapa             !== undefined ? { etapa: body.etapa, etapaChangedAt: new Date() } : {}),
       ...(body.anotacao          !== undefined ? { anotacao: body.anotacao }                   : {}),
       ...(body.anotacaoInterna   !== undefined ? { anotacaoInterna: body.anotacaoInterna }     : {}),
       ...(body.parecerTecnico    !== undefined ? { parecerTecnico: body.parecerTecnico }       : {}),

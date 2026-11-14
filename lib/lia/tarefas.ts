@@ -60,8 +60,8 @@ export function montarTarefas(alertas: any, opts: { financeiro?: boolean } = {})
     detalhe: "Cada solicitação sem resposta é um possível contrato perdido.",
     acao: "Atender solicitações", href: "/dashboard/vagas" });
   add({ id: "funil", prioridade: "atencao", lista: alertas.candidaturasParadas,
-    titulo: "Candidatos parados há mais de 5 dias sem triagem",
-    detalhe: "Estudantes inscritos aguardando um retorno. Avance, entreviste ou dispense.",
+    titulo: "Candidatos parados na mesma etapa do processo seletivo",
+    detalhe: "Inscritos há 5+ dias, ou em triagem/entrevista há 7+ dias. Avance, entreviste ou dispense.",
     acao: "Abrir processos seletivos", href: "/dashboard/processos" });
   add({ id: "crm", prioridade: "atencao", lista: alertas.leadsCrmVencidos,
     titulo: "Leads do CRM com retorno atrasado",

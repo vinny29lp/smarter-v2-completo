@@ -21,6 +21,6 @@ export async function POST(req: Request) {
   if (!etapaValida(body?.etapa)) return NextResponse.json({ error: "Etapa inválida." }, { status: 400 });
 
   const escopo: any = role === "FRANQUEADORA" ? {} : { vacancy: { franchiseId: session.user.franchiseId || "__nenhuma__" } };
-  const r = await prisma.application.updateMany({ where: { id: { in: ids }, ...escopo }, data: { etapa: body.etapa } });
+  const r = await prisma.application.updateMany({ where: { id: { in: ids }, ...escopo }, data: { etapa: body.etapa, etapaChangedAt: new Date() } });
   return NextResponse.json({ ok: true, movidas: r.count, ignoradas: ids.length - r.count });
 }

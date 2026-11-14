@@ -238,14 +238,17 @@ export async function GET() {
       }));
     }
 
-    // ─── #10 Candidaturas paradas em "inscritos" há 5+ dias (vaga aberta) ───────
+    // ─── #10 Candidaturas paradas na etapa (inscritos 5d · triagem 7d · entrevista 7d) ──────
     const candidaturasParadas = await prisma.application.findMany({
       where: {
-        etapa: "inscritos", createdAt: { lte: addDias(hoje, -5) },
         vacancy: { status: "ABERTA", ...fwhere },
+        OR: [
+          { etapa: "inscritos", etapaChangedAt: { lte: addDias(hoje, -5) } },
+          { etapa: { in: ["triagem", "entrevista"] }, etapaChangedAt: { lte: addDias(hoje, -7) } },
+        ],
       },
-      select: { id: true, createdAt: true, student: { select: { name: true } }, vacancy: { select: { titulo: true } } },
-      orderBy: { createdAt: "asc" }, take: 30,
+      select: { id: true, etapa: true, etapaChangedAt: true, student: { select: { name: true } }, vacancy: { select: { titulo: true } } },
+      orderBy: { etapaChangedAt: "asc" }, take: 100,
     });
 
     // ─── Totais por severidade ────────────────────────────────────────────────
@@ -262,7 +265,7 @@ export async function GET() {
         avaliacoesDevidas:           avaliacoesDevidas.map(c => ({ ...c, mesesAtivo: Math.floor(DIAS(c.dataInicio ?? new Date()) / 30) })),
         leadsCrmVencidos,
         solicitacoesVagaPendentes,
-        candidaturasParadas: candidaturasParadas.map(c => ({ ...c, dias: DIAS(c.createdAt ?? new Date()) })),
+        candidaturasParadas: candidaturasParadas.map(c => ({ ...c, dias: DIAS(c.etapaChangedAt ?? new Date()) })),
         contratosGestaoSemCobertura,
         liaFeedbackBugs,
         liaFeedbackGeral,

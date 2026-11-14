@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions);
@@ -43,6 +43,11 @@ export async function POST(
       ? student.discResult === vaga.discDesejado ? 95 : 65
       : 60;
 
+  const body = await req.json().catch(() => ({}));
   await prisma.application.create({ data: { studentId, vacancyId, matching } });
+  // Consentimento explícito (opt-in) para contato pelo assistente digital / Recrutador
+  if (body?.consentimentoContato === true) {
+    await prisma.student.update({ where: { id: studentId }, data: { partnerConsentStatus: "granted", partnerConsentAt: new Date() } }).catch(() => {});
+  }
   return NextResponse.json({ ok: true });
 }

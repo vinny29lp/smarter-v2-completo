@@ -3,6 +3,7 @@
  * de leads do Google Maps. Toda chamada passa pelo cliente (lib/alizo/client.ts); sem chave → no-op.
  */
 import { prisma } from "@/lib/prisma";
+import { sincronizarRecrutador } from "./recrutador";
 import { criarAlizoClient, normalizarTelefone, mascararTelefone, AlizoError } from "./client";
 
 const CHAVE_MATRIZ = "MATRIZ";
@@ -142,5 +143,6 @@ export async function sincronizarAlizo(opts: { horas?: number } = {}) {
     resumo.erros++;
     console.error("[alizo-sync] eventos falhou:", e?.status, e?.message);
   }
-  return { ok: true, ...resumo };
+  const recrutador = await sincronizarRecrutador().catch((e: any) => { console.error("[alizo-recrutador]", e?.message); return { erro: true }; });
+  return { ok: true, ...resumo, recrutador };
 }

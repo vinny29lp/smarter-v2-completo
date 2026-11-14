@@ -39,10 +39,12 @@ export function vagaPrecisaShortlist(p: { criadaEm: Date | null; candidatos: num
   return true;
 }
 
-/** #10 Funil: candidatura parada em "inscritos" há 5+ dias; lembrete de entrevista 18–30h antes. */
+/** #10 Funil: candidatura parada na mesma etapa além do prazo (inscritos 5d, triagem 7d, entrevista 7d). */
 export const DIAS_CANDIDATURA_PARADA = 5;
-export function candidaturaParada(p: { etapa: string | null; criadaEm: Date | null; agora: Date }): boolean {
-  return (p.etapa || "inscritos") === "inscritos" && !!p.criadaEm && diasDesde(p.criadaEm, p.agora) >= DIAS_CANDIDATURA_PARADA;
+export const PRAZO_ETAPA_DIAS: Record<string, number> = { inscritos: 5, triagem: 7, entrevista: 7 };
+export function candidaturaParada(p: { etapa: string | null; desde: Date | null; agora: Date }): boolean {
+  const prazo = PRAZO_ETAPA_DIAS[p.etapa || "inscritos"];
+  return !!prazo && !!p.desde && diasDesde(p.desde, p.agora) >= prazo;
 }
 export function lembreteEntrevistaDevido(entrevistaAt: Date | null, agora: Date): boolean {
   if (!entrevistaAt) return false;
