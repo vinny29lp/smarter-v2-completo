@@ -2,7 +2,9 @@
 
 /** Remove o texto citado e assinaturas, deixando só o que a pessoa escreveu. */
 export function limparTextoResposta(texto: string | null | undefined, max = 2000): string {
-  const linhas = String(texto || "").replace(/\r/g, "").split("\n");
+  // Cabeçalho de citação do Gmail pode quebrar em 2 linhas ("Em ..., Fulano <\nemail> escreveu:").
+  const bruto = String(texto || "").replace(/\r/g, "").replace(/(^|\n)\s*(Em|On) [^\n]{0,160}(\n[^\n]{0,120})?\s(escreveu|wrote):?[\s\S]*$/i, "");
+  const linhas = bruto.split("\n");
   const saida: string[] = [];
   for (const l of linhas) {
     if (/^>/.test(l)) break;

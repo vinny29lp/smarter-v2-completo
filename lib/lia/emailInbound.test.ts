@@ -32,3 +32,10 @@ describe("emailInbound", () => {
     expect(lerDecisaoIA('{"acao":"x"}')).toBeNull();
   });
 });
+
+describe("limparTextoResposta — citação quebrada em 2 linhas", () => {
+  it("corta o cabeçalho 'Em ... escreveu:' do Gmail mesmo quebrado", () => {
+    const t = "Tenho interesse!\n\n\nEm dom., 15 de nov. de 2026 às 2:50 PM, Lia da Smarter Estágios <\ncontato@smarterestagios.com.br> escreveu:\n\n> Olá";
+    expect(limparTextoResposta(t)).toBe("Tenho interesse!");
+  });
+});
