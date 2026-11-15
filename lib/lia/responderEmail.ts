@@ -99,6 +99,17 @@ export async function processarRespostaEmail(ev: EventoRecebido): Promise<{ ok: 
     if (lead) franchiseId = unidadeValida(lead.franchiseId);
   }
 
+  // Sem unidade no registro do envio: descobre pelo remetente (estudante, empresa ou IES cadastrados).
+  if (!franchiseId) {
+    const e = normalizarEmail(remetente);
+    const [est, emp, ies] = await Promise.all([
+      prisma.student.findFirst({ where: { email: { equals: e, mode: "insensitive" }, franchiseId: { not: null } }, select: { franchiseId: true } }).catch(() => null),
+      prisma.company.findFirst({ where: { email: { equals: e, mode: "insensitive" }, franchiseId: { not: null } }, select: { franchiseId: true } }).catch(() => null),
+      prisma.institution.findFirst({ where: { email: { equals: e, mode: "insensitive" }, franchiseId: { not: null } }, select: { franchiseId: true } }).catch(() => null),
+    ]);
+    franchiseId = unidadeValida(est?.franchiseId || emp?.franchiseId || ies?.franchiseId);
+  }
+
   // Registra primeiro (deduplicação + contagem semanal) — mesmo se algo falhar depois, não repete.
   await prisma.automacaoEnvio.create({
     data: { tipo: "EMAIL_RESPOSTA", refId: chave, destinatario: remetente, canal: "email", detalhe: (texto || "(sem texto)").slice(0, 300), franchiseId },
