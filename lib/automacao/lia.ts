@@ -10,8 +10,9 @@
 import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/email";
 import { buscarStatusAutentique } from "@/lib/autentique";
-import { tokenOptOut } from "./token";
-import { randomUUID } from "crypto";
+import { tokenOptOut, tokenRelatorio } from "./token";
+import { convenioDevido, relatorioSemestralDevido, periodoSemestre } from "./iesRegras";
+import { randomUUID, randomBytes } from "crypto";
 import { esc, botao, templateLiaEmail, linksPorTipo, enderecoResposta, remetenteLia, htmlParaTexto, type Topico } from "./emailBrand";
 import { proximoFollowup, mensagemFollowup, ETAPAS_FOLLOWUP, LIMITE_DIARIO_UNIDADE, MAX_FOLLOWUPS } from "./crmFollowup";
 import { reativacaoDevida, ativacaoPortalDevida, vagaPrecisaShortlist, lembreteEntrevistaDevido, MAX_REATIVACOES, MAX_AVISOS_PORTAL, MAX_CONVITES_ESTUDANTE_SEMANA, SCORE_MINIMO_CONVITE, TAMANHO_SHORTLIST } from "./engajamento";
@@ -55,8 +56,8 @@ interface Ctx {
   porUnidade: Map<string, Record<Contador, number>>;
 }
 
-type Contador = "renovacao" | "avaliacao" | "assinatura" | "crm" | "reativacao" | "portal" | "convite" | "entrevista";
-const zerados = (): Record<Contador, number> => ({ renovacao: 0, avaliacao: 0, assinatura: 0, crm: 0, reativacao: 0, portal: 0, convite: 0, entrevista: 0 });
+type Contador = "renovacao" | "avaliacao" | "assinatura" | "crm" | "reativacao" | "portal" | "convite" | "entrevista" | "convenio" | "relatorio";
+const zerados = (): Record<Contador, number> => ({ renovacao: 0, avaliacao: 0, assinatura: 0, crm: 0, reativacao: 0, portal: 0, convite: 0, entrevista: 0, convenio: 0, relatorio: 0 });
 
 function contar(ctx: Ctx, franchiseId: string, k: Contador) {
   const c = ctx.porUnidade.get(franchiseId) || zerados();
@@ -376,6 +377,8 @@ async function avisarUnidades(ctx: Ctx) {
     if (c.reativacao) partes.push(`${c.reativacao} convite(s) de reativação a empresas sem contrato`);
     if (c.portal) partes.push(`${c.portal} orientação(ões) de acesso ao portal da empresa`);
     if (c.convite) partes.push(`${c.convite} convite(s) a estudantes para vagas abertas`);
+    if (c.convenio) partes.push(`${c.convenio} convite(s)/lembrete(s) de convênio a instituições de ensino`);
+    if (c.relatorio) partes.push(`${c.relatorio} relatório(s) semestral(is) enviado(s) a instituições de ensino`);
     if (c.entrevista) partes.push(`${c.entrevista} lembrete(s) de entrevista a estudantes`);
     if (partes.length === 0) continue;
     const usuarios = await prisma.user.findMany({ where: { franchiseId, role: "FRANQUEADO", active: true }, select: { id: true } });
@@ -392,6 +395,118 @@ async function avisarUnidades(ctx: Ctx) {
     n++;
   }
   return n;
+}
+
+
+// ───────────────────────────── IES: convênio e relatório semestral ─────────────────────────────
+const MAX_CONVENIO_POR_EXECUCAO = 8;
+const MAX_RELATORIOS_POR_EXECUCAO = 20;
+
+/** Unidade responsável pela IES: a que a convidou ou, senão, a que tem mais contratos com ela. */
+function unidadeDaIES(i: { franchiseId: string | null }, contratos: { franchiseId: string }[]): string {
+  if (i.franchiseId) return i.franchiseId;
+  const cont = new Map<string, number>();
+  for (const c of contratos) cont.set(c.franchiseId, (cont.get(c.franchiseId) || 0) + 1);
+  return [...cont.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "__rede__";
+}
+
+async function conveniosIES(ctx: Ctx): Promise<Resultado> {
+  const r = novoResultado();
+  const ies = await prisma.institution.findMany({
+    where: { convenioStatus: "PENDENTE", email: { not: null } },
+    select: {
+      id: true, name: true, email: true, coordenador: true, token: true, franchiseId: true, conviteEnviadoEm: true,
+      contracts: { select: { franchiseId: true, status: true } },
+      _count: { select: { students: true } },
+    },
+    take: 400,
+  });
+  if (ies.length === 0) return r;
+  const logs = await prisma.automacaoEnvio.findMany({
+    where: { tipo: "CONVENIO_IES", refId: { in: ies.map(i => i.id) }, NOT: { detalhe: { startsWith: "duplicado" } } },
+    select: { refId: true, createdAt: true },
+  });
+  const porIes = new Map<string, Date[]>();
+  for (const l of logs) porIes.set(l.refId, [...(porIes.get(l.refId) || []), l.createdAt]);
+
+  // Prioriza quem tem mais estágios ativos.
+  const ordenadas = [...ies].sort((a, b) => b.contracts.filter(c => c.status === "ATIVO").length - a.contracts.filter(c => c.status === "ATIVO").length);
+  let feitos = 0;
+  for (const i of ordenadas) {
+    if (feitos >= MAX_CONVENIO_POR_EXECUCAO || ctx.restante.n <= 0) break;
+    const acao = convenioDevido({
+      status: "PENDENTE", emailValido: emailValido(normalizarEmail(i.email)), temEstagios: i.contracts.length > 0 || i._count.students > 0,
+      conviteEnviadoEm: i.conviteEnviadoEm, enviosLia: porIes.get(i.id) || [], agora: ctx.agora,
+    });
+    if (!acao) continue;
+    const unidade = unidadeDaIES(i, i.contracts);
+    let token = i.token;
+    if (!token) {
+      token = randomBytes(12).toString("hex");
+      if (!ctx.dryRun) await prisma.institution.update({ where: { id: i.id }, data: { token, conviteEnviadoEm: i.conviteEnviadoEm ?? ctx.agora } });
+    }
+    const portalUrl = `${APP_URL}/ies/${token}`;
+    const oi = i.coordenador ? `Olá, ${esc(i.coordenador.split(" ")[0])}!` : "Olá!";
+    const corpo = acao === "convite"
+      ? `<p>${oi}</p><p>Sou a Lia, assistente digital da Smarter Estágios. Alunos da <b>${esc(i.name)}</b> já fazem estágio por meio da Smarter, e um convênio formaliza essa parceria, sem nenhum custo para a instituição.</p><p>Dá para assinar online, em poucos minutos:</p>${botao(portalUrl, "Assinar o convênio")}<p>Se preferir tratar com a nossa equipe, é só responder este e-mail.</p>`
+      : `<p>${oi}</p><p>Retomando: o convênio de estágio com a <b>${esc(i.name)}</b> ainda está pendente. Ficou alguma dúvida que eu possa esclarecer?</p>${botao(portalUrl, "Assinar o convênio")}<p>Se preferir, responda este e-mail e a nossa equipe fala com você.</p>`;
+    const ok = await enviar(ctx, r, {
+      tipo: "CONVENIO_IES", refId: i.id, para: i.email,
+      assunto: acao === "convite" ? `Convênio de estágio — ${i.name}` : `Convênio de estágio pendente — ${i.name}`,
+      titulo: "Convênio de estágio", corpo,
+      detalhe: `${acao === "convite" ? "Convite" : "Lembrete"} de convênio — ${i.name}`,
+      franchiseId: unidade, contador: "convenio",
+    });
+    if (ok) {
+      feitos++;
+      if (!ctx.dryRun && !i.conviteEnviadoEm) await prisma.institution.update({ where: { id: i.id }, data: { conviteEnviadoEm: ctx.agora } }).catch(() => {});
+    }
+  }
+  return r;
+}
+
+async function relatoriosSemestraisIES(ctx: Ctx): Promise<Resultado> {
+  const r = novoResultado();
+  const desde = new Date(ctx.agora.getTime() - 46 * 86_400_000);
+  const avs = await prisma.evaluation.findMany({
+    where: { tipo: "semestral", respondidoAt: { gte: desde }, contract: { institution: { email: { not: null } } } },
+    select: {
+      id: true, respondidoAt: true,
+      contract: {
+        select: {
+          franchiseId: true,
+          student: { select: { name: true, curso: true } },
+          company: { select: { name: true } },
+          institution: { select: { name: true, email: true, coordenador: true } },
+        },
+      },
+    },
+    orderBy: { respondidoAt: "asc" },
+    take: 200,
+  });
+  if (avs.length === 0) return r;
+  const enviados = await prisma.automacaoEnvio.findMany({
+    where: { tipo: "RELATORIO_IES", refId: { in: avs.map(a => a.id) }, NOT: { detalhe: { startsWith: "duplicado" } } }, select: { refId: true },
+  });
+  const jaIds = new Set(enviados.map(e => e.refId));
+  let feitos = 0;
+  for (const a of avs) {
+    if (feitos >= MAX_RELATORIOS_POR_EXECUCAO || ctx.restante.n <= 0) break;
+    if (!relatorioSemestralDevido({ respondidoAt: a.respondidoAt, jaEnviado: jaIds.has(a.id), agora: ctx.agora })) continue;
+    const ies = a.contract.institution!;
+    const link = `${APP_URL}/api/public/ies/relatorio/${a.id}?t=${tokenRelatorio(a.id)}`;
+    const periodo = periodoSemestre(a.respondidoAt!);
+    const oi = ies.coordenador ? `Olá, ${esc(ies.coordenador.split(" ")[0])}!` : "Olá!";
+    const corpo = `<p>${oi}</p><p>Em cumprimento ao art. 7º, IV, da Lei 11.788/2008, segue o relatório semestral de atividades do estágio de <b>${esc(a.contract.student.name)}</b>${a.contract.student.curso ? ` (${esc(a.contract.student.curso)})` : ""} na empresa <b>${esc(a.contract.company.name)}</b>, referente a ${periodo}.</p>${botao(link, "Abrir o relatório")}<p>A página abre pronta para impressão; é só salvar em PDF. Qualquer dúvida, responda este e-mail.</p>`;
+    const ok = await enviar(ctx, r, {
+      tipo: "RELATORIO_IES", refId: a.id, para: ies.email,
+      assunto: `Relatório semestral de estágio — ${a.contract.student.name}`, titulo: "Relatório semestral de estágio", corpo,
+      detalhe: `Relatório semestral ${periodo} — ${a.contract.student.name} → ${ies.name}`,
+      franchiseId: a.contract.franchiseId, contador: "relatorio",
+    });
+    if (ok) feitos++;
+  }
+  return r;
 }
 
 
@@ -600,10 +715,12 @@ export async function rodarAutomacoesLia(opts: { dryRun?: boolean } = {}) {
   const convites = await convidarShortlist(ctx);
   const portal = await ativarPortalEmpresas(ctx);
   const reativacao = await reativarEmpresas(ctx);
+  const relatorios = await relatoriosSemestraisIES(ctx);
+  const convenios = await conveniosIES(ctx);
   const unidadesAvisadas = await avisarUnidades(ctx);
   return {
     dryRun: ctx.dryRun,
     teto: TETO_ENVIOS_POR_EXECUCAO,
-    assinaturas, renovacoes: renov, avaliacoes: aval, crm, entrevistas, convites, portal, reativacao, unidadesAvisadas,
+    assinaturas, renovacoes: renov, avaliacoes: aval, crm, entrevistas, convites, portal, reativacao, relatorios, convenios, unidadesAvisadas,
   };
 }

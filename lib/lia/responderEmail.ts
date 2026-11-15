@@ -28,6 +28,7 @@ const TOPICOS_VALIDOS: Topico[] = ["portal", "solicitar_vaga", "avaliacoes", "es
 const LINK_PAINEL: Record<string, string> = {
   ASSINATURA: "/dashboard/contratos", RENOVACAO: "/dashboard/contratos", AVALIACAO: "/dashboard/contratos",
   CRM_FOLLOWUP: "/dashboard/crm", REATIVACAO: "/dashboard/empresas", PORTAL_ATIVACAO: "/dashboard/empresas",
+  CONVENIO_IES: "/dashboard/ies", RELATORIO_IES: "/dashboard/contratos",
   CONVITE_VAGA: "/dashboard/processos", ENTREVISTA_LEMBRETE: "/dashboard/processos",
 };
 
@@ -141,7 +142,7 @@ export async function processarRespostaEmail(ev: EventoRecebido): Promise<{ ok: 
   const semana = new Date(Date.now() - 7 * 86_400_000);
   const respostasRecentes = await prisma.automacaoEnvio.count({ where: { tipo: "EMAIL_LIA_RESPOSTA", destinatario: remetente, createdAt: { gte: semana } } });
   const mesmoRemetente = normalizarEmail(original.destinatario) === normalizarEmail(remetente);
-  const escalar = deveEscalar(texto) || !mesmoRemetente || !podeResponderAutomaticamente(respostasRecentes);
+  const escalar = deveEscalar(texto) || original.tipo.endsWith("_IES") || !mesmoRemetente || !podeResponderAutomaticamente(respostasRecentes);
 
   const confirmarEncaminhamento = () => enviarResposta({
     para: remetente, assunto: assuntoResposta(ev.subject), titulo: "Recebemos sua mensagem",
