@@ -45,6 +45,23 @@ function Meta({ d, podeEditar, onSalvar }: { d: any; podeEditar: boolean; onSalv
   );
 }
 
+function Respostas({ itens }: { itens: any[] }) {
+  if (!itens || itens.length === 0) return null;
+  return (
+    <div className="rounded-xl bg-amber-50 p-5 shadow-sm border border-amber-200">
+      <p className="text-sm font-bold text-amber-900 mb-2">📩 Respostas recebidas ({itens.length})</p>
+      <ul className="space-y-2">
+        {itens.map((n: any) => (
+          <li key={n.id} className="text-sm text-slate-700">
+            <span className="text-slate-400 text-xs">{new Date(n.createdAt).toLocaleString("pt-BR")}</span> — {n.mensagem}
+            {n.link && <Link href={n.link} className="ml-2 text-xs font-bold text-[#0f2a5e] underline">abrir →</Link>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function HojePage() {
   const { data: session } = useSession();
   const role = (session?.user as any)?.role as string | undefined;
@@ -79,6 +96,7 @@ export default function HojePage() {
           <h2 className="text-xl font-bold text-[#0f2a5e]">Hoje na rede</h2>
           <p className="text-sm text-slate-500">Contratos ativados no mês por unidade e se cada uma está no ritmo da meta.</p>
         </div>
+        <Respostas itens={d.respostas} />
         {(d.semMeta > 0 || d.atrasadas > 0) && (
           <p className="text-sm rounded-lg bg-amber-50 text-amber-800 px-3 py-2">
             {d.atrasadas > 0 && `${d.atrasadas} unidade(s) atrasada(s) na meta. `}
@@ -109,6 +127,7 @@ export default function HojePage() {
         <p className="text-sm text-slate-500">Suas prioridades do dia, a meta do mês e o que a Lia já resolveu por você.</p>
       </div>
       {erro && <p className="text-sm text-red-600">{erro}</p>}
+      <Respostas itens={d.respostas} />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Meta d={d} podeEditar={role === "FRANQUEADO"} onSalvar={salvarMeta} />

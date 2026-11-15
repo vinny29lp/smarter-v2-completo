@@ -34,7 +34,8 @@ const LINK_PAINEL: Record<string, string> = {
 export interface EventoRecebido { emailId: string; messageId?: string | null; from: string; to: string[]; subject?: string | null }
 
 async function buscarConteudo(emailId: string): Promise<{ texto: string; headers: Record<string, string> } | null> {
-  const key = await getApiKey();
+  // Ler e-mails recebidos exige chave com acesso total (a chave de envio costuma ser restrita a "enviar").
+  const key = process.env.RESEND_RECEIVING_API_KEY || (await getApiKey());
   if (!key) return null;
   try {
     const r = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, {

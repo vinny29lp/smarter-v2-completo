@@ -39,6 +39,13 @@ export async function GET() {
     const fimDia = new Date(inicioDia.getTime() + 86_400_000);
     const crmWhere = { ...escopo, situacao: "ativo", etapa: { notIn: ["fechado", "perdido"] } };
 
+    // Respostas de e-mail/WhatsApp encaminhadas a este usuário (unidade dona do contato ou franqueadora).
+    const respostas = await prisma.notification.findMany({
+      where: { userId: session.user.id, tipo: "lia_email" },
+      orderBy: { createdAt: "desc" }, take: 8,
+      select: { id: true, titulo: true, mensagem: true, link: true, createdAt: true },
+    });
+
     if (!master) {
       const [metaReg, retornoHoje, atrasados, novos, feed] = await Promise.all([
         prisma.metaUnidade.findUnique({ where: { franchiseId_mes: { franchiseId: franchiseId!, mes } } }),
@@ -60,6 +67,7 @@ export async function GET() {
         progresso: progressoMeta(metaReg?.contratos ?? sugerida, realizado, agora),
         crm: { retornoHoje, atrasados, novos },
         lia: feed,
+        respostas,
       });
     }
 
@@ -81,7 +89,7 @@ export async function GET() {
       };
     }).sort((a, b) => b.realizado - a.realizado);
     return NextResponse.json({
-      escopo: "rede", mes, unidades,
+      escopo: "rede", mes, unidades, respostas,
       semMeta: unidades.filter(u => u.meta === null).length,
       atrasadas: unidades.filter(u => u.ritmo === "atrasada").length,
     });
