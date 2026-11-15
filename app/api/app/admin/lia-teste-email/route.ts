@@ -6,10 +6,12 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
+import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/email";
 import { tokenOptOut } from "@/lib/automacao/token";
 import { emailValido, normalizarEmail } from "@/lib/automacao/regras";
-import { templateLiaEmail, linksPorTipo, botao, remetenteLia, htmlParaTexto } from "@/lib/automacao/emailBrand";
+import { templateLiaEmail, linksPorTipo, botao, remetenteLia, htmlParaTexto, enderecoResposta } from "@/lib/automacao/emailBrand";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +36,14 @@ export async function GET(req: Request) {
   const enviados: Record<string, boolean> = {};
   for (const m of modelos) {
     const html = templateLiaEmail({ modo: "texto", titulo: m.titulo, corpo: m.corpo, app: APP, optoutUrl, links: linksPorTipo(m.tipo, APP) });
-    enviados[m.chave] = await sendMail(to, `[Teste] ${m.assunto}`, html, undefined, remetenteLia(), { text: htmlParaTexto(html) });
+    // Registra o envio e usa o Reply-To rastreável: assim dá para testar a resposta de ponta a ponta
+    // (sem unidade → o aviso vai para a franqueadora).
+    const envioId = randomUUID();
+    const replyTo = enderecoResposta(process.env.LIA_EMAIL_RESPOSTAS, envioId);
+    enviados[m.chave] = await sendMail(to, `[Teste] ${m.assunto}`, html, undefined, remetenteLia(), { text: htmlParaTexto(html), ...(replyTo ? { replyTo } : {}) });
+    if (enviados[m.chave]) {
+      await prisma.automacaoEnvio.create({ data: { id: envioId, tipo: m.tipo, refId: `teste-${envioId}`, destinatario: to, detalhe: "Teste manual (tela Funcionários digitais)", franchiseId: null } }).catch(() => {});
+    }
   }
   return NextResponse.json({ para: to, enviados });
 }
