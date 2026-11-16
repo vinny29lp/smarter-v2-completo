@@ -34,3 +34,13 @@ export function tokenAvaliacaoValido(contractId: string, token: string): boolean
   const recebido = Buffer.from(String(token || ""));
   return esperado.length === recebido.length && timingSafeEqual(esperado, recebido);
 }
+
+/** Token do link de levantamento de perfil da vaga (/solicitar-vaga?empresa=&t=): só links gerados pelo sistema abrem a vaga sozinhos. */
+export function tokenLevantamentoVaga(companyId: string): string {
+  return createHmac("sha256", segredo()).update("levantamento:" + companyId).digest("hex").slice(0, 32);
+}
+export function tokenLevantamentoVagaValido(companyId: string, token: string): boolean {
+  const esperado = tokenLevantamentoVaga(companyId);
+  const a = Buffer.from(esperado), b = Buffer.from(String(token || ""));
+  return a.length === b.length && timingSafeEqual(a, b);
+}

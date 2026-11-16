@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { normalizarRegioes } from "@/lib/onboarding/regras";
 import bcrypt from "bcryptjs";
 import { handleApiError } from "@/lib/api-response";
 import { enviarBoasVindasFranqueado } from "@/lib/email";
@@ -54,6 +55,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: "Nao autorizado" }, { status: 403 });
   }
   const body = await req.json();
+
+  // Região de atuação (Sales prospecta só nela)
+  if (body.action === "set_regioes") {
+    const regioes = normalizarRegioes(body.regioes);
+    if (regioes.length === 0) return NextResponse.json({ error: "Informe ao menos uma cidade." }, { status: 400 });
+    await prisma.franchise.update({ where: { id: params.id }, data: { regioesAtuacao: regioes as any } as any });
+    return NextResponse.json({ ok: true, regioes });
+  }
 
   // Bloquear/desbloquear acesso
   if (body.action === "toggle_access") {

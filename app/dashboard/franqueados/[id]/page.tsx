@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
+import { RegioesEditor } from "@/components/forms/RegioesEditor";
+import type { Regiao } from "@/lib/onboarding/regras";
 
 const fmt = (v:number) => "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2});
 
@@ -31,10 +33,11 @@ export default function FranqueadoDetailPage() {
   const [criarAcessoModal, setCriarAcessoModal] = useState(false);
   const [emailCriarAcesso, setEmailCriarAcesso] = useState("");
   const [criandoAcesso, setCriandoAcesso] = useState(false);
+  const [regioes, setRegioes] = useState<Regiao[]>([]);
 
   const load = () => {
     fetch(`/api/app/franqueados/${params.id}`)
-      .then(r=>r.json()).then(d=>{ setData(d.franchise); setEditForm(d.franchise); });
+      .then(r=>r.json()).then(d=>{ setData(d.franchise); setEditForm(d.franchise); setRegioes(Array.isArray(d.franchise?.regioesAtuacao) ? d.franchise.regioesAtuacao : []); });
   };
   useEffect(load,[params.id]);
 
@@ -162,6 +165,12 @@ export default function FranqueadoDetailPage() {
 
       {aba==="visao-geral" && (
         <div className="grid grid-cols-2 gap-5">
+          <Card className="p-5 col-span-2">
+            <h3 className="text-sm font-bold mb-1">Região de atuação (Sales)</h3>
+            <p className="text-xs text-slate-500 mb-3">O Sales (Victor) prospecta exclusivamente nestas cidades/bairros.</p>
+            <RegioesEditor value={regioes.length ? regioes : [{ cidade: "", uf: data.uf || "" }]} onChange={setRegioes} ufPadrao={data.uf} />
+            <div className="mt-3"><Button onClick={()=>action({action:"set_regioes",regioes})} disabled={saving}>Salvar região</Button></div>
+          </Card>
           <Card className="p-5">
             <h3 className="text-sm font-bold mb-3">Dados da Unidade</h3>
             {[

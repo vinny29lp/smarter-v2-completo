@@ -79,6 +79,12 @@ model Franchise {
   monthOpenings        MonthOpening[]
   partnerApiTokens     PartnerApiToken[]
 
+  // ─── Onboarding guiado + região de atuação (Sales prospecta só nela) ───
+  regioesAtuacao        Json?      // [{ cidade: string, uf?: string, bairro?: string }]
+  onboardingObrigatorio Boolean    @default(false) // true = sistema só destrava ao concluir o assistente
+  onboardingPassos      Json?      // { tour_hoje: true, ... } confirmações manuais do franqueado
+  onboardingConcluidoEm DateTime?  @db.Timestamptz(6)
+
   @@map("franchises")
 }
 

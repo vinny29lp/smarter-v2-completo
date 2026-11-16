@@ -29,6 +29,18 @@ export function montarTarefas(alertas: any, opts: { financeiro?: boolean } = {})
     }
   };
 
+  add({ id: "contato_humano", prioridade: "critico", lista: alertas.contatosHumanosPendentes,
+    titulo: "Empresas da sua região esperando o seu contato",
+    detalhe: "O Sales trouxe e a Lia já enviou a apresentação por e-mail. Chame no WhatsApp com o link da apresentação ou ligue — é o que mais gera contratos.",
+    acao: "Fazer os contatos agora", href: "/dashboard/hoje" });
+  add({ id: "vagas_prontas", prioridade: "critico", lista: alertas.vagasProntasSelecao,
+    titulo: "Vagas com candidatos prontos para o processo seletivo",
+    detalhe: "Já há 2 ou mais candidatos interessados. Marque o processo seletivo com a empresa.",
+    acao: "Marcar processo seletivo", href: "/dashboard/processos" });
+  add({ id: "vagas_sem_cand", prioridade: "atencao", lista: alertas.vagasSemCandidatos,
+    titulo: "Vagas abertas sem nenhum candidato",
+    detalhe: "Chame os candidatos sugeridos no WhatsApp e divulgue a vaga (Indeed, InfoJobs, redes e faculdades).",
+    acao: "Ver como recrutar", href: "/dashboard/vagas" });
   add({ id: "pend60", prioridade: "critico", lista: alertas.contratosPendentes2Mes,
     titulo: "Contratos sem assinatura há mais de 60 dias",
     detalhe: "Estão parados e podem ser excluídos. Reenvie para assinatura ou cancele.",

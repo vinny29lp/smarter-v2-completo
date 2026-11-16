@@ -6,6 +6,9 @@ import { avisarResposta } from "@/lib/lia/avisoResposta";
 import { prisma } from "@/lib/prisma";
 import { sincronizarRecrutador } from "./recrutador";
 import { ehOrigemSmarter } from "./origem";
+import { TEXTO_CONTATO_HUMANO } from "@/lib/crm/contatoHumano";
+import { normalizarRegioes, regiaoComoTexto, regiaoDoDia } from "@/lib/onboarding/regras";
+import { provisionarFranquiasPendentes } from "./provisionar";
 import { criarAlizoClient, normalizarTelefone, mascararTelefone, AlizoError } from "./client";
 
 const CHAVE_MATRIZ = "MATRIZ";
@@ -150,6 +153,8 @@ export async function sincronizarAlizo(opts: { horas?: number } = {}) {
               anotacao: maps ? (l.notes || null) : `Contato recebido por WhatsApp (${l.source}). ${l.notes || ""}`.trim(),
               // Quem escreve para a unidade pede o contato: conversa iniciada pelo próprio lead.
               ...(maps ? {} : { optIn: true, optInAt: new Date() }),
+              // Empresa trazida pelo Sales numa franquia: o franqueado precisa fazer o contato humano (Central de Ações).
+              ...(maps && franchiseId ? { proximaAcao: TEXTO_CONTATO_HUMANO, retornoAt: new Date() } : {}),
             },
           });
           resumo.importados++;
@@ -197,6 +202,55 @@ export async function sincronizarAlizo(opts: { horas?: number } = {}) {
     resumo.erros++;
     console.error("[alizo-sync] eventos falhou:", e?.status, e?.message);
   }
+  const provisao = await provisionarFranquiasPendentes().catch((e: any) => { console.error("[alizo-provisionar]", e?.message); return { erro: true }; });
+  const prospeccao = await prospeccaoRegional().catch((e: any) => { console.error("[alizo-prospeccao]", e?.message); return { erro: true }; });
   const recrutador = await sincronizarRecrutador().catch((e: any) => { console.error("[alizo-recrutador]", e?.message); return { erro: true }; });
-  return { ok: true, ...resumo, recrutador };
+  return { ok: true, ...resumo, provisao, prospeccao, recrutador };
+}
+
+/**
+ * Sales (Victor) prospecta SOMENTE na região de atuação da franquia: 1 região por dia (rotação), uma vez por dia por unidade.
+ * Só roda para unidades mapeadas na Alizo cujo assistente de primeiro acesso foi concluído (ou franquias antigas que já têm região).
+ * Falha da Alizo é registrada e tentada de novo no dia seguinte — nunca bloqueia o sync.
+ */
+export async function prospeccaoRegional(opts: { max?: number; agora?: Date } = {}) {
+  const client = criarAlizoClient();
+  if (!client) return { ok: false, motivo: "alizo_nao_configurado" };
+  const agora = opts.agora ?? new Date();
+  const resumo = { unidades: 0, capturados: 0, erros: 0 };
+  const mapa = await prisma.alizoUnidade.findMany({ where: { franchiseKey: { not: CHAVE_MATRIZ } } });
+  if (mapa.length === 0) return { ok: true, ...resumo };
+  const franquias: any[] = await prisma.franchise.findMany({
+    where: { id: { in: mapa.map(m => m.franchiseKey) }, status: "ATIVO" },
+  });
+  const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()));
+  const feitosHoje = new Set((await prisma.automacaoEnvio.findMany({
+    where: { tipo: "ALIZO_PROSPECCAO", createdAt: { gte: inicioDia } }, select: { refId: true },
+  })).map(x => x.refId));
+
+  for (const f of franquias) {
+    if (resumo.unidades >= (opts.max ?? 5)) break;
+    if (feitosHoje.has(f.id)) continue;
+    const liberada = f.onboardingConcluidoEm || !f.onboardingObrigatorio;
+    const regioes = normalizarRegioes(f.regioesAtuacao);
+    const regiao = regiaoDoDia(regioes, agora);
+    if (!liberada || !regiao) continue;
+    const unitId = mapa.find(m => m.franchiseKey === f.id)!.alizoUnitId;
+    resumo.unidades++;
+    let detalhe = "";
+    try {
+      await client.salvarPerfilProspeccao({ unit_id: unitId, mode: "general", region: regiaoComoTexto(regiao, f.uf), general_sector: null });
+      const r = await client.rodarProspeccao(unitId);
+      resumo.capturados += r.captured || 0;
+      detalhe = `Prospecção em ${regiaoComoTexto(regiao, f.uf)}: ${r.captured ?? 0} capturadas`;
+    } catch (e: any) {
+      resumo.erros++;
+      detalhe = `ERRO na prospecção (${e?.status ?? "rede"}): ${String(e?.message || "").slice(0, 120)}`;
+      console.error("[alizo-prospeccao] unidade falhou:", e?.status, e?.message);
+    }
+    await prisma.automacaoEnvio.create({
+      data: { tipo: "ALIZO_PROSPECCAO", refId: f.id, destinatario: "alizo", canal: "interno", detalhe: detalhe.slice(0, 300), franchiseId: f.id },
+    }).catch(() => {});
+  }
+  return { ok: true, ...resumo };
 }

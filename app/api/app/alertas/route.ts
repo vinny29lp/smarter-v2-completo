@@ -13,6 +13,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { contratosSemCoberturaGestao } from "@/lib/financeiro/cobrancaGestaoMensal";
+import { MARCADOR_CONTATO_HUMANO } from "@/lib/crm/contatoHumano";
 
 export const dynamic = "force-dynamic";
 
@@ -159,6 +160,30 @@ export async function GET() {
       take: 15,
     });
 
+    // ─── 8. Empresas trazidas pelo Sales aguardando contato humano da unidade ─
+    const contatosHumanosPendentes = isMaster ? [] : await prisma.crmLead.findMany({
+      where: { ...fwhere, convertido: false, situacao: "ativo", proximaAcao: { startsWith: MARCADOR_CONTATO_HUMANO } },
+      select: { id: true, empresa: true, contato: true, createdAt: true },
+      orderBy: { createdAt: "asc" }, take: 30,
+    });
+
+    // ─── 9. Vagas abertas: sem candidatos (divulgar) ou com candidatos prontos (marcar seleção) ─
+    let vagasSemCandidatos: { id: string; titulo: string; empresa: string; dias: number }[] = [];
+    let vagasProntasSelecao: { id: string; titulo: string; empresa: string; candidatos: number }[] = [];
+    if (!isMaster) {
+      const abertas = await prisma.vacancy.findMany({
+        where: { ...fwhere, status: "ABERTA" },
+        select: { id: true, titulo: true, createdAt: true, company: { select: { name: true } }, applications: { select: { etapa: true } } },
+        orderBy: { createdAt: "asc" }, take: 60,
+      });
+      vagasSemCandidatos = abertas
+        .filter(v => v.applications.length === 0 && v.createdAt && DIAS(v.createdAt) >= 1)
+        .map(v => ({ id: v.id, titulo: v.titulo, empresa: v.company?.name || "", dias: DIAS(v.createdAt!) })).slice(0, 15);
+      vagasProntasSelecao = abertas
+        .filter(v => v.applications.filter(a => ["inscritos", "triagem"].includes(a.etapa || "inscritos")).length >= 2 && !v.applications.some(a => a.etapa === "entrevista"))
+        .map(v => ({ id: v.id, titulo: v.titulo, empresa: v.company?.name || "", candidatos: v.applications.length })).slice(0, 15);
+    }
+
     // ─── Alertas exclusivos da FRANQUEADORA ──────────────────────────────────
     let unidadesComPendentes2Mes: { franchiseId: string; franchiseName: string; total: number }[] = [];
     let franquiaTarefasVencidas: { id: string; leadId: string; nomeCompleto: string; descricao: string; dueAt: Date }[] = [];
@@ -252,8 +277,8 @@ export async function GET() {
     });
 
     // ─── Totais por severidade ────────────────────────────────────────────────
-    const critico = contratosPendentes2Mes.length + contratosVencidosSemFinalizar.length + unidadesComPendentes2Mes.length + franquiaTarefasVencidas.length + contratosGestaoSemCobertura.length;
-    const atencao = contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length + liaFeedbackBugs.length + solicitacoesVagaPendentes.length + candidaturasParadas.length;
+    const critico = vagasProntasSelecao.length + contatosHumanosPendentes.length + contratosPendentes2Mes.length + contratosVencidosSemFinalizar.length + unidadesComPendentes2Mes.length + franquiaTarefasVencidas.length + contratosGestaoSemCobertura.length;
+    const atencao = vagasSemCandidatos.length + contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length + liaFeedbackBugs.length + solicitacoesVagaPendentes.length + candidaturasParadas.length;
     const info    = franquiaLeadsParados.length + liaFeedbackGeral.length;
 
     return NextResponse.json({
@@ -264,6 +289,9 @@ export async function GET() {
         contratosPendentes2Mes:      contratosPendentes2Mes.map(c => ({ ...c, diasPendente: DIAS(c.createdAt ?? new Date()) })),
         avaliacoesDevidas:           avaliacoesDevidas.map(c => ({ ...c, mesesAtivo: Math.floor(DIAS(c.dataInicio ?? new Date()) / 30) })),
         leadsCrmVencidos,
+        contatosHumanosPendentes,
+        vagasSemCandidatos,
+        vagasProntasSelecao,
         solicitacoesVagaPendentes,
         candidaturasParadas: candidaturasParadas.map(c => ({ ...c, dias: DIAS(c.etapaChangedAt ?? new Date()) })),
         contratosGestaoSemCobertura,

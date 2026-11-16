@@ -54,6 +54,7 @@ export const TOPICOS_POR_TIPO: Record<string, Topico[]> = {
   FIM_ESTAGIO_EMPRESA: ["estagiarios", "solicitar_vaga"],
   FIM_ESTAGIO_ESTUDANTE: ["vagas", "curriculo"],
   VAGA_PARADA: ["solicitar_vaga", "portal"],
+  PROSPECCAO: ["site"],
   RETORNO_EMPRESA: ["candidaturas", "portal"],
 };
 

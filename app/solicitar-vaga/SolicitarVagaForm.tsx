@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/Button";
 export function SolicitarVagaForm({ empresa }: { empresa: { name: string; cidade: string; uf: string } | null }) {
   const params = useSearchParams();
   const empresaId = params.get("empresa") || "";
+  const token = params.get("t") || "";
 
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [aberta, setAberta] = useState(false);
   const [error, setError] = useState("");
 
   const [form, setForm] = useState({
@@ -45,10 +47,11 @@ export function SolicitarVagaForm({ empresa }: { empresa: { name: string; cidade
     const res = await fetch("/api/public/solicitar-vaga", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, empresaId }),
+      body: JSON.stringify({ ...form, empresaId, t: token }),
     });
     const data = await res.json();
     if (data.error) { setError(data.error); setLoading(false); return; }
+    setAberta(!!data.vagaAberta);
     setDone(true);
     setLoading(false);
   };
@@ -68,7 +71,7 @@ export function SolicitarVagaForm({ empresa }: { empresa: { name: string; cidade
       <Card className="max-w-md w-full p-8 text-center">
         <div className="text-5xl mb-4">✅</div>
         <h2 className="text-xl font-black text-slate-800 mb-2">Solicitação enviada!</h2>
-        <p className="text-slate-500 text-sm">Recebemos o perfil da vaga. Nossa equipe entrará em contato em breve para dar andamento ao processo seletivo.</p>
+        <p className="text-slate-500 text-sm">{aberta ? "Recebemos o perfil e a vaga já está aberta! Estamos convidando candidatos compatíveis agora mesmo e nossa unidade entrará em contato em breve com os primeiros perfis." : "Recebemos o perfil da vaga. Nossa equipe entrará em contato em breve para dar andamento ao processo seletivo."}</p>
         <p className="text-xs text-slate-400 mt-4">Você pode fechar esta página.</p>
       </Card>
     </div>

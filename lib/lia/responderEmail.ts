@@ -30,12 +30,12 @@ const LINK_PAINEL: Record<string, string> = {
   CRM_FOLLOWUP: "/dashboard/crm", REATIVACAO: "/dashboard/empresas", PORTAL_ATIVACAO: "/dashboard/empresas",
   CONVENIO_IES: "/dashboard/ies", RELATORIO_IES: "/dashboard/contratos",
   AVALIACAO_SEMESTRAL: "/dashboard/contratos", FIM_ESTAGIO_EMPRESA: "/dashboard/contratos", FIM_ESTAGIO_ESTUDANTE: "/dashboard/contratos",
-  PESQUISA_EMPRESA: "/dashboard/contratos", PESQUISA_ESTUDANTE: "/dashboard/contratos", VAGA_PARADA: "/dashboard/vagas", RETORNO_EMPRESA: "/dashboard/processos",
+  PESQUISA_EMPRESA: "/dashboard/contratos", PESQUISA_ESTUDANTE: "/dashboard/contratos", VAGA_PARADA: "/dashboard/vagas", RETORNO_EMPRESA: "/dashboard/processos", PROSPECCAO: "/dashboard/crm",
   CONVITE_VAGA: "/dashboard/processos", ENTREVISTA_LEMBRETE: "/dashboard/processos",
 };
 
 /** Respostas a estes e-mails exigem decisão humana da unidade: a Lia só confirma o recebimento. */
-const TIPOS_SO_UNIDADE = new Set(["AVALIACAO_SEMESTRAL", "FIM_ESTAGIO_EMPRESA", "FIM_ESTAGIO_ESTUDANTE", "PESQUISA_EMPRESA", "PESQUISA_ESTUDANTE", "VAGA_PARADA", "RETORNO_EMPRESA"]);
+const TIPOS_SO_UNIDADE = new Set(["AVALIACAO_SEMESTRAL", "FIM_ESTAGIO_EMPRESA", "FIM_ESTAGIO_ESTUDANTE", "PESQUISA_EMPRESA", "PESQUISA_ESTUDANTE", "VAGA_PARADA", "RETORNO_EMPRESA", "PROSPECCAO"]);
 
 export interface EventoRecebido { emailId: string; messageId?: string | null; from: string; to: string[]; subject?: string | null }
 

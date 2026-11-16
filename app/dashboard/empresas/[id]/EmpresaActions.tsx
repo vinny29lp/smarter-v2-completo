@@ -172,19 +172,32 @@ export function EmpresaActions({ empresa }: { empresa: any }) {
             {acessoMsg}
           </div>
         )}
-        {/* Link de Solicitação de Vaga — empresa preenche o perfil da vaga */}
+        {/* Levantamento de perfil da vaga — a empresa preenche e a vaga abre sozinha (Lia chama os candidatos) */}
         <Button
           variant="secondary"
           className="w-full justify-center"
-          onClick={() => {
-            const base = typeof window !== "undefined" ? window.location.origin : "https://sistema.smarterestagios.com.br";
-            const link = `${base}/solicitar-vaga?empresa=${empresa.id}`;
-            navigator.clipboard.writeText(link);
+          onClick={async () => {
+            const r = await fetch(`/api/app/empresas/${empresa.id}/link-levantamento`, { cache: "no-store" });
+            if (!r.ok) return;
+            const j = await r.json();
+            try { await navigator.clipboard.writeText(j.link); } catch {}
             setCopiedVaga(true);
             setTimeout(() => setCopiedVaga(false), 2500);
           }}
         >
-          {copiedVaga ? "✅ Link Copiado!" : "📋 Copiar Link de Solicitação de Vaga"}
+          {copiedVaga ? "✅ Link Copiado!" : "📋 Levantamento de perfil (copiar link)"}
+        </Button>
+        <Button
+          variant="secondary"
+          className="w-full justify-center"
+          onClick={async () => {
+            const r = await fetch(`/api/app/empresas/${empresa.id}/link-levantamento`, { cache: "no-store" });
+            if (!r.ok) return;
+            const j = await r.json();
+            window.open(j.whatsappUrl || `https://wa.me/?text=${encodeURIComponent(j.mensagem)}`, "_blank");
+          }}
+        >
+          💬 Enviar levantamento por WhatsApp
         </Button>
         <Button variant="secondary" className="w-full justify-center" onClick={() => setEditModal(true)}>
           ✏️ Editar Dados

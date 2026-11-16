@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
+import { ContatoHumanoPanel } from "@/components/crm/ContatoHumanoPanel";
 import { slaStatus, diasRestantes, SLA_CONFIG } from "@/lib/crm/sla-config";
 
 const ETAPAS = ["novo_lead","primeiro_contato","apresentacao","proposta","negociacao","fechado"];
@@ -180,6 +181,7 @@ export default function CRMPage() {
 
   return (
     <div>
+      {!isFranqueadora && <ContatoHumanoPanel />}
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-black text-slate-800">CRM</h1>

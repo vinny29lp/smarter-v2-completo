@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { handleApiError } from "@/lib/api-response";
 import { enviarBoasVindasFranqueado } from "@/lib/email";
+import { normalizarRegioes } from "@/lib/onboarding/regras";
 
 // ⚡ ESC-002: paginação adicionada — evita payload crescente com 100+ franqueados
 export async function GET(req: Request) {
@@ -96,7 +97,14 @@ export async function POST(req: Request) {
           cidade: body.cidade, uf: body.uf, endereco: body.endereco, cep: body.cep,
           mensalidade: parseFloat(body.mensalidade) || 200,
           plano: body.plano || "completo",
-        },
+          // Região onde o Sales prospecta; sem nada informado, usa a cidade da unidade.
+          regioesAtuacao: (() => {
+            const r = normalizarRegioes(body.regioesAtuacao);
+            return (r.length ? r : normalizarRegioes([{ cidade: body.cidade, uf: body.uf }])) as any;
+          })(),
+          // Franquia nova só destrava o sistema ao concluir o assistente de primeiro acesso.
+          onboardingObrigatorio: true,
+        } as any,
       });
       const u = await tx.user.create({
         data: {

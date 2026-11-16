@@ -85,7 +85,12 @@ export class AlizoClient {
   }
 
   // ── Unidades ──
-  units() { return this.req<{ units: Array<{ id: string; slug: string; name: string; city: string; state: string; whatsapp_phone: string | null; timezone: string }> }>("GET", "/units"); }
+  units() { return this.req<{ units: Array<{ id: string; slug: string; name: string; city: string; state: string; whatsapp_phone: string | null; timezone: string; external_id?: string | null }> }>("GET", "/units"); }
+
+  /** Criação idempotente de unidade (pedido à Alizo — docs/pedido-alizo-unidades-whatsapp.md). Enquanto o endpoint não existir, a Alizo responde 404/405. */
+  criarUnidade(p: { external_id: string; name: string; city: string; state: string; timezone?: string; contact_email?: string }) {
+    return this.req<{ duplicate?: boolean; unit: { id: string; name?: string } }>("POST", "/units", p);
+  }
 
   // ── Leads / Sales Rep ──
   async criarLead(p: {

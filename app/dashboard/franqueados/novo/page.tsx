@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { RegioesEditor } from "@/components/forms/RegioesEditor";
+import { normalizarRegioes, type Regiao } from "@/lib/onboarding/regras";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +21,7 @@ export default function NovoFranqueadoPage() {
     mensalidade:"200", plano:"completo", senha:"",
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
+  const [regioes, setRegioes] = useState<Regiao[]>([{ cidade: "", uf: "" }]);
   const [cepLoading, setCepLoading] = useState(false);
 
   const handleCEPBlur = async () => {
@@ -41,9 +44,10 @@ export default function NovoFranqueadoPage() {
     if (!validarEmail(form.email)) { setError("E-mail inválido."); return; }
     if (form.cnpj && !validarCNPJ(form.cnpj)) { setError("CNPJ inválido."); return; }
     if (form.telefone && !validarTelefone(form.telefone)) { setError("Telefone inválido."); return; }
+    if (normalizarRegioes(regioes).length === 0) { setError("Informe ao menos uma região de atuação (cidade e, se quiser, bairro). O Sales só prospecta nela."); return; }
     setLoading(true); setError("");
     const res = await fetch("/api/app/franqueados", {
-      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(form),
+      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...form, regioesAtuacao: regioes }),
     });
     const data = await res.json();
     if (data.error) { setError(data.error); setLoading(false); return; }
@@ -150,6 +154,11 @@ export default function NovoFranqueadoPage() {
                 value={form.cep} onChange={e=>set("cep",e.target.value)} onBlur={handleCEPBlur} placeholder="20090-003" maxLength={9}/>
             </div>
           </div>
+        </Card>
+        <Card className="p-6">
+          <h3 className="text-sm font-bold text-slate-700 mb-1">Região de atuação *</h3>
+          <p className="text-xs text-slate-500 mb-3">Cidades e bairros em que esta franquia atua. É exclusivamente nessa região que o Sales (Victor) vai buscar empresas.</p>
+          <RegioesEditor value={regioes} onChange={setRegioes} ufPadrao={form.uf} />
         </Card>
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
           ✉️ Após cadastrar, o sistema envia automaticamente o e-mail de boas-vindas com login e senha. Caso o e-mail não chegue, use o botão "Reenviar Boas-Vindas" na página do franqueado.

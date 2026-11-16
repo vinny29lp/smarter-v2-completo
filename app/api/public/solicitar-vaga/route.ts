@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIpFromRequest } from "@/lib/rate-limit";
+import { tokenLevantamentoVagaValido } from "@/lib/automacao/token";
+import { abrirVagaDeSolicitacao } from "@/lib/vagas/abrirDeSolicitacao";
+import { convidarParaVagaAgora } from "@/lib/automacao/lia";
 
 export async function POST(req: Request) {
   const ip = getClientIpFromRequest(req);
@@ -31,7 +34,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Empresa não encontrada." }, { status: 404 });
   }
 
-  await (prisma as any).vagaSolicitacao.create({
+  const sol = await (prisma as any).vagaSolicitacao.create({
     data: {
       companyId:          empresa.id,
       franchiseId:        empresa.franchiseId || null,
@@ -56,5 +59,30 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ ok: true });
+  // Link gerado pelo sistema (com token válido): a vaga abre sozinha e a Lia já chama os candidatos.
+  // Sem token (links antigos), segue como solicitação PENDENTE para a unidade converter à mão.
+  let vagaAberta = false;
+  if (tokenLevantamentoVagaValido(empresa.id, String(body.t || ""))) {
+    try {
+      const r = await abrirVagaDeSolicitacao(sol.id);
+      if (r.ok) {
+        vagaAberta = true;
+        const c = await convidarParaVagaAgora(r.vagaId).catch(() => ({ convidados: 0, elegiveis: 0 }));
+        const usuarios = await prisma.user.findMany({ where: { franchiseId: r.franchiseId, role: "FRANQUEADO", active: true }, select: { id: true } });
+        if (usuarios.length) {
+          await prisma.notification.createMany({
+            data: usuarios.map(u => ({
+              userId: u.id, tipo: "lia_automacao", link: `/dashboard/vagas/${r.vagaId}`,
+              titulo: "🤖 Vaga aberta automaticamente",
+              mensagem: `${r.empresa} enviou o levantamento de perfil e eu abri a vaga "${r.titulo}". ${c.convidados > 0 ? `Já convidei ${c.convidados} candidato(s) compatível(is) por e-mail.` : "Não achei candidatos compatíveis no banco — abra a vaga para ver onde divulgar."}`,
+            })),
+          });
+        }
+      }
+    } catch (e: any) {
+      console.error("[solicitar-vaga] abertura automática falhou (fica pendente):", e?.message);
+    }
+  }
+
+  return NextResponse.json({ ok: true, vagaAberta });
 }

@@ -25,18 +25,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const franchiseId = session.user.franchiseId;
   if ((role === "FRANQUEADO" || role === "FUNCIONARIO") && franchiseId && franchiseId !== "FRANQUEADORA") {
     let bloqueada = false;
+    let onboardingPendente = false;
     try {
       const franchise: any = await prisma.franchise.findUnique({
         where: { id: franchiseId },
-        select: { acessoBloqueado: true, bloqueioLiberadoAte: true } as any,
+        select: { acessoBloqueado: true, bloqueioLiberadoAte: true, onboardingObrigatorio: true, onboardingConcluidoEm: true } as any,
       });
       const emTolerancia = franchise?.bloqueioLiberadoAte && new Date(franchise.bloqueioLiberadoAte) > new Date();
       bloqueada = !!franchise?.acessoBloqueado && !emTolerancia;
+      // Franquia nova: o sistema só destrava quando o assistente de primeiro acesso da Lia estiver 100%.
+      onboardingPendente = !!franchise?.onboardingObrigatorio && !franchise?.onboardingConcluidoEm;
     } catch (e) {
       // Erro de DB não pode derrubar o dashboard de toda a rede — segue sem bloquear
       console.error("[layout] Erro ao checar bloqueio:", (e as any)?.message);
     }
     if (bloqueada) redirect("/bloqueado");
+    if (onboardingPendente) redirect("/onboarding");
   }
 
   return (

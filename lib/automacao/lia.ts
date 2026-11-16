@@ -17,6 +17,7 @@ import { esc, botao, templateLiaEmail, linksPorTipo, enderecoResposta, remetente
 import { proximoFollowup, mensagemFollowup, ETAPAS_FOLLOWUP, LIMITE_DIARIO_UNIDADE, MAX_FOLLOWUPS } from "./crmFollowup";
 import { reativacaoDevida, ativacaoPortalDevida, vagaPrecisaShortlist, lembreteEntrevistaDevido, MAX_REATIVACOES, MAX_AVISOS_PORTAL, MAX_CONVITES_ESTUDANTE_SEMANA, SCORE_MINIMO_CONVITE, TAMANHO_SHORTLIST } from "./engajamento";
 import { rankear } from "@/lib/matching/matching";
+import { TEXTO_CONTATO_HUMANO, pendenteContatoHumano, linkApresentacao } from "@/lib/crm/contatoHumano";
 import { semestralDevida, marcoFim, limiteDoisAnosAcumulado, pesquisaDevida, vagaParadaDevida, retornoEmpresaDevido, COBRANCA_ESCALA_UNIDADE, MAX_COBRANCAS_SEMESTRAL } from "./cicloRegras";
 import {
   diasEntre, marcoRenovacao, marcoAvaliacao, limiteDeDoisAnos,
@@ -57,8 +58,8 @@ interface Ctx {
   porUnidade: Map<string, Record<Contador, number>>;
 }
 
-type Contador = "renovacao" | "avaliacao" | "assinatura" | "crm" | "reativacao" | "portal" | "convite" | "entrevista" | "convenio" | "relatorio" | "semestral" | "fim" | "pesquisa" | "vaga";
-const zerados = (): Record<Contador, number> => ({ renovacao: 0, avaliacao: 0, assinatura: 0, crm: 0, reativacao: 0, portal: 0, convite: 0, entrevista: 0, convenio: 0, relatorio: 0, semestral: 0, fim: 0, pesquisa: 0, vaga: 0 });
+type Contador = "prospeccao" | "renovacao" | "avaliacao" | "assinatura" | "crm" | "reativacao" | "portal" | "convite" | "entrevista" | "convenio" | "relatorio" | "semestral" | "fim" | "pesquisa" | "vaga";
+const zerados = (): Record<Contador, number> => ({ prospeccao: 0, renovacao: 0, avaliacao: 0, assinatura: 0, crm: 0, reativacao: 0, portal: 0, convite: 0, entrevista: 0, convenio: 0, relatorio: 0, semestral: 0, fim: 0, pesquisa: 0, vaga: 0 });
 
 function contar(ctx: Ctx, franchiseId: string, k: Contador) {
   const c = ctx.porUnidade.get(franchiseId) || zerados();
@@ -423,6 +424,7 @@ async function avisarUnidades(ctx: Ctx) {
     if (c.fim) partes.push(`${c.fim} aviso(s) de fim de estágio / limite de 2 anos`);
     if (c.pesquisa) partes.push(`${c.pesquisa} pesquisa(s) de satisfação pós-estágio`);
     if (c.vaga) partes.push(`${c.vaga} aviso(s) a empresas sobre vagas paradas ou candidatos sem retorno`);
+    if (c.prospeccao) partes.push(`${c.prospeccao} e-mail(s) de apresentação a empresas novas da sua região (agora ligue ou mande WhatsApp para elas — veja a Central de Ações)`);
     if (c.entrevista) partes.push(`${c.entrevista} lembrete(s) de entrevista a estudantes`);
     if (partes.length === 0) continue;
     const usuarios = await prisma.user.findMany({ where: { franchiseId, role: "FRANQUEADO", active: true }, select: { id: true } });
@@ -441,6 +443,57 @@ async function avisarUnidades(ctx: Ctx) {
   return n;
 }
 
+
+// ───────────────────────────── Prospecção: 1º contato por e-mail às empresas trazidas pelo Sales ─────────────────────────────
+const MAX_PROSPECCAO_POR_EXECUCAO = 40;
+const MAX_PROSPECCAO_POR_UNIDADE = 15;
+async function primeiroContatoProspeccao(ctx: Ctx): Promise<Resultado> {
+  const r = novoResultado();
+  const leads = await prisma.crmLead.findMany({
+    where: {
+      origem: "google_maps", franchiseId: { not: null }, email: { not: null }, situacao: "ativo", convertido: false,
+      createdAt: { gte: new Date(ctx.agora.getTime() - 14 * 86_400_000) },
+      franchise: { OR: [{ onboardingConcluidoEm: { not: null } }, { onboardingObrigatorio: false }] } as any,
+    },
+    select: { id: true, empresa: true, contato: true, email: true, franchiseId: true, proximaAcao: true, franchise: { select: { name: true, responsavel: true, cidade: true, whatsapp: true } } },
+    orderBy: { createdAt: "asc" }, take: 300,
+  });
+  if (leads.length === 0) return r;
+  const ja = new Set((await prisma.automacaoEnvio.findMany({
+    where: { tipo: "PROSPECCAO", refId: { in: leads.map(l => l.id) } }, select: { refId: true },
+  })).map(x => x.refId));
+  const porUnidade = new Map<string, number>();
+  let feitos = 0;
+  for (const l of leads) {
+    if (feitos >= MAX_PROSPECCAO_POR_EXECUCAO || ctx.restante.n <= 0) break;
+    if (ja.has(l.id)) continue;
+    const fid = l.franchiseId!;
+    if ((porUnidade.get(fid) || 0) >= MAX_PROSPECCAO_POR_UNIDADE) continue;
+    const u = l.franchise!;
+    const link = linkApresentacao(APP_URL, fid);
+    const ok = await enviar(ctx, r, {
+      tipo: "PROSPECCAO", refId: l.id, para: l.email,
+      assunto: `Estagiários para a ${l.empresa}`,
+      titulo: "Estagiários para a " + l.empresa,
+      corpo: `<p>Olá${l.contato ? ", " + esc(l.contato.split(" ")[0]) : ""}!</p>
+<p>Sou a Lia, assistente digital da <b>${esc(u.name)}</b>. Estamos em contato com empresas de ${esc(u.cidade)} que querem contar com estagiários sem burocracia: a Smarter seleciona os candidatos, cuida do contrato, do seguro e do acompanhamento.</p>
+<p>Preparamos uma apresentação rápida para a <b>${esc(l.empresa)}</b>:</p>${botao(link, "Ver a apresentação")}
+<p>${esc(u.responsavel.split(" ")[0])}, da nossa unidade, vai entrar em contato com você${u.whatsapp ? " pelo WhatsApp" : ""} para tirar dúvidas. Se preferir, é só responder este e-mail.</p>`,
+      detalhe: `Prospecção — ${l.empresa}`, franchiseId: fid, contador: "prospeccao",
+    });
+    if (ok) {
+      feitos++; porUnidade.set(fid, (porUnidade.get(fid) || 0) + 1);
+      if (!ctx.dryRun) {
+        await prisma.crmNota.create({ data: { leadId: l.id, tipo: "email", texto: "📧 A Lia enviou o e-mail de apresentação. Próximo passo: contato humano (WhatsApp ou ligação)." } }).catch(() => {});
+        // Garante o lembrete de contato humano mesmo em leads que já existiam antes da regra.
+        if (!pendenteContatoHumano(l.proximaAcao) && !l.proximaAcao) {
+          await prisma.crmLead.update({ where: { id: l.id }, data: { proximaAcao: TEXTO_CONTATO_HUMANO, retornoAt: new Date() } }).catch(() => {});
+        }
+      }
+    }
+  }
+  return r;
+}
 
 // ───────────────────────────── IES: convênio e relatório semestral ─────────────────────────────
 const MAX_CONVENIO_POR_EXECUCAO = 8;
@@ -637,13 +690,78 @@ async function ativarPortalEmpresas(ctx: Ctx): Promise<Resultado> {
 }
 
 // ───────────────────────────── #8 Shortlist automática e convite a estudantes ─────────────────────────────
+type VagaConvite = { id: string; titulo: string; descricao?: string | null; cursoRequerido: string | null; area: string | null; cidade: string | null; uf: string | null; discDesejado: string | null; bolsa: number; publicSlug: string | null; franchiseId: string };
+
+/** Convida os melhores candidatos (por matching) para UMA vaga e devolve quantos foram convidados. */
+async function convidarEstudantesDaVaga(ctx: Ctx, r: Resultado, v: VagaConvite, porEmail: Map<string, number>): Promise<{ convidados: number; elegiveis: number }> {
+  const [jaInscritos, jaConvidados, estudantes] = await Promise.all([
+    prisma.application.findMany({ where: { vacancyId: v.id }, select: { studentId: true } }),
+    prisma.automacaoEnvio.findMany({ where: { tipo: "CONVITE_VAGA", refId: v.id }, select: { destinatario: true } }),
+    prisma.student.findMany({
+      where: { franchiseId: v.franchiseId, status: "DISPONIVEL" },
+      select: { id: true, name: true, email: true, curso: true, cidade: true, uf: true, semestre: true, periodo: true, discResult: true, habilidades: true, celular: true, curriculo: true },
+      take: 500,
+    }),
+  ]);
+  const inscritos = new Set(jaInscritos.map(a => a.studentId));
+  const convidados = new Set(jaConvidados.map(c => normalizarEmail(c.destinatario)));
+  const elegiveis = estudantes.filter(e =>
+    !inscritos.has(e.id) && !convidados.has(normalizarEmail(e.email)) && (porEmail.get(normalizarEmail(e.email)) || 0) < MAX_CONVITES_ESTUDANTE_SEMANA);
+  const ranking = rankear(elegiveis, v, SCORE_MINIMO_CONVITE).slice(0, TAMANHO_SHORTLIST);
+
+  for (const c of ranking) {
+    const email = normalizarEmail(c.estudante.email);
+    const ok = await enviar(ctx, r, {
+      tipo: "CONVITE_VAGA", refId: v.id, para: c.estudante.email,
+      assunto: `Vaga de estágio: ${v.titulo}`,
+      titulo: "Uma vaga combina com você",
+      corpo: `<p>Olá, ${esc((c.estudante.name || "").split(" ")[0] || "estudante")}!</p>
+<p>Encontramos uma vaga de estágio que combina com o seu perfil${c.motivos.length ? " (" + esc(c.motivos.slice(0, 2).join(", ").toLowerCase()) + ")" : ""}:</p>
+<p><b>${esc(v.titulo)}</b>${v.cidade ? " — " + esc(v.cidade) + (v.uf ? "/" + esc(v.uf) : "") : ""}${v.bolsa ? "<br/>Bolsa: R$ " + Number(v.bolsa).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}</p>
+${v.descricao ? "<p>" + esc(String(v.descricao).split("\n")[0].slice(0, 280)) + "</p>" : ""}<p>Você tem interesse? As vagas são preenchidas rápido — veja os detalhes e se candidate:</p>${botao(APP_URL + "/vaga/" + v.publicSlug, "Ver a vaga e me candidatar")}`,
+      detalhe: `Convite vaga ${v.titulo} (${v.id}) — score ${c.score}`, franchiseId: v.franchiseId, contador: "convite",
+    });
+    if (ok) porEmail.set(email, (porEmail.get(email) || 0) + 1);
+  }
+  return { convidados: ranking.length, elegiveis: elegiveis.length };
+}
+
+/**
+ * Chamado quando uma vaga acaba de ser aberta (ex.: empresa enviou o levantamento de perfil):
+ * convida na hora os melhores candidatos disponíveis da unidade, sem esperar o cron das 09h.
+ * Respeita opt-out, o limite semanal por estudante e grava SHORTLIST (o cron só volta à vaga em 10 dias).
+ */
+export async function convidarParaVagaAgora(vagaId: string): Promise<{ convidados: number; elegiveis: number; semLink?: boolean }> {
+  const v = await prisma.vacancy.findUnique({
+    where: { id: vagaId },
+    select: { id: true, titulo: true, descricao: true, cursoRequerido: true, area: true, cidade: true, uf: true, discDesejado: true, bolsa: true, publicSlug: true, franchiseId: true, status: true },
+  });
+  if (!v || v.status !== "ABERTA") return { convidados: 0, elegiveis: 0 };
+  if (!v.publicSlug) return { convidados: 0, elegiveis: 0, semLink: true };
+  const optOut = new Set((await prisma.contatoOptOut.findMany({ select: { email: true } })).map(o => normalizarEmail(o.email)));
+  const agora = new Date();
+  const ctx: Ctx = { dryRun: false, agora, restante: { n: 30 }, optOut, vistos: new Set(), porUnidade: new Map() };
+  const convitesRecentes = await prisma.automacaoEnvio.findMany({
+    where: { tipo: "CONVITE_VAGA", createdAt: { gte: new Date(agora.getTime() - 7 * 86_400_000) }, NOT: { detalhe: { startsWith: "duplicado" } } },
+    select: { destinatario: true },
+  });
+  const porEmail = new Map<string, number>();
+  for (const c of convitesRecentes) porEmail.set(c.destinatario, (porEmail.get(c.destinatario) || 0) + 1);
+  const r = novoResultado();
+  const out = await convidarEstudantesDaVaga(ctx, r, v as VagaConvite, porEmail);
+  await prisma.automacaoEnvio.create({
+    data: { tipo: "SHORTLIST", refId: v.id, destinatario: "unidade", canal: "interno", detalhe: `Rodada imediata: ${out.convidados} convidados de ${out.elegiveis} elegíveis` },
+  }).catch(() => {});
+  return out;
+}
+
 const MAX_VAGAS_SHORTLIST_POR_EXECUCAO = 15;
 async function convidarShortlist(ctx: Ctx): Promise<Resultado> {
   const r = novoResultado();
   const vagas = await prisma.vacancy.findMany({
     where: { status: "ABERTA", publicSlug: { not: null } },
     select: {
-      id: true, titulo: true, cursoRequerido: true, area: true, cidade: true, uf: true, discDesejado: true, bolsa: true,
+      id: true, titulo: true, descricao: true, cursoRequerido: true, area: true, cidade: true, uf: true, discDesejado: true, bolsa: true,
       publicSlug: true, createdAt: true, franchiseId: true, _count: { select: { applications: true } },
     },
     orderBy: { createdAt: "asc" }, take: 200,
@@ -669,38 +787,10 @@ async function convidarShortlist(ctx: Ctx): Promise<Resultado> {
     if (!vagaPrecisaShortlist({ criadaEm: v.createdAt, candidatos: v._count.applications, ultimaRodada: ultima.get(v.id) || null, agora: ctx.agora })) continue;
     vagasTratadas++;
 
-    const [jaInscritos, jaConvidados, estudantes] = await Promise.all([
-      prisma.application.findMany({ where: { vacancyId: v.id }, select: { studentId: true } }),
-      prisma.automacaoEnvio.findMany({ where: { tipo: "CONVITE_VAGA", refId: v.id }, select: { destinatario: true } }),
-      prisma.student.findMany({
-        where: { franchiseId: v.franchiseId, status: "DISPONIVEL" },
-        select: { id: true, name: true, email: true, curso: true, cidade: true, uf: true, semestre: true, periodo: true, discResult: true, habilidades: true, celular: true, curriculo: true },
-        take: 500,
-      }),
-    ]);
-    const inscritos = new Set(jaInscritos.map(a => a.studentId));
-    const convidados = new Set(jaConvidados.map(c => normalizarEmail(c.destinatario)));
-    const elegiveis = estudantes.filter(e =>
-      !inscritos.has(e.id) && !convidados.has(normalizarEmail(e.email)) && (porEmail.get(normalizarEmail(e.email)) || 0) < MAX_CONVITES_ESTUDANTE_SEMANA);
-    const ranking = rankear(elegiveis, v, SCORE_MINIMO_CONVITE).slice(0, TAMANHO_SHORTLIST);
-
-    for (const c of ranking) {
-      const email = normalizarEmail(c.estudante.email);
-      const ok = await enviar(ctx, r, {
-        tipo: "CONVITE_VAGA", refId: v.id, para: c.estudante.email,
-        assunto: `Vaga de estágio: ${v.titulo}`,
-        titulo: "Uma vaga combina com você",
-        corpo: `<p>Olá, ${esc((c.estudante.name || "").split(" ")[0] || "estudante")}!</p>
-<p>Encontramos uma vaga de estágio que combina com o seu perfil${c.motivos.length ? " (" + esc(c.motivos.slice(0, 2).join(", ").toLowerCase()) + ")" : ""}:</p>
-<p><b>${esc(v.titulo)}</b>${v.cidade ? " — " + esc(v.cidade) + (v.uf ? "/" + esc(v.uf) : "") : ""}${v.bolsa ? "<br/>Bolsa: R$ " + Number(v.bolsa).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}</p>
-<p>As vagas são preenchidas rápido. Veja os detalhes e se candidate:</p>${botao(APP_URL + "/vaga/" + v.publicSlug, "Ver a vaga e me candidatar")}`,
-        detalhe: `Convite vaga ${v.titulo} (${v.id}) — score ${c.score}`, franchiseId: v.franchiseId, contador: "convite",
-      });
-      if (ok) porEmail.set(email, (porEmail.get(email) || 0) + 1);
-    }
+    const { convidados, elegiveis } = await convidarEstudantesDaVaga(ctx, r, v, porEmail);
     if (!ctx.dryRun) {
       await prisma.automacaoEnvio.create({
-        data: { tipo: "SHORTLIST", refId: v.id, destinatario: "unidade", canal: "interno", detalhe: `Rodada: ${ranking.length} convidados de ${elegiveis.length} elegíveis` },
+        data: { tipo: "SHORTLIST", refId: v.id, destinatario: "unidade", canal: "interno", detalhe: `Rodada: ${convidados} convidados de ${elegiveis} elegíveis` },
       }).catch(() => {});
     }
   }
@@ -1045,12 +1135,13 @@ export async function rodarAutomacoesLia(opts: { dryRun?: boolean } = {}) {
   const reativacao = await reativarEmpresas(ctx);
   const relatorios = await relatoriosSemestraisIES(ctx);
   const convenios = await conveniosIES(ctx);
+  const prospeccao = await primeiroContatoProspeccao(ctx);
   const vagasParadas = await vagasParadasERetorno(ctx);
   const pesquisas = await pesquisasPosEstagio(ctx);
   const unidadesAvisadas = await avisarUnidades(ctx);
   return {
     dryRun: ctx.dryRun,
     teto: TETO_ENVIOS_POR_EXECUCAO,
-    assinaturas, renovacoes: renov, semestrais, fim, avaliacoes: aval, crm, entrevistas, convites, portal, reativacao, relatorios, convenios, vagasParadas, pesquisas, unidadesAvisadas,
+    assinaturas, renovacoes: renov, semestrais, fim, avaliacoes: aval, crm, entrevistas, convites, portal, reativacao, relatorios, convenios, prospeccao, vagasParadas, pesquisas, unidadesAvisadas,
   };
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { montarTarefas, type TarefaLia } from "@/lib/lia/tarefas";
+import { ContatoHumanoPanel } from "@/components/crm/ContatoHumanoPanel";
 
 const ROTULO_RITMO: Record<string, { txt: string; cor: string }> = {
   batida: { txt: "Meta batida 🎉", cor: "text-green-700 bg-green-50" },
@@ -127,6 +128,7 @@ export default function HojePage() {
         <p className="text-sm text-slate-500">Suas prioridades do dia, a meta do mês e o que a Lia já resolveu por você.</p>
       </div>
       {erro && <p className="text-sm text-red-600">{erro}</p>}
+      {role !== "FRANQUEADORA" && <ContatoHumanoPanel />}
       <Respostas itens={d.respostas} />
 
       <div className="grid md:grid-cols-2 gap-4">
