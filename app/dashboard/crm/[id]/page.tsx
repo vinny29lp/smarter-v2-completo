@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import Link from "next/link";
 import { getAllWhatsAppTemplates, buildWhatsAppUrl } from "@/lib/crm/whatsapp-templates";
+import { AlizoLeadAcoes } from "@/components/crm/AlizoLeadAcoes";
 import { SLA_CONFIG, slaStatus, diasRestantes } from "@/lib/crm/sla-config";
 import {
   detectarSituacao, todasSituacoes, GRUPOS_FOLLOWUP,
@@ -367,6 +368,8 @@ export default function LeadDetailPage() {
           </Button>
         </div>
       </div>
+
+      {lead.franchiseId && <AlizoLeadAcoes leadId={lead.id} alizoLeadId={lead.alizoLeadId} pausadoInicial={lead.alizoPausado} optIn={lead.optIn} />}
 
       <div className="grid grid-cols-3 gap-5">
         {/* Coluna 1: Dados do lead */}

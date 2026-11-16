@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   if (!ev?.id || !ev?.type) return NextResponse.json({ error: "Evento inválido." }, { status: 400 });
 
   try {
-    const r = await processarEventoAlizo({ id: ev.id, type: ev.type, unit_id: ev.unit_id, data: ev.data });
+    const r = await processarEventoAlizo({ id: ev.id, type: ev.type, unit_id: ev.unit_id, external_id: ev.external_id, data: ev.data });
     return NextResponse.json({ ok: true, ...r });
   } catch (e: any) {
     console.error("[alizo-webhook] erro:", e?.message);

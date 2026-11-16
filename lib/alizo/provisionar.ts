@@ -1,58 +1,90 @@
 /**
- * Conecta cada franquia à sua unidade na Alizo SEM passo manual:
- *  1) já mapeada → nada a fazer;
- *  2) procura na Alizo uma unidade que já exista para a franquia (external_id, nome ou cidade) e grava o mapeamento;
- *  3) se não existir e ALIZO_CRIAR_UNIDADE_ATIVO=true, pede a criação (POST /units, conforme o pedido
- *     docs/pedido-alizo-unidades-whatsapp.md). Enquanto a Alizo não expuser esse endpoint, devolve "aguardando".
- * Sem chave configurada → no-op. Nunca lança: quem chama decide o que fazer com o resultado.
+ * Sincronização das franquias da Smarter com as unidades da Alizo (sem passo manual).
+ * Vínculo por external_id (id permanente da franquia) — nunca por nome. Falha da Alizo grava
+ * alizoSyncStatus = pending/error e permite reprocessar; nunca impede criar/editar a franquia.
+ * Sem chave configurada → no-op.
  */
 import { prisma } from "@/lib/prisma";
-import { criarAlizoClient, AlizoError } from "./client";
-import { casarUnidade } from "./provisionarRegras";
+import { criarAlizoClient, AlizoError, mensagemAmigavel } from "./client";
+import { sincronizarFranquiaCore, backfillCore, type RepoAlizo, type ResultadoSync } from "./unidadesCore";
+import { erroSeguro } from "./unidadesRegras";
 
-export type ResultadoProvisao =
-  | { ok: true; estado: "ja_mapeada" | "mapeada" | "criada"; alizoUnitId: string }
-  | { ok: false; estado: "alizo_nao_configurado" | "aguardando_alizo" | "erro"; detalhe?: string };
+const repo: RepoAlizo = {
+  getFranquia: async id => (await prisma.franchise.findUnique({
+    where: { id },
+    select: { id: true, name: true, responsavel: true, email: true, telefone: true, whatsapp: true, endereco: true, cep: true, cidade: true, uf: true, status: true, acessoBloqueado: true },
+  })) as any,
+  getMapa: async key => prisma.alizoUnidade.findUnique({ where: { franchiseKey: key }, select: { alizoUnitId: true } }),
+  quemUsaUnidade: async u => (await prisma.alizoUnidade.findFirst({ where: { alizoUnitId: u }, select: { franchiseKey: true } }))?.franchiseKey ?? null,
+  salvarMapa: async (key, unitId, nome) => { await prisma.alizoUnidade.upsert({ where: { franchiseKey: key }, create: { franchiseKey: key, alizoUnitId: unitId, nome }, update: {} }); },
+  marcar: async (id, d) => {
+    await prisma.franchise.update({
+      where: { id },
+      data: {
+        alizoSyncStatus: d.status, alizoLastError: d.erro,
+        ...(d.status === "synced" ? { alizoSyncedAt: new Date() } : {}),
+        ...(d.templateVersion !== undefined ? { alizoTemplateVersion: d.templateVersion } : {}),
+      },
+    });
+  },
+};
 
-export async function provisionarAlizoDaFranquia(franchiseId: string): Promise<ResultadoProvisao> {
-  const ja = await prisma.alizoUnidade.findUnique({ where: { franchiseKey: franchiseId } });
-  if (ja) return { ok: true, estado: "ja_mapeada", alizoUnitId: ja.alizoUnitId };
+export type ResultadoProvisao = ResultadoSync | { ok: false; classe: "nao_configurado"; mensagem: string; auth: false };
 
+/** Cria/vincula/atualiza a unidade da franquia na Alizo. Nunca lança. */
+export async function sincronizarFranquiaAlizo(franchiseId: string): Promise<ResultadoProvisao> {
   const client = criarAlizoClient();
-  if (!client) return { ok: false, estado: "alizo_nao_configurado" };
-  const f = await prisma.franchise.findUnique({ where: { id: franchiseId }, select: { id: true, name: true, cidade: true, uf: true, email: true } });
-  if (!f) return { ok: false, estado: "erro", detalhe: "franquia_nao_encontrada" };
-
+  if (!client) return { ok: false, classe: "nao_configurado", mensagem: "Integração com a Alizo não configurada.", auth: false };
   try {
-    const { units } = await client.units();
-    const jaUsadas = new Set((await prisma.alizoUnidade.findMany({ select: { alizoUnitId: true } })).map(m => m.alizoUnitId));
-    const achada = casarUnidade(f, units.filter(u => !jaUsadas.has(u.id)));
-    if (achada) {
-      await prisma.alizoUnidade.create({ data: { franchiseKey: f.id, alizoUnitId: achada.id, nome: achada.name } });
-      return { ok: true, estado: "mapeada", alizoUnitId: achada.id };
-    }
-    if (process.env.ALIZO_CRIAR_UNIDADE_ATIVO === "true") {
-      const r = await client.criarUnidade({ external_id: f.id, name: f.name, city: f.cidade, state: f.uf, timezone: "America/Sao_Paulo", contact_email: f.email });
-      await prisma.alizoUnidade.create({ data: { franchiseKey: f.id, alizoUnitId: r.unit.id, nome: r.unit.name || f.name } });
-      return { ok: true, estado: "criada", alizoUnitId: r.unit.id };
-    }
-    return { ok: false, estado: "aguardando_alizo" };
+    return await sincronizarFranquiaCore({ repo, client }, franchiseId);
   } catch (e: any) {
-    // 404/405 = a Alizo ainda não tem o endpoint de criação: segue "aguardando", sem alarde.
-    if (e instanceof AlizoError && (e.status === 404 || e.status === 405)) return { ok: false, estado: "aguardando_alizo" };
-    console.error("[alizo-provisionar] falhou:", e?.status, e?.message);
-    return { ok: false, estado: "erro", detalhe: e?.message };
+    console.error("[alizo-sync-franquia] falhou:", e?.status, String(e?.message || "").slice(0, 120));
+    return { ok: false, classe: "desconhecido", mensagem: erroSeguro(e?.status ?? 0, e?.message), auth: false };
   }
 }
+export const provisionarAlizoDaFranquia = sincronizarFranquiaAlizo;
 
-/** Passa por todas as franquias ativas sem mapeamento (cron). Teto por execução para não estourar a API. */
+/** Cron: franquias ativas ainda pendentes (nunca sincronizadas ou com falha temporária). */
 export async function provisionarFranquiasPendentes(max = 10) {
-  const mapeadas = new Set((await prisma.alizoUnidade.findMany({ select: { franchiseKey: true } })).map(m => m.franchiseKey));
-  const todas = await prisma.franchise.findMany({ where: { status: "ATIVO" }, select: { id: true }, orderBy: { createdAt: "desc" } });
+  const pend = await prisma.franchise.findMany({ where: { status: "ATIVO", alizoSyncStatus: "pending" }, select: { id: true }, orderBy: { createdAt: "desc" }, take: max });
   const resumo = { mapeadas: 0, aguardando: 0, erros: 0 };
-  for (const f of todas.filter(x => !mapeadas.has(x.id)).slice(0, max)) {
-    const r = await provisionarAlizoDaFranquia(f.id);
-    if (r.ok) resumo.mapeadas++; else if (r.estado === "erro") resumo.erros++; else resumo.aguardando++;
+  for (const f of pend) {
+    const r = await sincronizarFranquiaAlizo(f.id);
+    if (r.ok) resumo.mapeadas++; else if (r.classe === "temporario" || r.classe === "nao_configurado") resumo.aguardando++; else resumo.erros++;
+    if (!r.ok && r.auth) break;
   }
   return resumo;
+}
+
+/** Backfill de TODAS as franquias (idempotente); relatório sem dados sensíveis. */
+export async function backfillAlizo(max = 50) {
+  const client = criarAlizoClient();
+  if (!client) return { ok: false as const, motivo: "alizo_nao_configurado" };
+  const ids = (await prisma.franchise.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } })).map(f => f.id);
+  return { ok: true as const, total: ids.length, ...(await backfillCore({ repo, client }, ids, max)) };
+}
+
+/** Verifica se o vínculo salvo bate com o que a Alizo conhece pelo external_id. */
+export async function verificarVinculoAlizo(franchiseId: string) {
+  const client = criarAlizoClient();
+  if (!client) return { ok: false as const, motivo: "alizo_nao_configurado" };
+  const mapa = await prisma.alizoUnidade.findUnique({ where: { franchiseKey: franchiseId } });
+  try {
+    const r = await client.unidadePorExternalId(franchiseId);
+    const remota = r.units.find(u => !u.external_id || u.external_id === franchiseId);
+    return { ok: true as const, vinculoLocal: !!mapa, existeNaAlizo: !!remota, confere: !!mapa && !!remota && mapa.alizoUnitId === remota.id };
+  } catch (e) { return { ok: false as const, motivo: mensagemAmigavel(e) }; }
+}
+
+/** Reaplica o modelo padrão da rede à unidade (POST /units/{id}/template/sync). */
+export async function reaplicarModeloAlizo(franchiseId: string) {
+  const client = criarAlizoClient();
+  const mapa = await prisma.alizoUnidade.findUnique({ where: { franchiseKey: franchiseId } });
+  if (!client || !mapa) return { ok: false as const, motivo: !client ? "alizo_nao_configurado" : "unidade_sem_vinculo" };
+  try {
+    const r: any = await client.sincronizarModeloUnidade(mapa.alizoUnitId);
+    const versao = r?.template_version ?? r?.unit?.template_version ?? null;
+    if (versao) await prisma.franchise.update({ where: { id: franchiseId }, data: { alizoTemplateVersion: String(versao) } });
+    return { ok: true as const, versao };
+  } catch (e) { return { ok: false as const, motivo: mensagemAmigavel(e), auth: e instanceof AlizoError && e.ehAutenticacao }; }
 }

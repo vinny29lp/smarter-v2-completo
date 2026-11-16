@@ -62,10 +62,12 @@ export async function sincronizarRecrutador() {
     if (!temConsentimento(c.student.partnerConsentStatus)) { resumo.semConsentimento++; continue; }
     try {
       const fone = normalizarTelefone(c.student.celular || c.student.telefone);
-      await client.adicionarCandidato(c.vacancy.alizoJobId!, {
+      const resp = await client.adicionarCandidato(c.vacancy.alizoJobId!, {
         name: c.student.name, email: c.student.email, ...(fone ? { phone: fone } : {}),
         notes: notasDoCandidato(c.student, c.matching), consent: true,
       });
+      const candId = resp?.candidate?.id ?? resp?.id;
+      if (candId) await prisma.application.update({ where: { id: c.id }, data: { alizoCandidateId: String(candId), alizoStatus: "invited" } }).catch(() => {});
       enviados++; resumo.candidatosEnviados++;
     } catch (e: any) {
       if (!(e instanceof AlizoError && e.status === 409)) { resumo.erros++; console.error("[alizo-recrutador] candidato falhou:", e?.status, e?.message); continue; }

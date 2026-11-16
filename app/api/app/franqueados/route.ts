@@ -1,3 +1,4 @@
+import { sincronizarFranquiaAlizo } from "@/lib/alizo/provisionar";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -142,6 +143,10 @@ export async function POST(req: Request) {
     }
     throw txErr;
   }
+
+  // Funcionários digitais: cria a unidade na Alizo sem passo manual. Falha/indisponibilidade
+  // fica como pending/error (reprocessável no painel) e NUNCA cancela o cadastro da franquia.
+  await sincronizarFranquiaAlizo(franchise.id).catch((e: any) => console.error("[Franqueados] Alizo:", e?.message));
 
   // Enviar email de boas-vindas (não-bloqueante: falha no email não cancela o cadastro)
   let emailEnviado = false;

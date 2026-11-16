@@ -84,6 +84,10 @@ model Franchise {
   onboardingObrigatorio Boolean    @default(false) // true = sistema só destrava ao concluir o assistente
   onboardingPassos      Json?      // { tour_hoje: true, ... } confirmações manuais do franqueado
   onboardingConcluidoEm DateTime?  @db.Timestamptz(6)
+  alizoSyncStatus      String               @default("pending") // pending | synced | error | disabled
+  alizoSyncedAt        DateTime?            @db.Timestamptz(6)
+  alizoLastError       String?
+  alizoTemplateVersion String?
 
   @@map("franchises")
 }
@@ -319,6 +323,8 @@ model Application {
   entrevistaLink  String?
   recomendacao    String?
   etapaChangedAt  DateTime? @default(now()) @db.Timestamptz(6)
+  alizoCandidateId String?  @unique
+  alizoStatus     String?
   student         Student   @relation(fields: [studentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vacancy         Vacancy   @relation(fields: [vacancyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -464,6 +470,7 @@ model CrmLead {
   setor           String?
   contratoHtml    String?   @db.Text
   alizoLeadId     String?   // id do lead na Alizo (integração interna)
+  alizoPausado    Boolean   @default(false) // humano assumiu: agente da Alizo pausado
 
   // ─── Apresentação Comercial Rastreável ───────────────────────────────────────
   apresentacaoToken      String?   @unique
@@ -1301,7 +1308,7 @@ model ContatoOptOut {
 model AlizoUnidade {
   id           String   @id @default(dbgenerated("(gen_random_uuid())::text"))
   franchiseKey String   @unique
-  alizoUnitId  String
+  alizoUnitId  String   @unique
   nome         String?
   createdAt    DateTime @default(now()) @db.Timestamptz(6)
 
@@ -1313,9 +1320,14 @@ model AlizoEvento {
   id        String   @id
   tipo      String
   unitId    String?
+  status    String   @default("processado") // processado | falhou
+  erro      String?
+  tentativas Int     @default(0)
+  payload   Json?
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([createdAt])
+  @@index([status])
   @@map("alizo_eventos")
 }
 

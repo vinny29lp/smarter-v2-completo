@@ -9,6 +9,7 @@ import { ehOrigemSmarter } from "./origem";
 import { TEXTO_CONTATO_HUMANO } from "@/lib/crm/contatoHumano";
 import { normalizarRegioes, regiaoComoTexto, regiaoDoDia } from "@/lib/onboarding/regras";
 import { provisionarFranquiasPendentes } from "./provisionar";
+import { LIMITE_PROSPECCAO_DIA } from "./unidadesRegras";
 import { criarAlizoClient, normalizarTelefone, mascararTelefone, AlizoError } from "./client";
 
 const CHAVE_MATRIZ = "MATRIZ";
@@ -65,22 +66,109 @@ export async function enviarLeadParaAlizo(leadId: string, opts: { primeiroContat
   }
 }
 
-/** Processa um evento da Alizo (webhook ou reconciliação). Idempotente pelo id do evento. */
-export async function processarEventoAlizo(ev: { id: string; type: string; unit_id?: string | null; data?: any }) {
+/**
+ * Processa um evento da Alizo (webhook, reconciliação ou reprocessamento). Idempotente pelo id do evento:
+ * só é "duplicado" se já foi PROCESSADO com sucesso; evento que falhou fica salvo (payload) e pode ser reprocessado.
+ */
+export async function processarEventoAlizo(ev: { id: string; type: string; unit_id?: string | null; external_id?: string | null; data?: any }) {
+  const existente = await prisma.alizoEvento.findUnique({ where: { id: ev.id }, select: { status: true } });
+  if (existente?.status === "processado") return { processado: false, motivo: "duplicado" };
+  if (!existente) {
+    try {
+      await prisma.alizoEvento.create({ data: { id: ev.id, tipo: ev.type, unitId: ev.unit_id ?? null, status: "falhou", payload: ev as any } });
+    } catch (e: any) {
+      if (e?.code === "P2002") return { processado: false, motivo: "duplicado" };
+      throw e;
+    }
+  }
   try {
-    await prisma.alizoEvento.create({ data: { id: ev.id, tipo: ev.type, unitId: ev.unit_id ?? null } });
+    const r = await tratarEventoAlizo(ev);
+    await prisma.alizoEvento.update({ where: { id: ev.id }, data: { status: "processado", erro: null, tentativas: { increment: 1 } } });
+    return { processado: true, ...r };
   } catch (e: any) {
-    if (e?.code === "P2002") return { processado: false, motivo: "duplicado" };
+    await prisma.alizoEvento.update({
+      where: { id: ev.id },
+      data: { status: "falhou", erro: String(e?.message || "erro").replace(/Bearer\s+\S+/gi, "[oculto]").slice(0, 300), tentativas: { increment: 1 } },
+    }).catch(() => {});
     throw e;
   }
+}
 
+/** Reprocessa eventos que falharam localmente (ação administrativa). */
+export async function reprocessarEventosFalhos(max = 50) {
+  const falhos = await prisma.alizoEvento.findMany({ where: { status: "falhou", payload: { not: null as any } }, orderBy: { createdAt: "asc" }, take: max });
+  const r = { tentados: 0, ok: 0, falharam: 0 };
+  for (const f of falhos) {
+    r.tentados++;
+    try { await processarEventoAlizo(f.payload as any); r.ok++; } catch { r.falharam++; }
+  }
+  return r;
+}
+
+async function notificarUnidade(franchiseId: string | null | undefined, titulo: string, mensagem: string, link = "/dashboard/alizo") {
+  await avisarResposta({ franchiseId, titulo, de: "Funcionários digitais", mensagem, link, contexto: "Alerta dos funcionários digitais" })
+    .catch(e => console.error("[alizo] aviso falhou:", e?.message));
+}
+
+async function tratarEventoAlizo(ev: { id: string; type: string; unit_id?: string | null; external_id?: string | null; data?: any }): Promise<Record<string, unknown>> {
   const d = ev.data || {};
-  const alizoLeadId: string | undefined = d.lead_id || d.lead?.id || d.id;
   console.log(`[alizo] evento ${ev.type} (campos: ${Object.keys(d).join(",") || "—"})`);
-  if (!alizoLeadId) return { processado: true, motivo: "sem_lead_id" };
 
+  // Isolamento: external_id localiza a franquia; unit_id precisa bater com o vínculo salvo.
+  const ext: string | undefined = ev.external_id || d.external_id || undefined;
+  let franquiaDoEvento: string | null | undefined;
+  if (ext) {
+    const m = await prisma.alizoUnidade.findUnique({ where: { franchiseKey: ext } });
+    if (m) {
+      if (ev.unit_id && m.alizoUnitId !== ev.unit_id) throw new Error("unit_id do evento diverge do vínculo da franquia");
+      franquiaDoEvento = ext === CHAVE_MATRIZ ? null : ext;
+    }
+  }
+  if (franquiaDoEvento === undefined) franquiaDoEvento = await franquiaDeUnidade(ev.unit_id);
+
+  // ── Eventos de unidade ──
+  if (ev.type === "unit.whatsapp.connected") return { acao: "whatsapp_conectado" };
+  if (ev.type === "unit.whatsapp.disconnected" || ev.type === "unit.whatsapp.banned") {
+    const banido = ev.type.endsWith("banned");
+    await notificarUnidade(franquiaDoEvento, banido ? "🚫 WhatsApp bloqueado" : "📵 WhatsApp desconectado",
+      banido ? "O número da unidade foi bloqueado pelo WhatsApp. Fale com a equipe Smarter." : "Reconecte o WhatsApp da unidade para os funcionários digitais voltarem a trabalhar.");
+    return { acao: "whatsapp_alerta" };
+  }
+  if (ev.type === "usage.limit_reached") {
+    await notificarUnidade(franquiaDoEvento, "⚠️ Limite de uso atingido", "O limite de uso dos funcionários digitais foi atingido. A operação retoma quando o limite for renovado.");
+    return { acao: "limite_alertado" };
+  }
+
+  // ── Candidatos do Recrutador ──
+  if (ev.type.startsWith("candidate.")) {
+    const status = ev.type.replace("candidate.", "");
+    const candId: string | undefined = d.candidate_id || d.candidate?.id;
+    const jobId: string | undefined = d.job_id || d.job?.id;
+    let app = candId ? await prisma.application.findFirst({ where: { alizoCandidateId: candId }, select: { id: true, vacancy: { select: { franchiseId: true, titulo: true } } } }) : null;
+    if (!app && jobId) {
+      const email = String(d.candidate?.email || d.email || "").toLowerCase();
+      if (email) {
+        app = await prisma.application.findFirst({
+          where: { vacancy: { alizoJobId: jobId }, student: { email: { equals: email, mode: "insensitive" } } },
+          select: { id: true, vacancy: { select: { franchiseId: true, titulo: true } } },
+        });
+      }
+    }
+    if (!app) return { acao: "candidato_nao_encontrado" };
+    if (franquiaDoEvento && app.vacancy.franchiseId !== franquiaDoEvento) return { acao: "candidato_de_outra_unidade" };
+    await prisma.application.update({ where: { id: app.id }, data: { alizoStatus: status, ...(candId ? { alizoCandidateId: candId } : {}) } });
+    if (status === "interested") {
+      await notificarUnidade(app.vacancy.franchiseId, "🎯 Candidato interessado", `Um candidato demonstrou interesse na vaga "${app.vacancy.titulo}". Veja em Vagas e marque o processo seletivo.`, "/dashboard/vagas");
+    }
+    return { acao: `candidato_${status}` };
+  }
+
+  // ── Leads ──
+  const alizoLeadId: string | undefined = d.lead_id || d.lead?.id || d.id;
+  if (!alizoLeadId) return { motivo: "sem_lead_id" };
   const lead = await prisma.crmLead.findFirst({ where: { alizoLeadId } });
-  if (!lead) return { processado: true, motivo: "lead_nao_esta_no_crm" };
+  if (!lead) return { motivo: "lead_nao_esta_no_crm" };
+  if (franquiaDoEvento !== undefined && lead.franchiseId !== franquiaDoEvento) return { motivo: "lead_de_outra_unidade" };
 
   const texto: string = String(d.content ?? d.message?.content ?? d.text ?? "").slice(0, 500);
   if (ev.type === "lead.message.received") {
@@ -104,8 +192,18 @@ export async function processarEventoAlizo(ev: { id: string; type: string; unit_
       data: { etapa: "fechado", situacao: "vendido", convertido: true, ultimoContato: new Date(), etapaChangedAt: new Date() },
     });
     await prisma.crmNota.create({ data: { leadId: lead.id, tipo: "etapa", texto: "🏆 Negócio ganho (marcado pelo Sales Rep da Alizo)." } });
+  } else if (ev.type === "lead.opted_out") {
+    // Pediu para parar: nunca mais enviar e pausar o agente.
+    await prisma.crmLead.update({ where: { id: lead.id }, data: { optIn: false, alizoPausado: true } });
+    await prisma.crmNota.create({ data: { leadId: lead.id, tipo: "alerta", texto: "🚫 O contato pediu para não receber mais mensagens (opt-out). Automação pausada." } });
+  } else if (ev.type === "lead.invalid_number") {
+    await prisma.crmNota.create({ data: { leadId: lead.id, tipo: "alerta", texto: "⚠️ A Alizo informou que o número deste lead é inválido." } });
+  } else if (ev.type === "lead.status_changed") {
+    await prisma.crmNota.create({ data: { leadId: lead.id, tipo: "etapa", texto: `🤖 Situação na Alizo: ${String(d.status ?? d.new_status ?? "alterada").slice(0, 60)}` } });
+  } else if (ev.type === "lead.replied") {
+    await prisma.crmLead.update({ where: { id: lead.id }, data: { ultimoContato: new Date() } });
   }
-  return { processado: true };
+  return {};
 }
 
 /**
@@ -195,7 +293,7 @@ export async function sincronizarAlizo(opts: { horas?: number } = {}) {
   try {
     const ev = await client.eventos({ since: desde, limit: 100 });
     for (const e of ev.events) {
-      const r = await processarEventoAlizo({ id: e.id, type: e.type, unit_id: e.unit_id, data: e.data });
+      const r = await processarEventoAlizo({ id: e.id, type: e.type, unit_id: e.unit_id, external_id: (e as any).external_id, data: e.data });
       if (r.processado) resumo.eventos++;
     }
   } catch (e: any) {
@@ -213,7 +311,7 @@ export async function sincronizarAlizo(opts: { horas?: number } = {}) {
  * Só roda para unidades mapeadas na Alizo cujo assistente de primeiro acesso foi concluído (ou franquias antigas que já têm região).
  * Falha da Alizo é registrada e tentada de novo no dia seguinte — nunca bloqueia o sync.
  */
-export async function prospeccaoRegional(opts: { max?: number; agora?: Date } = {}) {
+export async function prospeccaoRegional(opts: { max?: number; agora?: Date; somenteFranquia?: string } = {}) {
   const client = criarAlizoClient();
   if (!client) return { ok: false, motivo: "alizo_nao_configurado" };
   const agora = opts.agora ?? new Date();
@@ -221,7 +319,7 @@ export async function prospeccaoRegional(opts: { max?: number; agora?: Date } = 
   const mapa = await prisma.alizoUnidade.findMany({ where: { franchiseKey: { not: CHAVE_MATRIZ } } });
   if (mapa.length === 0) return { ok: true, ...resumo };
   const franquias: any[] = await prisma.franchise.findMany({
-    where: { id: { in: mapa.map(m => m.franchiseKey) }, status: "ATIVO" },
+    where: { id: { in: mapa.map(m => m.franchiseKey).filter(k => !opts.somenteFranquia || k === opts.somenteFranquia) }, status: "ATIVO", acessoBloqueado: false },
   });
   const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()));
   const feitosHoje = new Set((await prisma.automacaoEnvio.findMany({
@@ -242,6 +340,8 @@ export async function prospeccaoRegional(opts: { max?: number; agora?: Date } = 
       await client.salvarPerfilProspeccao({ unit_id: unitId, mode: "general", region: regiaoComoTexto(regiao, f.uf), general_sector: null });
       const r = await client.rodarProspeccao(unitId);
       resumo.capturados += r.captured || 0;
+      // Limite de 15 novas empresas/dia/unidade: a Alizo aplica; se vier mais, fica registrado para auditoria.
+      if ((r.captured || 0) > LIMITE_PROSPECCAO_DIA) console.warn(`[alizo-prospeccao] unidade devolveu ${r.captured} (> ${LIMITE_PROSPECCAO_DIA}/dia)`);
       detalhe = `Prospecção em ${regiaoComoTexto(regiao, f.uf)}: ${r.captured ?? 0} capturadas`;
     } catch (e: any) {
       resumo.erros++;

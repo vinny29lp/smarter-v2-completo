@@ -5,10 +5,25 @@
  * e os chamadores fazem no-op.
  */
 export class AlizoError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public retryAfterMs?: number) {
     super(message);
     this.name = "AlizoError";
   }
+  /** 401/403: token ou permissão incorretos — alerta administrativo, nunca retentar. */
+  get ehAutenticacao() { return this.status === 401 || this.status === 403; }
+  /** Falha temporária (rede, 429, 5xx): pode tentar de novo depois. */
+  get ehTemporario() { return this.status === 0 || this.status === 429 || this.status >= 500; }
+}
+
+/** Mensagem segura, em português, para mostrar ao usuário (sem detalhes técnicos nem segredos). */
+export function mensagemAmigavel(e: unknown): string {
+  if (!(e instanceof AlizoError)) return "Erro inesperado ao falar com os funcionários digitais.";
+  if (e.ehAutenticacao) return "Configuração administrativa necessária: o acesso à Alizo precisa ser revisado.";
+  if (e.status === 409) return e.message || "Conflito: a operação não pôde ser concluída agora.";
+  if (e.status === 404) return "Vínculo não encontrado na Alizo. Peça uma nova sincronização.";
+  if (e.status === 400) return e.message || "Dados inválidos para a Alizo.";
+  if (e.ehTemporario) return "A Alizo está indisponível no momento. Tentaremos novamente automaticamente.";
+  return e.message || "Erro ao falar com a Alizo.";
 }
 
 export interface AlizoOpcoes {
@@ -18,6 +33,17 @@ export interface AlizoOpcoes {
   sleep?: (ms: number) => Promise<void>;
   timeoutMs?: number;
   maxTentativas?: number;
+}
+
+export interface AlizoUnidadeApi {
+  id: string; name: string; slug?: string; city?: string | null; state?: string | null; external_id?: string | null;
+  whatsapp_phone?: string | null; timezone?: string; active?: boolean; status?: string; template_version?: string | null;
+}
+
+/** Estado do WhatsApp: a Alizo só é confiável quando devolve `connected` — QR lido não basta. */
+export interface AlizoWhatsapp {
+  status?: string; connected?: boolean; qr_code?: string | null; qr?: string | null; expires_at?: string | null;
+  phone?: string | null; whatsapp_phone?: string | null; provider?: string | null; last_activity_at?: string | null;
 }
 
 export interface AlizoLead {
@@ -70,7 +96,8 @@ export class AlizoClient {
         let json: any = null;
         try { json = texto ? JSON.parse(texto) : null; } catch { /* corpo não-JSON */ }
         if (res.ok) return json as T;
-        const erro = new AlizoError(res.status, json?.error || `Erro ${res.status} na Alizo`);
+        const ra = Number(res.headers.get("retry-after"));
+        const erro = new AlizoError(res.status, json?.error || `Erro ${res.status} na Alizo`, Number.isFinite(ra) && ra > 0 ? ra * 1000 : undefined);
         // Retry só em 429/5xx — nunca em 4xx de negócio/autorização.
         if (res.status === 429 || res.status >= 500) { ultimo = erro; }
         else throw erro;
@@ -78,7 +105,11 @@ export class AlizoClient {
         if (e instanceof AlizoError && e.status < 500 && e.status !== 429) throw e;
         ultimo = e instanceof AlizoError ? e : new AlizoError(0, "Falha de rede ou timeout ao falar com a Alizo");
       }
-      if (tentativa < this.maxTentativas) await this.sleep(500 * 2 ** (tentativa - 1));
+      if (tentativa < this.maxTentativas) {
+        // 429: respeita Retry-After (limitado a 10 s por tentativa para caber na função serverless).
+        const espera = ultimo?.status === 429 && ultimo.retryAfterMs ? Math.min(ultimo.retryAfterMs, 10_000) : 500 * 2 ** (tentativa - 1);
+        await this.sleep(espera);
+      }
     }
     console.error(`[alizo] ${metodo} ${caminho} falhou após ${this.maxTentativas} tentativas: ${ultimo?.status}`);
     throw ultimo!;
@@ -88,7 +119,7 @@ export class AlizoClient {
   units() { return this.req<{ units: Array<{ id: string; slug: string; name: string; city: string; state: string; whatsapp_phone: string | null; timezone: string; external_id?: string | null }> }>("GET", "/units"); }
 
   /** Criação idempotente de unidade (pedido à Alizo — docs/pedido-alizo-unidades-whatsapp.md). Enquanto o endpoint não existir, a Alizo responde 404/405. */
-  criarUnidade(p: { external_id: string; name: string; city: string; state: string; timezone?: string; contact_email?: string }) {
+  criarUnidade(p: { external_id: string; name: string; city?: string; state?: string; timezone?: string; contact_email?: string; contact_phone?: string; owner_name?: string; address?: Record<string, string> }) {
     return this.req<{ duplicate?: boolean; unit: { id: string; name?: string } }>("POST", "/units", p);
   }
 
@@ -135,6 +166,49 @@ export class AlizoClient {
     return this.req<any>("POST", `/jobs/${encodeURIComponent(jobId)}/candidates`, p);
   }
 
+
+  // ── Unidades: consulta/atualização/situação ──
+  unidadePorExternalId(externalId: string) {
+    return this.req<{ units: Array<AlizoUnidadeApi> }>("GET", "/units" + qs({ external_id: externalId }));
+  }
+  atualizarUnidade(alizoUnitId: string, p: Record<string, unknown>) { return this.req<{ unit: AlizoUnidadeApi }>("PUT", `/units/${encodeURIComponent(alizoUnitId)}`, p); }
+  desativarUnidade(alizoUnitId: string) { return this.req<any>("POST", `/units/${encodeURIComponent(alizoUnitId)}/deactivate`, {}); }
+  reativarUnidade(alizoUnitId: string) { return this.req<any>("POST", `/units/${encodeURIComponent(alizoUnitId)}/reactivate`, {}); }
+  sincronizarModeloUnidade(alizoUnitId: string) { return this.req<any>("POST", `/units/${encodeURIComponent(alizoUnitId)}/template/sync`, {}); }
+
+  // ── WhatsApp ──
+  whatsappStatus(alizoUnitId: string) { return this.req<AlizoWhatsapp>("GET", `/units/${encodeURIComponent(alizoUnitId)}/whatsapp`); }
+  whatsappConectar(alizoUnitId: string) { return this.req<AlizoWhatsapp>("POST", `/units/${encodeURIComponent(alizoUnitId)}/whatsapp/connect`, {}); }
+  whatsappReconectar(alizoUnitId: string) { return this.req<AlizoWhatsapp>("POST", `/units/${encodeURIComponent(alizoUnitId)}/whatsapp/reconnect`, {}); }
+  whatsappDesconectar(alizoUnitId: string) { return this.req<AlizoWhatsapp>("POST", `/units/${encodeURIComponent(alizoUnitId)}/whatsapp/disconnect`, {}); }
+
+  // ── Leads: edição, exclusão (LGPD), pausa/retomada, opt-out ──
+  atualizarLead(id: string, p: Record<string, unknown>) { return this.req<{ lead: AlizoLead }>("PATCH", `/leads/${encodeURIComponent(id)}`, p); }
+  excluirLead(id: string) { return this.req<any>("DELETE", `/leads/${encodeURIComponent(id)}`); }
+  pausarLead(id: string) { return this.req<any>("POST", `/leads/${encodeURIComponent(id)}/pause`, {}); }
+  retomarLead(id: string) { return this.req<any>("POST", `/leads/${encodeURIComponent(id)}/resume`, {}); }
+  listarOptouts(q: { unit_id?: string; limit?: number } = {}) { return this.req<any>("GET", "/optouts" + qs(q)); }
+  registrarOptout(p: { unit_id?: string; phone?: string; email?: string; reason?: string }) { return this.req<any>("POST", "/optouts", p); }
+
+  // ── Prospecção: histórico ──
+  execucoesProspeccao(q: { unit_id?: string; limit?: number } = {}) { return this.req<any>("GET", "/prospecting/runs" + qs(q)); }
+
+  // ── Recrutamento: edição, exclusão, abordagem ──
+  atualizarVaga(id: string, p: Record<string, unknown>) { return this.req<any>("PATCH", `/jobs/${encodeURIComponent(id)}`, p); }
+  excluirVaga(id: string) { return this.req<any>("DELETE", `/jobs/${encodeURIComponent(id)}`); }
+  abordarCandidatos(id: string, p: Record<string, unknown>) { return this.req<any>("POST", `/jobs/${encodeURIComponent(id)}/outreach`, p); }
+
+  // ── Métricas, consumo, modelos ──
+  metricas(alizoUnitId: string, q: { from?: string; to?: string } = {}) { return this.req<any>("GET", `/units/${encodeURIComponent(alizoUnitId)}/metrics` + qs(q)); }
+  consumo(q: { unit_id?: string; from?: string; to?: string } = {}) { return this.req<any>("GET", "/usage" + qs(q)); }
+  agenteSales(alizoUnitId: string) { return this.req<any>("GET", `/units/${encodeURIComponent(alizoUnitId)}/agents/sales`); }
+  salvarAgenteSales(alizoUnitId: string, p: Record<string, unknown>) { return this.req<any>("PUT", `/units/${encodeURIComponent(alizoUnitId)}/agents/sales`, p); }
+  modelo() { return this.req<any>("GET", "/template"); }
+  salvarModelo(p: Record<string, unknown>) { return this.req<any>("PUT", "/template", p); }
+
+  // ── Webhooks: replay ──
+  reenviarWebhook(id: string, sinceIso: string) { return this.req<any>("POST", `/webhooks/${encodeURIComponent(id)}/replay${qs({ since: sinceIso })}`, {}); }
+
   // ── Eventos / webhooks ──
   criarWebhook(url: string, events: string[] = ["*"]) { return this.req<{ webhook: { id: string }; secret: string }>("POST", "/webhooks", { url, events }); }
   listarWebhooks() { return this.req<{ webhooks: any[] }>("GET", "/webhooks"); }
@@ -151,9 +225,9 @@ function qs(q: Record<string, unknown>): string {
 
 /** Cliente configurado pelo ambiente, ou null (sem chave → integração desligada, chamadores fazem no-op). */
 export function criarAlizoClient(): AlizoClient | null {
-  const apiKey = process.env.ALIZO_PARTNER_API_KEY;
+  const apiKey = process.env.ALIZO_PARTNER_API_KEY || process.env.ALIZO_PARTNER_API_TOKEN;
   if (!apiKey) {
-    console.warn("[alizo] ALIZO_PARTNER_API_KEY ausente — integração desligada (no-op).");
+    console.warn("[alizo] ALIZO_PARTNER_API_KEY/ALIZO_PARTNER_API_TOKEN ausente — integração desligada (no-op).");
     return null;
   }
   return new AlizoClient({ baseUrl: process.env.ALIZO_API_BASE_URL || "https://www.alizoai.com", apiKey });

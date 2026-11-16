@@ -77,7 +77,7 @@ export async function GET() {
         prisma.alizoEvento.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true, tipo: true } }),
       ]);
       status = {
-        chaveConfigurada: !!process.env.ALIZO_PARTNER_API_KEY,
+        chaveConfigurada: !!(process.env.ALIZO_PARTNER_API_KEY || process.env.ALIZO_PARTNER_API_TOKEN),
         webhookConfigurado: !!process.env.ALIZO_WEBHOOK_SECRET,
         gatilhoLeadsAtivo: process.env.ALIZO_GATILHO_LEADS_ATIVO === "true",
         recrutadorAtivo: recrutadorAtivo(),
@@ -85,7 +85,8 @@ export async function GET() {
         eventos7d, ultimoEvento,
       };
     }
-    return NextResponse.json({ escopo: master ? "rede" : "unidade", periodoDias: 30, unidades, status });
+    const sincronizacao = !master ? (await prisma.franchise.findUnique({ where: { id: franchiseId! }, select: { alizoSyncStatus: true } }))?.alizoSyncStatus ?? null : null;
+    return NextResponse.json({ escopo: master ? "rede" : "unidade", periodoDias: 30, unidades, status, sincronizacao });
   } catch (e: any) {
     console.error("[alizo-indicadores] erro:", e?.message);
     return NextResponse.json({ error: "Erro ao carregar indicadores" }, { status: 500 });

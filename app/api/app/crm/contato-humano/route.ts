@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { handleApiError } from "@/lib/api-response";
+import { criarAlizoClient } from "@/lib/alizo/client";
 import { MARCADOR_CONTATO_HUMANO, linkApresentacao, mensagemWhatsApp, linkWhatsApp, telefoneWa } from "@/lib/crm/contatoHumano";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const resultado = String(body.resultado || "");
     if (!["contatado", "agendou", "sem_interesse"].includes(resultado)) return NextResponse.json({ error: "Resultado inválido." }, { status: 400 });
-    const lead = await prisma.crmLead.findUnique({ where: { id: String(body.leadId || "") }, select: { id: true, franchiseId: true } });
+    const lead = await prisma.crmLead.findUnique({ where: { id: String(body.leadId || "") }, select: { id: true, franchiseId: true, alizoLeadId: true, alizoPausado: true } });
     if (!lead || lead.franchiseId !== c.franchiseId) return NextResponse.json({ error: "Lead não encontrado." }, { status: 404 });
 
     const agora = new Date();
@@ -78,6 +79,16 @@ export async function POST(req: Request) {
       },
     });
     await prisma.crmNota.create({ data: { leadId: lead.id, tipo: "etapa", texto: `${texto} Registrado por ${c.userName || "unidade"}.` } });
+    // Humano assumiu a conversa: o Sales (Alizo) para de falar com este lead. Falha não impede o registro.
+    if (lead.alizoLeadId && !lead.alizoPausado) {
+      try {
+        const client = criarAlizoClient();
+        if (client) {
+          await client.pausarLead(lead.alizoLeadId);
+          await prisma.crmLead.update({ where: { id: lead.id }, data: { alizoPausado: true } });
+        }
+      } catch (e: any) { console.error("[contato-humano] pausar Alizo falhou:", e?.status); }
+    }
     return NextResponse.json({ ok: true });
   } catch (e) { return handleApiError(e, "CRM_CONTATO_HUMANO_POST"); }
 }

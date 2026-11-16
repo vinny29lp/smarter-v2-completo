@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { WhatsappCard } from "@/components/alizo/WhatsappCard";
+import { ProspeccaoCard } from "@/components/alizo/ProspeccaoCard";
+import { MetricasCard } from "@/components/alizo/MetricasCard";
+import { AdminAlizo } from "@/components/alizo/AdminAlizo";
 
 function Ponto({ ok, txt }: { ok: boolean; txt: string }) {
   return <li className="text-sm"><span className={ok ? "text-green-600" : "text-amber-600"}>●</span> {txt}</li>;
@@ -78,10 +82,15 @@ export default function AlizoPage() {
         </div>
       )}
 
+      {(session?.user as any)?.role === "FRANQUEADORA" && <AdminAlizo />}
+
       {s && (session?.user as any)?.role === "FRANQUEADORA" && <TesteEmail emailInicial={session?.user?.email || ""} />}
 
       {d.unidades.length === 0 ? (
-        <p className="text-sm text-slate-500">Esta unidade ainda não está conectada aos funcionários digitais.</p>
+        <p className="text-sm text-slate-500">
+          {d.sincronizacao === "error" ? "Configuração administrativa necessária: a equipe Smarter já foi sinalizada."
+            : "Integração pendente: sua unidade está sendo preparada. Isso é automático e pode levar alguns minutos."}
+        </p>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
           {d.unidades.map((u: any) => (
@@ -99,25 +108,15 @@ export default function AlizoPage() {
                 {u.ultimaResposta ? `Última resposta: ${new Date(u.ultimaResposta).toLocaleDateString("pt-BR")}` : "Nenhuma resposta registrada ainda."}
               </p>
 
-              <div className="mt-4 rounded-lg border border-slate-100 p-3">
-                <p className="text-xs font-bold text-slate-600">WhatsApp da unidade</p>
-                {u.whatsapp.status === "conectado" ? (
-                  <p className="mt-1 text-sm text-green-700">● Conectado · {u.whatsapp.numero}</p>
-                ) : u.whatsapp.status === "nao_conectado" ? (
-                  <>
-                    <p className="mt-1 text-sm text-amber-700">● Aguardando conexão</p>
-                    <p className="text-xs text-slate-500">A leitura do QR Code por aqui será liberada em breve. Enquanto isso a conexão é feita pela equipe Smarter.</p>
-                    <button disabled className="mt-2 rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 cursor-not-allowed">Conectar por QR Code (em breve)</button>
-                  </>
-                ) : (
-                  <p className="mt-1 text-sm text-slate-500">Não foi possível consultar o status agora.</p>
-                )}
-              </div>
+              <WhatsappCard franchiseId={u.chave} />
+              {u.chave !== "MATRIZ" && <ProspeccaoCard franchiseId={u.chave} />}
 
               <div className="mt-3 grid grid-cols-2 gap-3 text-center">
                 <div className="rounded-lg bg-slate-50 p-3"><p className="text-xl font-black text-[#0f2a5e]">{u.recrutador.vagasNaAlizo}</p><p className="text-[11px] text-slate-500">Vagas com o Recrutador</p></div>
                 <div className="rounded-lg bg-slate-50 p-3"><p className="text-xl font-black text-[#0f2a5e]">{u.recrutador.candidatosEnviados}</p><p className="text-[11px] text-slate-500">Candidatos enviados (30d)</p></div>
               </div>
+
+              <MetricasCard franchiseId={u.chave} />
 
               <p className="mt-4 text-xs font-bold text-slate-600">Trabalhos recentes</p>
               {u.atividade.length === 0 ? (

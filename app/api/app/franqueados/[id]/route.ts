@@ -6,6 +6,7 @@ import { normalizarRegioes } from "@/lib/onboarding/regras";
 import bcrypt from "bcryptjs";
 import { handleApiError } from "@/lib/api-response";
 import { enviarBoasVindasFranqueado } from "@/lib/email";
+import { sincronizarFranquiaAlizo } from "@/lib/alizo/provisionar";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -83,6 +84,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         bloqueioLiberadoAte: null,
       } as any,
     });
+    await sincronizarFranquiaAlizo(params.id).catch(() => {}); // suspende os funcionários digitais (sem apagar)
     return NextResponse.json({ ok: true, franchise });
   }
 
@@ -100,6 +102,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         bloqueioLiberadoAte: liberadoAte,
       } as any,
     });
+    await sincronizarFranquiaAlizo(params.id).catch(() => {}); // reativa os funcionários digitais
     return NextResponse.json({ ok: true, franchise, toleranciaAte: liberadoAte });
   }
 
@@ -239,6 +242,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       status: body.status,
     } as any,
   });
+  // Dados relevantes/situação mudaram: reflete na Alizo (falha não impede a edição; fica pending/error).
+  await sincronizarFranquiaAlizo(params.id).catch(() => {});
   return NextResponse.json({ franchise });
   } catch (e) {
     return handleApiError(e, "FRANQUEADOS_ID_PATCH");
