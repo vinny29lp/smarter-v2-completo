@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { handleApiError } from "@/lib/api-response";
+import { soDigitosCnpj, empresaComCnpj, mensagemCnpjDuplicado } from "@/lib/empresas/cnpj";
 import { logAudit, getClientIP } from "@/lib/audit";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -88,6 +89,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
     await prisma.user.update({ where: { id: alvo.id }, data: { email: body.email } });
     return NextResponse.json({ ok: true });
+  }
+
+  // Troca de CNPJ: não pode virar o CNPJ de outra empresa (com ou sem pontuação)
+  if (body.cnpj) {
+    const dup = await empresaComCnpj(soDigitosCnpj(body.cnpj), params.id);
+    if (dup) return NextResponse.json({ error: mensagemCnpjDuplicado(dup, (session.user as any).franchiseId) }, { status: 409 });
   }
 
   // Atualização geral de dados da empresa

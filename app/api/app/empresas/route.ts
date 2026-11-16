@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { checkPermission } from "@/lib/permissions";
 import { logAudit, getClientIP } from "@/lib/audit";
+import { soDigitosCnpj, empresaComCnpj, mensagemCnpjDuplicado } from "@/lib/empresas/cnpj";
 import { criarEmpresaSchema, zodError } from "@/lib/api-schemas";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +76,13 @@ export async function POST(req: Request) {
   const body = parsed.data;
 
   const franchiseId = body.franchiseId || session?.user?.franchiseId || undefined;
+
+  // CNPJ repetido (com ou sem pontuação) é a mesma empresa: bloqueia e diz onde ela já está
+  const cnpjDigitos = soDigitosCnpj(body.cnpj);
+  const jaExiste = await empresaComCnpj(cnpjDigitos);
+  if (jaExiste) {
+    return NextResponse.json({ error: mensagemCnpjDuplicado(jaExiste, session.user.franchiseId), empresaId: jaExiste.id }, { status: 409 });
+  }
   let company: any = null;
   const senhaPlain = require("crypto").randomBytes(6).toString("hex") + "S1!";
 
@@ -83,7 +91,7 @@ export async function POST(req: Request) {
       data: {
         name: body.name,
         razaoSocial: body.razaoSocial || "",
-        cnpj: body.cnpj,
+        cnpj: cnpjDigitos.length === 14 ? cnpjDigitos : body.cnpj,
         setor: body.setor || null,
         email: body.email,
         telefone: body.telefone || null,
