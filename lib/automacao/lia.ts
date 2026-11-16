@@ -17,6 +17,7 @@ import { esc, botao, templateLiaEmail, linksPorTipo, enderecoResposta, remetente
 import { proximoFollowup, mensagemFollowup, ETAPAS_FOLLOWUP, LIMITE_DIARIO_UNIDADE, MAX_FOLLOWUPS } from "./crmFollowup";
 import { reativacaoDevida, ativacaoPortalDevida, vagaPrecisaShortlist, lembreteEntrevistaDevido, MAX_REATIVACOES, MAX_AVISOS_PORTAL, MAX_CONVITES_ESTUDANTE_SEMANA, SCORE_MINIMO_CONVITE, TAMANHO_SHORTLIST } from "./engajamento";
 import { rankear } from "@/lib/matching/matching";
+import { semestralDevida, marcoFim, limiteDoisAnosAcumulado, pesquisaDevida, vagaParadaDevida, retornoEmpresaDevido, COBRANCA_ESCALA_UNIDADE, MAX_COBRANCAS_SEMESTRAL } from "./cicloRegras";
 import {
   diasEntre, marcoRenovacao, marcoAvaliacao, limiteDeDoisAnos,
   deveLembrarAssinatura, normalizarEmail, emailValido, MAX_LEMBRETES_ASSINATURA, IDADE_MAX_DOC_DIAS,
@@ -56,8 +57,8 @@ interface Ctx {
   porUnidade: Map<string, Record<Contador, number>>;
 }
 
-type Contador = "renovacao" | "avaliacao" | "assinatura" | "crm" | "reativacao" | "portal" | "convite" | "entrevista" | "convenio" | "relatorio";
-const zerados = (): Record<Contador, number> => ({ renovacao: 0, avaliacao: 0, assinatura: 0, crm: 0, reativacao: 0, portal: 0, convite: 0, entrevista: 0, convenio: 0, relatorio: 0 });
+type Contador = "renovacao" | "avaliacao" | "assinatura" | "crm" | "reativacao" | "portal" | "convite" | "entrevista" | "convenio" | "relatorio" | "semestral" | "fim" | "pesquisa" | "vaga";
+const zerados = (): Record<Contador, number> => ({ renovacao: 0, avaliacao: 0, assinatura: 0, crm: 0, reativacao: 0, portal: 0, convite: 0, entrevista: 0, convenio: 0, relatorio: 0, semestral: 0, fim: 0, pesquisa: 0, vaga: 0 });
 
 function contar(ctx: Ctx, franchiseId: string, k: Contador) {
   const c = ctx.porUnidade.get(franchiseId) || zerados();
@@ -174,13 +175,50 @@ ${botao(s.link, "Assinar agora")}
   return r;
 }
 
+
+/** Início do primeiro estágio do mesmo estudante na mesma empresa (o limite de 2 anos soma contratos seguidos). */
+async function primeirosInicios(contratos: { studentId: string; companyId: string; dataInicio: Date }[]): Promise<Map<string, Date>> {
+  const m = new Map<string, Date>();
+  if (contratos.length === 0) return m;
+  const todos = await prisma.contract.findMany({
+    where: {
+      studentId: { in: Array.from(new Set(contratos.map(c => c.studentId))) },
+      companyId: { in: Array.from(new Set(contratos.map(c => c.companyId))) },
+      status: { in: ["ATIVO", "VENCIDO", "FINALIZADO", "SUSPENSO"] },
+    },
+    select: { studentId: true, companyId: true, dataInicio: true },
+  });
+  for (const t of [...todos, ...contratos]) {
+    const k = `${t.studentId}:${t.companyId}`;
+    const a = m.get(k);
+    if (!a || t.dataInicio < a) m.set(k, t.dataInicio);
+  }
+  return m;
+}
+
+/** Avisa a unidade (painel) uma única vez por situação. */
+async function avisarUnidadeUmaVez(ctx: Ctx, p: { franchiseId: string; refId: string; tipo: string; titulo: string; mensagem: string; link: string }) {
+  if (ctx.dryRun) return;
+  const ja = await prisma.automacaoEnvio.count({ where: { tipo: p.tipo, refId: p.refId } });
+  if (ja > 0) return;
+  const usuarios = await prisma.user.findMany({ where: { franchiseId: p.franchiseId, role: "FRANQUEADO", active: true }, select: { id: true } });
+  if (usuarios.length > 0) {
+    await prisma.notification.createMany({
+      data: usuarios.map(u => ({ userId: u.id, titulo: p.titulo, mensagem: p.mensagem, tipo: "lia_automacao", link: p.link })),
+    }).catch(() => {});
+  }
+  await prisma.automacaoEnvio.create({
+    data: { tipo: p.tipo, refId: p.refId, destinatario: "unidade", canal: "interno", detalhe: p.titulo.slice(0, 300), franchiseId: p.franchiseId },
+  }).catch(() => {});
+}
+
 // ───────────────────────────── #17 Renovação 90/60/30 ─────────────────────────────
 async function renovacoes(ctx: Ctx): Promise<Resultado> {
   const r = novoResultado();
   const contratos = await prisma.contract.findMany({
     where: { status: "ATIVO", dataFim: { gte: ctx.agora, lte: new Date(ctx.agora.getTime() + 91 * 86_400_000) } },
     select: {
-      id: true, dataInicio: true, dataFim: true, franchiseId: true,
+      id: true, dataInicio: true, dataFim: true, franchiseId: true, studentId: true, companyId: true,
       company: { select: { name: true, email: true } },
       student: { select: { name: true } },
       franchise: { select: { name: true, email: true, telefone: true } },
@@ -188,6 +226,7 @@ async function renovacoes(ctx: Ctx): Promise<Resultado> {
     orderBy: { dataFim: "asc" },
     take: 400,
   });
+  const inicios = await primeirosInicios(contratos);
   const marcos = new Map<string, number>();
   for (const c of contratos) {
     const m = marcoRenovacao(Math.ceil((c.dataFim.getTime() - ctx.agora.getTime()) / 86_400_000));
@@ -207,7 +246,7 @@ async function renovacoes(ctx: Ctx): Promise<Resultado> {
     if (ctx.restante.n <= 0) break;
     const fim = c.dataFim.toLocaleDateString("pt-BR", { timeZone: "UTC" });
     const aluno = c.student?.name || "o(a) estagiário(a)";
-    const efetivar = limiteDeDoisAnos(c.dataInicio, c.dataFim);
+    const efetivar = limiteDeDoisAnos(c.dataInicio, c.dataFim) || limiteDoisAnosAcumulado(inicios.get(`${c.studentId}:${c.companyId}`) || c.dataInicio, c.dataFim).noLimite;
     const contato = [c.franchise?.name, c.franchise?.telefone, c.franchise?.email].filter(Boolean).map(x => esc(String(x))).join(" · ");
     const corpo = efetivar
       ? `<p>Olá, <strong>${esc(c.company?.name || "")}</strong>!</p>
@@ -254,7 +293,8 @@ async function avaliacoes(ctx: Ctx): Promise<Resultado> {
   const marcos = new Map<string, number>();
   for (const c of contratos) {
     const m = marcoAvaliacao(diasEntre(c.dataInicio, ctx.agora));
-    if (m !== null) marcos.set(c.id, m);
+    // O marco de 180 dias é coberto pela avaliação semestral recorrente (com cobrança até preencher).
+    if (m !== null && m !== 180) marcos.set(c.id, m);
   }
   if (marcos.size === 0) return r;
   const feitos = new Set(
@@ -379,6 +419,10 @@ async function avisarUnidades(ctx: Ctx) {
     if (c.convite) partes.push(`${c.convite} convite(s) a estudantes para vagas abertas`);
     if (c.convenio) partes.push(`${c.convenio} convite(s)/lembrete(s) de convênio a instituições de ensino`);
     if (c.relatorio) partes.push(`${c.relatorio} relatório(s) semestral(is) enviado(s) a instituições de ensino`);
+    if (c.semestral) partes.push(`${c.semestral} cobrança(s) de avaliação semestral obrigatória a empresas`);
+    if (c.fim) partes.push(`${c.fim} aviso(s) de fim de estágio / limite de 2 anos`);
+    if (c.pesquisa) partes.push(`${c.pesquisa} pesquisa(s) de satisfação pós-estágio`);
+    if (c.vaga) partes.push(`${c.vaga} aviso(s) a empresas sobre vagas paradas ou candidatos sem retorno`);
     if (c.entrevista) partes.push(`${c.entrevista} lembrete(s) de entrevista a estudantes`);
     if (partes.length === 0) continue;
     const usuarios = await prisma.user.findMany({ where: { franchiseId, role: "FRANQUEADO", active: true }, select: { id: true } });
@@ -696,6 +740,288 @@ ${a.entrevistaLocal ? `<p>Local: ${esc(a.entrevistaLocal)}</p>` : ""}${a.entrevi
   return r;
 }
 
+// ───────────────────────────── Avaliação semestral obrigatória (cobra até preencher) ─────────────────────────────
+const MAX_SEMESTRAIS_POR_EXECUCAO = 40;
+async function avaliacoesSemestrais(ctx: Ctx): Promise<Resultado> {
+  const r = novoResultado();
+  const contratos = await prisma.contract.findMany({
+    where: { status: "ATIVO", dataInicio: { lte: new Date(ctx.agora.getTime() - 165 * 86_400_000) } },
+    select: {
+      id: true, dataInicio: true, franchiseId: true,
+      company: { select: { name: true, email: true } },
+      student: { select: { name: true } },
+      evaluations: { where: { status: "respondido" }, select: { respondidoAt: true }, orderBy: { respondidoAt: "desc" }, take: 1 },
+    },
+    orderBy: { dataInicio: "asc" },
+    take: 500,
+  });
+  if (contratos.length === 0) return r;
+  const logs = await prisma.automacaoEnvio.findMany({
+    where: { tipo: "AVALIACAO_SEMESTRAL", refId: { in: contratos.map(c => c.id) }, NOT: { detalhe: { startsWith: "duplicado" } } },
+    select: { refId: true, createdAt: true },
+  });
+  const porContrato = new Map<string, Date[]>();
+  for (const l of logs) porContrato.set(l.refId, [...(porContrato.get(l.refId) || []), l.createdAt]);
+
+  let feitos = 0;
+  for (const c of contratos) {
+    if (feitos >= MAX_SEMESTRAIS_POR_EXECUCAO || ctx.restante.n <= 0) break;
+    const devida = semestralDevida({
+      dataInicio: c.dataInicio, ultimaRespondidaEm: c.evaluations[0]?.respondidoAt ?? null,
+      enviosDoCiclo: porContrato.get(c.id) || [], agora: ctx.agora,
+    });
+    if (!devida) continue;
+    const aluno = c.student?.name || "o(a) estagiário(a)";
+    const link = `${APP_URL}/portal-empresa/avaliacoes?contrato=${c.id}`;
+    const prazo = devida.diasParaFechar > 0 ? `completa 6 meses em ${devida.diasParaFechar} dia(s)` : `já passou de 6 meses`;
+    const cobranca = devida.acao === "cobranca";
+    const corpo = cobranca
+      ? `<p>Olá, <strong>${esc(c.company?.name || "")}</strong>!</p>
+<p>Ainda não recebi a <strong>avaliação semestral</strong> de <strong>${esc(aluno)}</strong>. Você consegue preencher hoje? São poucas perguntas e leva menos de 3 minutos.</p>
+${botao(link, "Preencher a avaliação")}
+<p>Ela é obrigatória por lei (Lei 11.788/2008, art. 9º, VII): sem o relatório a cada 6 meses, a empresa e a instituição de ensino ficam irregulares e o estágio pode ser descaracterizado.</p>
+<p style="color:#64748b;font-size:12px">Se o botão não abrir, copie este link no navegador:<br/>${link}<br/>Esqueceu a senha do portal? Use "Esqueci minha senha" na tela de entrada ou responda este e-mail.</p>`
+      : `<p>Olá, <strong>${esc(c.company?.name || "")}</strong>!</p>
+<p>O estágio de <strong>${esc(aluno)}</strong> ${prazo}. Neste ponto precisamos da <strong>avaliação semestral</strong>, que é obrigatória por lei (Lei 11.788/2008, art. 9º, VII) e vai para a instituição de ensino.</p>
+<p>Você consegue preencher esta semana? São poucas perguntas (pontualidade, produtividade, iniciativa, comunicação, aprendizado e postura) e leva menos de 3 minutos.</p>
+${botao(link, "Preencher a avaliação")}
+<p style="color:#64748b;font-size:12px">Se o botão não abrir, copie este link no navegador:<br/>${link}</p>`;
+    const ok = await enviar(ctx, r, {
+      tipo: "AVALIACAO_SEMESTRAL", refId: c.id, para: c.company?.email,
+      assunto: cobranca ? `Falta a avaliação semestral de ${aluno}` : `Avaliação semestral de ${aluno}: você consegue preencher?`,
+      titulo: "Avaliação semestral obrigatória", corpo,
+      detalhe: `Avaliação semestral ${devida.numero}/${MAX_COBRANCAS_SEMESTRAL}: ${aluno} (${c.company?.name})`,
+      franchiseId: c.franchiseId, contador: "semestral",
+    });
+    if (!ok) continue;
+    feitos++;
+    if (devida.numero === COBRANCA_ESCALA_UNIDADE) {
+      await avisarUnidadeUmaVez(ctx, {
+        franchiseId: c.franchiseId, refId: c.id, tipo: "AVALIACAO_SEMESTRAL_ESCALA",
+        titulo: `⚠️ ${c.company?.name} não preencheu a avaliação semestral de ${aluno}`,
+        mensagem: `A Lia já cobrou ${devida.numero} vezes por e-mail. A avaliação semestral é obrigatória por lei: ligue para a empresa ou ajude a preencher.`,
+        link: `/dashboard/contratos/${c.id}`,
+      });
+    }
+  }
+  return r;
+}
+
+// ───────────────────────────── Fim de estágio e limite de 2 anos ─────────────────────────────
+async function fimDeEstagio(ctx: Ctx): Promise<Resultado> {
+  const r = novoResultado();
+  const contratos = await prisma.contract.findMany({
+    where: { status: "ATIVO", dataFim: { gte: ctx.agora, lte: new Date(ctx.agora.getTime() + 31 * 86_400_000) } },
+    select: {
+      id: true, dataInicio: true, dataFim: true, franchiseId: true, studentId: true, companyId: true,
+      company: { select: { name: true, email: true } },
+      student: { select: { name: true, email: true } },
+      franchise: { select: { name: true, email: true, telefone: true } },
+    },
+    orderBy: { dataFim: "asc" },
+    take: 300,
+  });
+  if (contratos.length === 0) return r;
+  const inicios = await primeirosInicios(contratos);
+  const refs: string[] = [];
+  const marcos = new Map<string, number>();
+  for (const c of contratos) {
+    const m = marcoFim(Math.ceil((c.dataFim.getTime() - ctx.agora.getTime()) / 86_400_000));
+    if (m === null) continue;
+    marcos.set(c.id, m);
+    refs.push(`${c.id}:${m}`);
+  }
+  if (refs.length === 0) return r;
+  const feitos = new Set((await prisma.automacaoEnvio.findMany({
+    where: { tipo: { in: ["FIM_ESTAGIO_EMPRESA", "FIM_ESTAGIO_ESTUDANTE"] }, refId: { in: refs }, NOT: { detalhe: { startsWith: "duplicado" } } },
+    select: { tipo: true, refId: true },
+  })).map(x => `${x.tipo}|${x.refId}`));
+
+  for (const c of contratos) {
+    const m = marcos.get(c.id);
+    if (m === undefined || ctx.restante.n <= 0) continue;
+    const ref = `${c.id}:${m}`;
+    const fim = c.dataFim.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+    const aluno = c.student?.name || "o(a) estagiário(a)";
+    const empresa = c.company?.name || "a empresa";
+    const contato = [c.franchise?.name, c.franchise?.telefone, c.franchise?.email].filter(Boolean).map(x => esc(String(x))).join(" · ");
+    const lim = limiteDoisAnosAcumulado(inicios.get(`${c.studentId}:${c.companyId}`) || c.dataInicio, c.dataFim);
+    const noLimite = lim.noLimite;
+    const limiteTxt = lim.dataLimite.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+
+    // Empresa: aviso final (7 dias) com o termo de realização; 90/60/30 já saem pela renovação.
+    if (m === 7 && !feitos.has(`FIM_ESTAGIO_EMPRESA|${ref}`)) {
+      await enviar(ctx, r, {
+        tipo: "FIM_ESTAGIO_EMPRESA", refId: ref, para: c.company?.email,
+        assunto: `O estágio de ${aluno} termina em ${fim}`, titulo: "Estágio chegando ao fim",
+        corpo: `<p>Olá, <strong>${esc(empresa)}</strong>!</p>
+<p>O estágio de <strong>${esc(aluno)}</strong> termina em <strong>${fim}</strong>, daqui a poucos dias.</p>
+${noLimite ? `<p>Ele(a) completa o limite de <strong>2 anos</strong> de estágio na mesma empresa (previsto até ${limiteTxt}), então não dá para renovar. Se quiser manter ${esc(aluno)} na equipe, o caminho é a <strong>efetivação</strong>.</p>` : `<p>Se quiser continuar, ainda dá tempo de fazer o aditivo de renovação: é só responder este e-mail.</p>`}
+<p>No encerramento a empresa entrega ao estagiário o <strong>Termo de Realização do Estágio</strong> (Lei 11.788/2008, art. 9º, V), com as atividades, o período e a avaliação de desempenho. A sua unidade ajuda a emitir: ${contato}</p>
+<p>${noLimite ? "Quer abrir uma nova vaga para dar continuidade ao trabalho?" : "Precisa de um novo estagiário para esta vaga?"} É só responder.</p>`,
+        detalhe: `Fim de estágio 7d: ${aluno} (${empresa}) termina ${fim}`, franchiseId: c.franchiseId, contador: "fim",
+      });
+    }
+
+    // Estudante: 30 e 7 dias antes.
+    if (!feitos.has(`FIM_ESTAGIO_ESTUDANTE|${ref}`)) {
+      await enviar(ctx, r, {
+        tipo: "FIM_ESTAGIO_ESTUDANTE", refId: ref, para: c.student?.email,
+        assunto: `Seu estágio na ${empresa} termina em ${fim}`, titulo: "Seu estágio está chegando ao fim",
+        corpo: `<p>Olá, ${esc((aluno.split(" ")[0]) || "estudante")}!</p>
+<p>Seu estágio na <strong>${esc(empresa)}</strong> termina em <strong>${fim}</strong>${noLimite ? ", quando você completa o limite de 2 anos na mesma empresa" : ""}.</p>
+<p>${noLimite ? "A empresa pode te efetivar como funcionário(a); vale conversar com o seu gestor. " : "Se a empresa renovar, a sua unidade cuida do aditivo e você só precisa assinar. "}Você também tem direito ao <strong>Termo de Realização do Estágio</strong> no encerramento: peça à empresa se ela ainda não entregou.</p>
+<p>Quer que eu procure uma nova vaga para você depois? Responda este e-mail contando o curso e o horário que prefere, ou fale com a sua unidade: ${contato}</p>`,
+        detalhe: `Fim de estágio ${m}d (estudante): ${aluno} termina ${fim}`, franchiseId: c.franchiseId, contador: "fim",
+      });
+    }
+  }
+  return r;
+}
+
+// ───────────────────────────── Pesquisa de satisfação pós-estágio ─────────────────────────────
+const MAX_PESQUISAS_POR_EXECUCAO = 15;
+async function pesquisasPosEstagio(ctx: Ctx): Promise<Resultado> {
+  const r = novoResultado();
+  const desde = new Date(ctx.agora.getTime() - 31 * 86_400_000);
+  const contratos = await prisma.contract.findMany({
+    where: { status: "FINALIZADO", updatedAt: { gte: desde }, OR: [{ origem: null }, { origem: { not: "MIGRADO" } }] },
+    select: {
+      id: true, updatedAt: true, franchiseId: true, companyId: true,
+      company: { select: { name: true, email: true } },
+      student: { select: { name: true, email: true } },
+    },
+    orderBy: { updatedAt: "asc" },
+    take: 100,
+  });
+  if (contratos.length === 0) return r;
+  const logs = await prisma.automacaoEnvio.findMany({
+    where: { tipo: { in: ["PESQUISA_EMPRESA", "PESQUISA_ESTUDANTE"] }, NOT: { detalhe: { startsWith: "duplicado" } }, createdAt: { gte: new Date(ctx.agora.getTime() - 90 * 86_400_000) } },
+    select: { tipo: true, refId: true, destinatario: true, createdAt: true },
+  });
+  const jaContrato = new Set(logs.map(l => `${l.tipo}|${l.refId}`));
+  // Uma empresa com vários encerramentos não recebe várias pesquisas seguidas: 1 a cada 60 dias por e-mail.
+  const sessentaDias = ctx.agora.getTime() - 60 * 86_400_000;
+  const empresaRecente = new Set(logs.filter(l => l.tipo === "PESQUISA_EMPRESA" && l.createdAt.getTime() >= sessentaDias).map(l => l.destinatario));
+
+  let feitos = 0;
+  for (const c of contratos) {
+    if (feitos >= MAX_PESQUISAS_POR_EXECUCAO || ctx.restante.n <= 0) break;
+    const aluno = c.student?.name || "o(a) estagiário(a)";
+    const empresa = c.company?.name || "a empresa";
+
+    const emailEmp = normalizarEmail(c.company?.email);
+    if (pesquisaDevida({ encerradoEm: c.updatedAt, jaEnviada: jaContrato.has(`PESQUISA_EMPRESA|${c.id}`), agora: ctx.agora }) && !empresaRecente.has(emailEmp)) {
+      const ok = await enviar(ctx, r, {
+        tipo: "PESQUISA_EMPRESA", refId: c.id, para: c.company?.email,
+        assunto: `Como foi ter ${aluno} na ${empresa}?`, titulo: "Sua opinião sobre o estágio",
+        corpo: `<p>Olá, <strong>${esc(empresa)}</strong>!</p>
+<p>O estágio de <strong>${esc(aluno)}</strong> foi encerrado. De 0 a 10, o quanto você recomendaria a Smarter para outra empresa?</p>
+<p>Responda este e-mail com a nota e, se puder, o que funcionou bem e o que podemos melhorar. Leva 1 minuto e a sua unidade lê cada resposta.</p>
+<p>E se a empresa vai precisar de um novo estagiário, é só dizer: eu já peço à unidade para separar candidatos.</p>`,
+        detalhe: `Pesquisa de satisfação (empresa) — ${aluno} / ${empresa}`, franchiseId: c.franchiseId, contador: "pesquisa",
+      });
+      if (ok) { feitos++; empresaRecente.add(emailEmp); }
+    }
+    if (ctx.restante.n <= 0) break;
+    if (pesquisaDevida({ encerradoEm: c.updatedAt, jaEnviada: jaContrato.has(`PESQUISA_ESTUDANTE|${c.id}`), agora: ctx.agora })) {
+      const ok = await enviar(ctx, r, {
+        tipo: "PESQUISA_ESTUDANTE", refId: c.id, para: c.student?.email,
+        assunto: `Como foi seu estágio na ${empresa}?`, titulo: "Sua opinião sobre o estágio",
+        corpo: `<p>Olá, ${esc((aluno.split(" ")[0]) || "estudante")}!</p>
+<p>Seu estágio na <strong>${esc(empresa)}</strong> foi encerrado. De 0 a 10, o quanto você recomendaria a Smarter para um colega?</p>
+<p>Responda este e-mail com a nota e contando o que foi bom e o que podemos melhorar. Também me diga se quer que eu procure uma nova vaga para você.</p>`,
+        detalhe: `Pesquisa de satisfação (estudante) — ${aluno} / ${empresa}`, franchiseId: c.franchiseId, contador: "pesquisa",
+      });
+      if (ok) feitos++;
+    }
+  }
+  return r;
+}
+
+// ───────────────────────────── Vagas paradas e empresa sem retorno ─────────────────────────────
+const MAX_VAGAS_AVISO_POR_EXECUCAO = 20;
+async function vagasParadasERetorno(ctx: Ctx): Promise<Resultado> {
+  const r = novoResultado();
+  const vagas = await prisma.vacancy.findMany({
+    where: { status: "ABERTA", company: { status: "ATIVA" } },
+    select: {
+      id: true, titulo: true, createdAt: true, franchiseId: true,
+      company: { select: { name: true, email: true, responsavel: true } },
+      applications: { select: { etapa: true, etapaChangedAt: true, createdAt: true, student: { select: { name: true } } } },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 300,
+  });
+  if (vagas.length === 0) return r;
+  const logs = await prisma.automacaoEnvio.findMany({
+    where: { tipo: { in: ["VAGA_PARADA", "RETORNO_EMPRESA"] }, refId: { in: vagas.map(v => v.id) }, NOT: { detalhe: { startsWith: "duplicado" } } },
+    select: { tipo: true, refId: true, createdAt: true },
+  });
+  const por = (tipo: string, id: string) => logs.filter(l => l.tipo === tipo && l.refId === id).map(l => l.createdAt);
+
+  let feitos = 0;
+  for (const v of vagas) {
+    if (feitos >= MAX_VAGAS_AVISO_POR_EXECUCAO || ctx.restante.n <= 0) break;
+    const oi = v.company.responsavel ? `Olá, ${esc(v.company.responsavel.split(" ")[0])}!` : `Olá, <strong>${esc(v.company.name)}</strong>!`;
+
+    // Candidatos que já passaram por entrevista e esperam a decisão da empresa.
+    const esperando = v.applications.filter(a => a.etapa === "entrevista");
+    const maisAntiga = esperando.length
+      ? new Date(Math.min(...esperando.map(a => (a.etapaChangedAt || a.createdAt || ctx.agora).getTime())))
+      : null;
+    const retorno = retornoEmpresaDevido({ maisAntigaParadaEm: maisAntiga, envios: por("RETORNO_EMPRESA", v.id), agora: ctx.agora });
+    if (retorno) {
+      const nomes = esperando.slice(0, 3).map(a => esc((a.student?.name || "").split(" ")[0])).filter(Boolean).join(", ");
+      const ok = await enviar(ctx, r, {
+        tipo: "RETORNO_EMPRESA", refId: v.id, para: v.company.email,
+        assunto: `Vaga ${v.titulo}: já decidiu sobre os candidatos?`, titulo: "Candidatos aguardando retorno",
+        corpo: `<p>${oi}</p>
+<p>Para a vaga <strong>${esc(v.titulo)}</strong>, ${esperando.length === 1 ? "há 1 candidato entrevistado" : `há ${esperando.length} candidatos entrevistados`}${nomes ? ` (${nomes})` : ""} aguardando a sua decisão. Você já decidiu quem segue?</p>
+<p>Responda este e-mail dizendo quem aprovar e quem dispensar, ou me diga se precisa de mais tempo ou de outros perfis. Candidato sem retorno costuma aceitar outra proposta.</p>`,
+        detalhe: `Retorno da empresa ${retorno.numero}/3 — ${v.titulo} (${v.id})`, franchiseId: v.franchiseId, contador: "vaga",
+      });
+      if (ok) {
+        feitos++;
+        if (retorno.numero >= 3) {
+          await avisarUnidadeUmaVez(ctx, {
+            franchiseId: v.franchiseId, refId: v.id, tipo: "RETORNO_EMPRESA_ESCALA",
+            titulo: `⚠️ ${v.company.name} não respondeu sobre candidatos da vaga ${v.titulo}`,
+            mensagem: "A Lia já cobrou 3 vezes por e-mail. Ligue para a empresa para fechar a decisão antes que os candidatos desistam.",
+            link: "/dashboard/processos",
+          });
+        }
+      }
+      continue; // 1 e-mail por vaga por dia
+    }
+
+    const parada = vagaParadaDevida({ criadaEm: v.createdAt, envios: por("VAGA_PARADA", v.id), agora: ctx.agora });
+    if (parada && esperando.length === 0) {
+      const dias = diasEntre(v.createdAt!, ctx.agora);
+      const ok = await enviar(ctx, r, {
+        tipo: "VAGA_PARADA", refId: v.id, para: v.company.email,
+        assunto: `A vaga de ${v.titulo} ainda está aberta?`, titulo: "Sua vaga segue aberta",
+        corpo: `<p>${oi}</p>
+<p>A vaga <strong>${esc(v.titulo)}</strong> está aberta há ${dias} dias${v.applications.length ? ` e tem ${v.applications.length} candidato(s) inscrito(s)` : " e ainda não recebeu candidatos"}. Você ainda precisa de estagiário(a)?</p>
+<p>Se sim, posso pedir à unidade para ajustar o que pesa mais (bolsa, horário, curso aceito) e divulgar de novo. Se a vaga já foi preenchida ou não é mais necessária, me avise para eu encerrar. Basta responder este e-mail.</p>`,
+        detalhe: `Vaga parada ${parada.numero}/3 — ${v.titulo} (${v.id})`, franchiseId: v.franchiseId, contador: "vaga",
+      });
+      if (ok) {
+        feitos++;
+        if (parada.numero >= 3) {
+          await avisarUnidadeUmaVez(ctx, {
+            franchiseId: v.franchiseId, refId: v.id, tipo: "VAGA_PARADA_ESCALA",
+            titulo: `⚠️ Vaga ${v.titulo} (${v.company.name}) parada há ${dias} dias sem resposta`,
+            mensagem: "A Lia já perguntou 3 vezes se a vaga continua aberta. Confirme com a empresa e encerre ou reative a vaga.",
+            link: "/dashboard/vagas",
+          });
+        }
+      }
+    }
+  }
+  return r;
+}
+
 export async function rodarAutomacoesLia(opts: { dryRun?: boolean } = {}) {
   const optOut = new Set((await prisma.contatoOptOut.findMany({ select: { email: true } })).map(o => normalizarEmail(o.email)));
   const ctx: Ctx = {
@@ -709,6 +1035,8 @@ export async function rodarAutomacoesLia(opts: { dryRun?: boolean } = {}) {
   // Ordem de prioridade: assinatura (destrava contrato) > renovação (receita) > avaliação
   const assinaturas = await lembretesAssinatura(ctx);
   const renov = await renovacoes(ctx);
+  const semestrais = await avaliacoesSemestrais(ctx);
+  const fim = await fimDeEstagio(ctx);
   const aval = await avaliacoes(ctx);
   const crm = await followupsCrm(ctx);
   const entrevistas = await lembretesEntrevista(ctx);
@@ -717,10 +1045,12 @@ export async function rodarAutomacoesLia(opts: { dryRun?: boolean } = {}) {
   const reativacao = await reativarEmpresas(ctx);
   const relatorios = await relatoriosSemestraisIES(ctx);
   const convenios = await conveniosIES(ctx);
+  const vagasParadas = await vagasParadasERetorno(ctx);
+  const pesquisas = await pesquisasPosEstagio(ctx);
   const unidadesAvisadas = await avisarUnidades(ctx);
   return {
     dryRun: ctx.dryRun,
     teto: TETO_ENVIOS_POR_EXECUCAO,
-    assinaturas, renovacoes: renov, avaliacoes: aval, crm, entrevistas, convites, portal, reativacao, relatorios, convenios, unidadesAvisadas,
+    assinaturas, renovacoes: renov, semestrais, fim, avaliacoes: aval, crm, entrevistas, convites, portal, reativacao, relatorios, convenios, vagasParadas, pesquisas, unidadesAvisadas,
   };
 }

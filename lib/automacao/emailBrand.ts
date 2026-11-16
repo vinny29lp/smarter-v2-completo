@@ -50,6 +50,11 @@ export const TOPICOS_POR_TIPO: Record<string, Topico[]> = {
   PORTAL_ATIVACAO: ["portal", "estagiarios", "avaliacoes", "financeiro"],
   CONVITE_VAGA: ["vagas", "curriculo", "candidaturas"],
   ENTREVISTA_LEMBRETE: ["candidaturas", "curriculo"],
+  AVALIACAO_SEMESTRAL: ["avaliacoes", "estagiarios", "portal"],
+  FIM_ESTAGIO_EMPRESA: ["estagiarios", "solicitar_vaga"],
+  FIM_ESTAGIO_ESTUDANTE: ["vagas", "curriculo"],
+  VAGA_PARADA: ["solicitar_vaga", "portal"],
+  RETORNO_EMPRESA: ["candidaturas", "portal"],
 };
 
 export function linksPorTipo(tipo: string, app: string, extras: Topico[] = []): LinkUtil[] {

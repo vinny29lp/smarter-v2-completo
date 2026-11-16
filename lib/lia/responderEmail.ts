@@ -29,8 +29,13 @@ const LINK_PAINEL: Record<string, string> = {
   ASSINATURA: "/dashboard/contratos", RENOVACAO: "/dashboard/contratos", AVALIACAO: "/dashboard/contratos",
   CRM_FOLLOWUP: "/dashboard/crm", REATIVACAO: "/dashboard/empresas", PORTAL_ATIVACAO: "/dashboard/empresas",
   CONVENIO_IES: "/dashboard/ies", RELATORIO_IES: "/dashboard/contratos",
+  AVALIACAO_SEMESTRAL: "/dashboard/contratos", FIM_ESTAGIO_EMPRESA: "/dashboard/contratos", FIM_ESTAGIO_ESTUDANTE: "/dashboard/contratos",
+  PESQUISA_EMPRESA: "/dashboard/contratos", PESQUISA_ESTUDANTE: "/dashboard/contratos", VAGA_PARADA: "/dashboard/vagas", RETORNO_EMPRESA: "/dashboard/processos",
   CONVITE_VAGA: "/dashboard/processos", ENTREVISTA_LEMBRETE: "/dashboard/processos",
 };
+
+/** Respostas a estes e-mails exigem decisão humana da unidade: a Lia só confirma o recebimento. */
+const TIPOS_SO_UNIDADE = new Set(["AVALIACAO_SEMESTRAL", "FIM_ESTAGIO_EMPRESA", "FIM_ESTAGIO_ESTUDANTE", "PESQUISA_EMPRESA", "PESQUISA_ESTUDANTE", "VAGA_PARADA", "RETORNO_EMPRESA"]);
 
 export interface EventoRecebido { emailId: string; messageId?: string | null; from: string; to: string[]; subject?: string | null }
 
@@ -142,7 +147,7 @@ export async function processarRespostaEmail(ev: EventoRecebido): Promise<{ ok: 
   const semana = new Date(Date.now() - 7 * 86_400_000);
   const respostasRecentes = await prisma.automacaoEnvio.count({ where: { tipo: "EMAIL_LIA_RESPOSTA", destinatario: remetente, createdAt: { gte: semana } } });
   const mesmoRemetente = normalizarEmail(original.destinatario) === normalizarEmail(remetente);
-  const escalar = deveEscalar(texto) || original.tipo.endsWith("_IES") || !mesmoRemetente || !podeResponderAutomaticamente(respostasRecentes);
+  const escalar = deveEscalar(texto) || original.tipo.endsWith("_IES") || TIPOS_SO_UNIDADE.has(original.tipo) || !mesmoRemetente || !podeResponderAutomaticamente(respostasRecentes);
 
   const confirmarEncaminhamento = () => enviarResposta({
     para: remetente, assunto: assuntoResposta(ev.subject), titulo: "Recebemos sua mensagem",
