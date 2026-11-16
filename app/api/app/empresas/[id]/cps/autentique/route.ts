@@ -6,6 +6,7 @@ import { handleApiError } from "@/lib/api-response";
 import { enviarParaAutentique, buscarStatusAutentique, AUTENTIQUE_INTERNAL_EMAILS } from "@/lib/autentique";
 import { enviarNotificacaoAssinatura } from "@/lib/email";
 import { checkPermission } from "@/lib/permissions";
+import { podeOperarCps, ehMigradaSemUnidade } from "@/lib/empresas/cpsAcesso";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
 
@@ -143,16 +144,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // SEC: escopo por franquia — checkPermission("empresas") só garante que o
     // módulo está liberado, não que ESTA empresa é da franquia de quem chama
     // (mesmo padrão de app/api/app/empresas/[id]/cps/route.ts PATCH).
-    if (session.user.role !== "FRANQUEADORA" && empresa.franchiseId !== session.user.franchiseId) {
+    if (!podeOperarCps(empresa as any, session.user as any)) {
       return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
     }
+    // Empresa migrada (sem unidade): a parte contratante é a unidade de quem está enviando
+    const unidadeCps = empresa.franchise
+      ?? (ehMigradaSemUnidade(empresa as any) && session.user.franchiseId ? await prisma.franchise.findUnique({ where: { id: session.user.franchiseId } }) : null);
 
     const valorGestao = (empresa as any).valorGestao;
     if (!valorGestao) {
       return NextResponse.json({ error: "Defina o valor de gestão antes de enviar o contrato." }, { status: 400 });
     }
 
-    const html = gerarHtmlCPS(empresa, (empresa as any).franchise, valorGestao);
+    const html = gerarHtmlCPS(empresa, unidadeCps, valorGestao);
 
     // Enviar para Autentique com todos os signatários
     const resultado = await enviarParaAutentique(
@@ -209,7 +213,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     if (!empresa) return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
 
     // SEC: escopo por franquia — mesma checagem do POST acima.
-    if (session.user.role !== "FRANQUEADORA" && empresa.franchiseId !== session.user.franchiseId) {
+    if (!podeOperarCps(empresa as any, session.user as any)) {
       return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
     }
 

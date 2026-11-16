@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { wrapParaPDF } from "@/lib/pdf-wrapper";
 import { handleApiError } from "@/lib/api-response";
 import { checkPermission } from "@/lib/permissions";
+import { podeOperarCps, ehMigradaSemUnidade } from "@/lib/empresas/cpsAcesso";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sistema.smarterestagios.com.br";
 
@@ -139,16 +140,19 @@ export async function GET(
 
   // SEC: escopo por franquia — unidade só gera CPS de empresa da própria franquia.
   const role = session.user.role || "";
-  if (role !== "FRANQUEADORA" && empresa.franchiseId !== session.user.franchiseId) {
+  if (!podeOperarCps(empresa as any, session.user as any)) {
     return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
   }
+  // Empresa migrada (sem unidade): a parte contratante é a unidade de quem está gerando
+  const unidadeCps = empresa.franchise
+    ?? (ehMigradaSemUnidade(empresa as any) && session.user.franchiseId ? await prisma.franchise.findUnique({ where: { id: session.user.franchiseId } }) : null);
 
   const valorGestao = (empresa as any).valorGestao || 0;
   if (!valorGestao) {
     return NextResponse.json({ error: "Defina o valor de gestão por estagiário antes de gerar o contrato." }, { status: 400 });
   }
 
-  const html = wrapParaPDF(gerarHtmlCPS(empresa, empresa.franchise, valorGestao), `CPS — ${empresa.name}`);
+  const html = wrapParaPDF(gerarHtmlCPS(empresa, unidadeCps, valorGestao), `CPS — ${empresa.name}`);
   return new Response(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
@@ -176,8 +180,8 @@ export async function PATCH(
 
   // SEC: escopo por franquia — FRANQUEADO só altera empresa da própria franquia.
   if (session.user.role !== "FRANQUEADORA") {
-    const alvo = await prisma.company.findUnique({ where: { id: params.id }, select: { franchiseId: true } });
-    if (!alvo || alvo.franchiseId !== session.user.franchiseId) {
+    const alvo = await prisma.company.findUnique({ where: { id: params.id }, select: { franchiseId: true, origem: true } as any });
+    if (!alvo || !podeOperarCps(alvo as any, session.user as any)) {
       return NextResponse.json({ error: "Empresa não encontrada" }, { status: 404 });
     }
   }

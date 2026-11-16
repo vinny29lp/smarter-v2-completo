@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { criarLinkAssinatura } from "@/lib/autentique";
 import { checkPermission } from "@/lib/permissions";
+import { podeOperarCps, ehMigradaSemUnidade } from "@/lib/empresas/cpsAcesso";
 
 /**
  * Gera (sob demanda) o link de assinatura de um signatário específico do
@@ -33,14 +34,14 @@ export async function POST(
 
     const empresa = await prisma.company.findUnique({
       where: { id: params.id },
-      select: { id: true, franchiseId: true, cpsAuthDocId: true } as any,
+      select: { id: true, franchiseId: true, origem: true, cpsAuthDocId: true } as any,
     });
 
     if (!empresa) {
       return NextResponse.json({ error: "Empresa não encontrada." }, { status: 404 });
     }
     // SEC: escopo por franquia — mesmo padrão das outras rotas de CPS.
-    if (session.user.role !== "FRANQUEADORA" && (empresa as any).franchiseId !== session.user.franchiseId) {
+    if (!podeOperarCps(empresa as any, session.user as any)) {
       return NextResponse.json({ error: "Empresa não encontrada." }, { status: 404 });
     }
     if (!(empresa as any).cpsAuthDocId) {
