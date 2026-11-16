@@ -34,9 +34,9 @@ const APP_URL = _raw && !_raw.includes("localhost") && !_raw.includes("127.0.0")
 
 const APP = APP_URL;
 
-function templateEmail(titulo: string, corpo: string, email: string, tipo: string, extras: Topico[] = []): string {
+function templateEmail(titulo: string, corpo: string, email: string, tipo: string, extras: Topico[] = [], ref?: string | null): string {
   const optoutUrl = `${APP_URL}/optout?e=${encodeURIComponent(email)}&t=${tokenOptOut(email)}`;
-  return templateLiaEmail({ titulo, corpo, app: APP_URL, optoutUrl, links: linksPorTipo(tipo, APP_URL, extras) });
+  return templateLiaEmail({ titulo, corpo, app: APP_URL, optoutUrl, links: linksPorTipo(tipo, APP_URL, extras, ref) });
 }
 
 export interface Resultado {
@@ -93,7 +93,7 @@ async function enviar(ctx: Ctx, r: Resultado, p: {
 
   const envioId = randomUUID();
   const replyTo = enderecoResposta(process.env.LIA_EMAIL_RESPOSTAS, envioId);
-  const html = templateEmail(p.titulo, p.corpo, email, p.tipo);
+  const html = templateEmail(p.titulo, p.corpo, email, p.tipo, [], p.franchiseId);
   const ok = await sendMail(email, p.assunto, html, undefined, remetenteLia(), { text: htmlParaTexto(html), ...(replyTo ? { replyTo } : {}) });
   if (!ok) { r.falhas++; return false; }
   ctx.restante.n--;

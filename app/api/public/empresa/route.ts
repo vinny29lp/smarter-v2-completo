@@ -7,9 +7,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Dados obrigatórios faltando." }, { status: 400 });
   }
 
-  // Verificar CNPJ duplicado
-  const existing = await prisma.company.findFirst({ where: { cnpj: body.cnpj } });
-  if (existing) return NextResponse.json({ error: "CNPJ já cadastrado." }, { status: 409 });
+  // Verificar CNPJ duplicado comparando só os dígitos (com ou sem pontuação é a mesma empresa)
+  const digitos = String(body.cnpj).replace(/\D/g, "");
+  if (digitos.length !== 14) return NextResponse.json({ error: "CNPJ inválido." }, { status: 400 });
+  const duplicada = await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM companies WHERE regexp_replace(cnpj, '[^0-9]', '', 'g') = ${digitos} LIMIT 1`;
+  if (duplicada.length > 0) return NextResponse.json({ error: "CNPJ já cadastrado." }, { status: 409 });
+  body.cnpj = digitos;
 
   // Buscar franquia pelo ref
   let franchiseId: string | undefined;
@@ -17,13 +20,9 @@ export async function POST(req: Request) {
     const f = await prisma.franchise.findUnique({ where: { id: body.franchiseRef } });
     if (f) franchiseId = f.id;
   }
-  // Fallback: primeira franquia ativa
-  if (!franchiseId) {
-    const f = await prisma.franchise.findFirst({ where: { status: "ATIVO" } });
-    franchiseId = f?.id;
-  }
-
-  if (!franchiseId) return NextResponse.json({ error: "Franquia não encontrada." }, { status: 400 });
+  // Sem unidade de origem válida (link sem ?ref=): NÃO escolhe uma franquia ao acaso — o cadastro fica sem unidade,
+  // visível só à Franqueadora, que direciona. (Antes caía na "primeira franquia ativa" e ia para a unidade errada.)
+  if (body.franchiseRef && !franchiseId) console.warn("[cadastro-empresa] ref inválido:", String(body.franchiseRef).slice(0, 40));
 
   const company = await prisma.company.create({
     data: {
@@ -36,7 +35,7 @@ export async function POST(req: Request) {
       cidade: body.cidade || "", uf: body.uf || "", cep: body.cep || "",
       status: "PENDENTE",
       pendente: true,
-      franchiseId,
+      franchiseId: franchiseId ?? null,
     },
   });
 
@@ -46,7 +45,7 @@ export async function POST(req: Request) {
       empresa: body.name, contato: body.responsavel, email: body.email,
       telefone: body.telefone, etapa: "novo_lead", prioridade: "alta",
       anotacao: "Lead gerado via auto-cadastro público",
-      franchiseId, companyId: company.id,
+      franchiseId: franchiseId ?? null, companyId: company.id,
     },
   }).catch(() => {});
 

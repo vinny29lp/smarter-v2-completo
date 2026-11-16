@@ -23,7 +23,8 @@ export type Topico =
   | "portal" | "solicitar_vaga" | "avaliacoes" | "estagiarios" | "documentos" | "financeiro"
   | "vagas" | "curriculo" | "candidaturas" | "cadastro_estudante" | "cadastro_empresa" | "site";
 
-export function linkDoTopico(t: Topico, app: string): LinkUtil {
+export function linkDoTopico(t: Topico, app: string, ref?: string | null): LinkUtil {
+  const q = ref ? `?ref=${encodeURIComponent(ref)}` : "";
   switch (t) {
     case "portal": return { rotulo: "Acessar o portal (esqueci minha senha na tela de entrada)", href: `${app}/login` };
     case "solicitar_vaga": return { rotulo: "Solicitar uma vaga de estágio", href: `${app}/solicitar-vaga` };
@@ -34,8 +35,8 @@ export function linkDoTopico(t: Topico, app: string): LinkUtil {
     case "vagas": return { rotulo: "Ver vagas abertas", href: `${app}/vagas` };
     case "curriculo": return { rotulo: "Completar meu currículo", href: `${app}/portal-estudante/curriculo` };
     case "candidaturas": return { rotulo: "Minhas candidaturas", href: `${app}/portal-estudante/candidaturas` };
-    case "cadastro_estudante": return { rotulo: "Cadastro de estudante", href: `${app}/cadastro/estudante` };
-    case "cadastro_empresa": return { rotulo: "Cadastro de empresa", href: `${app}/cadastro/empresa` };
+    case "cadastro_estudante": return { rotulo: "Cadastro de estudante", href: `${app}/cadastro/estudante${q}` };
+    case "cadastro_empresa": return { rotulo: "Cadastro de empresa", href: `${app}/cadastro/empresa${q}` };
     default: return { rotulo: "Site da Smarter Estágios", href: "https://smarterestagios.com.br" };
   }
 }
@@ -58,12 +59,13 @@ export const TOPICOS_POR_TIPO: Record<string, Topico[]> = {
   RETORNO_EMPRESA: ["candidaturas", "portal"],
 };
 
-export function linksPorTipo(tipo: string, app: string, extras: Topico[] = []): LinkUtil[] {
+/** `ref` = id da unidade que enviou: cadastros feitos pelos links do e-mail ficam vinculados a ela. */
+export function linksPorTipo(tipo: string, app: string, extras: Topico[] = [], ref?: string | null): LinkUtil[] {
   const topicos = [...(TOPICOS_POR_TIPO[tipo] || ["site"]), ...extras];
   const vistos = new Set<string>();
   const out: LinkUtil[] = [];
   for (const t of topicos) {
-    const l = linkDoTopico(t, app);
+    const l = linkDoTopico(t, app, ref);
     if (!vistos.has(l.href)) { vistos.add(l.href); out.push(l); }
   }
   return out;
