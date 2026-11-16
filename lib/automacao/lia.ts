@@ -10,7 +10,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/email";
 import { buscarStatusAutentique } from "@/lib/autentique";
-import { tokenOptOut, tokenRelatorio } from "./token";
+import { tokenOptOut, tokenRelatorio, tokenAvaliacao } from "./token";
 import { convenioDevido, relatorioSemestralDevido, periodoSemestre } from "./iesRegras";
 import { randomUUID, randomBytes } from "crypto";
 import { esc, botao, templateLiaEmail, linksPorTipo, enderecoResposta, remetenteLia, htmlParaTexto, type Topico } from "./emailBrand";
@@ -312,7 +312,7 @@ async function avaliacoes(ctx: Ctx): Promise<Resultado> {
     const ultima = c.evaluations[0]?.respondidoAt;
     if (ultima && diasEntre(ultima, ctx.agora) < 20) continue;
     const aluno = c.student?.name || "o(a) estagiário(a)";
-    const link = `${APP_URL}/portal-empresa/avaliacoes?contrato=${c.id}`;
+    const link = `${APP_URL}/avaliar?c=${c.id}&t=${tokenAvaliacao(c.id)}`;
     await enviar(ctx, r, {
       tipo: "AVALIACAO", refId: `${c.id}:${m}`, para: c.company?.email,
       assunto: `${ROTULO_AVALIACAO[m]} — ${aluno}`,
@@ -772,7 +772,7 @@ async function avaliacoesSemestrais(ctx: Ctx): Promise<Resultado> {
     });
     if (!devida) continue;
     const aluno = c.student?.name || "o(a) estagiário(a)";
-    const link = `${APP_URL}/portal-empresa/avaliacoes?contrato=${c.id}`;
+    const link = `${APP_URL}/avaliar?c=${c.id}&t=${tokenAvaliacao(c.id)}`;
     const prazo = devida.diasParaFechar > 0 ? `completa 6 meses em ${devida.diasParaFechar} dia(s)` : `já passou de 6 meses`;
     const cobranca = devida.acao === "cobranca";
     const corpo = cobranca
@@ -780,7 +780,7 @@ async function avaliacoesSemestrais(ctx: Ctx): Promise<Resultado> {
 <p>Ainda não recebi a <strong>avaliação semestral</strong> de <strong>${esc(aluno)}</strong>. Você consegue preencher hoje? São poucas perguntas e leva menos de 3 minutos.</p>
 ${botao(link, "Preencher a avaliação")}
 <p>Ela é obrigatória por lei (Lei 11.788/2008, art. 9º, VII): sem o relatório a cada 6 meses, a empresa e a instituição de ensino ficam irregulares e o estágio pode ser descaracterizado.</p>
-<p style="color:#64748b;font-size:12px">Se o botão não abrir, copie este link no navegador:<br/>${link}<br/>Esqueceu a senha do portal? Use "Esqueci minha senha" na tela de entrada ou responda este e-mail.</p>`
+<p style="color:#64748b;font-size:12px">Se o botão não abrir, copie este link no navegador:<br/>${link}<br/>O link abre direto, sem precisar de senha. Se algo não funcionar, responda este e-mail.</p>`
       : `<p>Olá, <strong>${esc(c.company?.name || "")}</strong>!</p>
 <p>O estágio de <strong>${esc(aluno)}</strong> ${prazo}. Neste ponto precisamos da <strong>avaliação semestral</strong>, que é obrigatória por lei (Lei 11.788/2008, art. 9º, VII) e vai para a instituição de ensino.</p>
 <p>Você consegue preencher esta semana? São poucas perguntas (pontualidade, produtividade, iniciativa, comunicação, aprendizado e postura) e leva menos de 3 minutos.</p>

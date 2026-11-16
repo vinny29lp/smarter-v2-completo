@@ -24,3 +24,13 @@ export function tokenRelatorioValido(evalId: string, token: string): boolean {
   const recebido = Buffer.from(String(token || ""));
   return esperado.length === recebido.length && timingSafeEqual(esperado, recebido);
 }
+
+/** Token do link direto de avaliação enviado à empresa (sem login). Vale só para aquele contrato. */
+export function tokenAvaliacao(contractId: string): string {
+  return createHmac("sha256", segredo()).update("avaliacao:" + contractId).digest("hex").slice(0, 32);
+}
+export function tokenAvaliacaoValido(contractId: string, token: string): boolean {
+  const esperado = Buffer.from(tokenAvaliacao(contractId));
+  const recebido = Buffer.from(String(token || ""));
+  return esperado.length === recebido.length && timingSafeEqual(esperado, recebido);
+}
