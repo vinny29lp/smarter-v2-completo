@@ -93,7 +93,7 @@ export function OnboardingLia({ podeEditar }: { podeEditar: boolean }) {
 
                   {!p.feito && podeEditar && p.tipo === "manual" && (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {p.acao && <a href={p.acao.href} target="_blank" rel="noreferrer" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-[#0f2a5e]">{p.acao.rotulo} ↗</a>}
+                      {p.acao && e.concluidoEm && <a href={p.acao.href} target="_blank" rel="noreferrer" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-[#0f2a5e]">{p.acao.rotulo} ↗</a>}
                       <button disabled={busy} onClick={() => enviar({ passo: p.id })} className="rounded-xl bg-[#0f2a5e] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Entendi, próximo passo</button>
                     </div>
                   )}
