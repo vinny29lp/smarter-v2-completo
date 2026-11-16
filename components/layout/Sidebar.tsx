@@ -73,6 +73,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/configuracoes",label:"Configurações",icon:Settings},
     {href:"/dashboard/saude",label:"Saúde do Sistema",icon:HeartPulse},
     {href:"/dashboard/alizo",label:"Funcionários digitais 🤖",icon:Plug},
+    {href:"/dashboard/treinamentos",label:"Treinamentos 🎓",icon:BookOpen},
   ]],
   EMPRESA: [[]],
   ESTUDANTE: [[]],
@@ -96,6 +97,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/gamificacao",label:"Gamificação",icon:Star},
     {href:"/dashboard/equipe",label:"Equipe",icon:Users},
     {href:"/dashboard/alizo",label:"Funcionários digitais 🤖",icon:Plug},
+    {href:"/dashboard/treinamentos",label:"Treinamentos 🎓",icon:BookOpen},
   ]],
 };
 
