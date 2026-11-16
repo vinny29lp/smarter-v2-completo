@@ -31,6 +31,7 @@ const EXTRA_FIELDS: Record<string, {label:string;key:string;type?:string;options
     { label:"Nome do Responsável Legal (obrigatório se menor)", key:"nomeResponsavel", type:"text" },
   ],
   rr: [
+    { label:"Motivo da rescisão * (alimenta o relatório de saídas)", key:"motivoCategoria", type:"select" },
     { label:"Último Dia de Estágio (em branco = hoje)", key:"ultimoDia", type:"date" },
     { label:"Descontos (R$)", key:"descontos", type:"number" },
     { label:"Ajustar bolsa proporcional (R$) — deixe em branco para o valor automático", key:"bolsaProporcionalManual", type:"number" },
@@ -226,7 +227,12 @@ export default function DocumentoPage({ params }: { params: { id: string; docId:
         body: JSON.stringify(extraData || extraFields),
       });
       const data = await res.json();
-      if (data.error) { setAlertas([data.error]); setLoading(false); return; }
+      if (data.error) {
+        setAlertas([data.error]); setLoading(false);
+        // Faltou o motivo: abre a caixa para escolher e emitir sem sair da tela
+        if (data.codigo === "MOTIVO_OBRIGATORIO") setExtraModal(true);
+        return;
+      }
       setDoc(data.document); setHtml(data.html); setExtraModal(false);
     } catch {
       setAlertas(["⚠️ Erro ao gerar documento. Verifique sua conexão e tente novamente."]);

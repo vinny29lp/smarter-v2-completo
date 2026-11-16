@@ -103,7 +103,7 @@ export async function POST(
     }
     case "tr":
       if (!motivoValido(body.motivoCategoria)) {
-        return NextResponse.json({ error: "Selecione o motivo da rescisão antes de gerar o documento." }, { status: 400 });
+        return NextResponse.json({ error: "Selecione o motivo da rescisão antes de gerar o documento.", codigo: "MOTIVO_OBRIGATORIO" }, { status: 400 });
       }
       html = gerarRescisao(
         contratoData,
@@ -115,8 +115,19 @@ export async function POST(
       );
       break;
     case "rr": {
+      // O motivo pode já ter sido escolhido ao gerar a Rescisão (TR) ou em tentativa anterior do recibo:
+      // reaproveita em vez de exigir de novo. Só pede se realmente não houver nenhum.
+      if (!motivoValido(body.motivoCategoria)) {
+        const salvo = (doc.metaData as any)?.motivoCategoria;
+        let achado: string | null = motivoValido(salvo) ? salvo : null;
+        if (!achado) {
+          const tr = await prisma.internshipDocument.findMany({ where: { contractId: params.id, tipo: "tr" }, select: { metaData: true }, orderBy: { updatedAt: "desc" } });
+          achado = tr.map(d => (d.metaData as any)?.motivoCategoria).find(v => motivoValido(v)) || null;
+        }
+        if (achado) body.motivoCategoria = achado;
+      }
       if (!body.previa && !motivoValido(body.motivoCategoria)) {
-        return NextResponse.json({ error: "Selecione o motivo da rescisão antes de emitir o recibo." }, { status: 400 });
+        return NextResponse.json({ error: "Selecione o motivo da rescisão para emitir o recibo.", codigo: "MOTIVO_OBRIGATORIO" }, { status: 400 });
       }
       // normaliza descontos: aceita número legado ou array novo
       const descontosRR = Array.isArray(body.descontos)
