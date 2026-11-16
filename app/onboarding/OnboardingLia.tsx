@@ -6,7 +6,7 @@ interface Passo { id: string; titulo: string; lia: string; obrigatorio: boolean;
 interface Estado {
   unidade: { nome: string; responsavel: string; endereco?: string; cep?: string; cidade?: string; uf?: string; whatsapp?: string; telefone?: string };
   regioes: { cidade: string; uf?: string; bairro?: string }[]; obrigatorio: boolean; concluidoEm: string | null;
-  passos: Passo[]; concluido: boolean; feitos: number; total: number; podeEditar: boolean;
+  mesAberto: boolean; passos: Passo[]; concluido: boolean; feitos: number; total: number; podeEditar: boolean;
 }
 
 export function OnboardingLia({ podeEditar }: { podeEditar: boolean }) {
@@ -35,7 +35,7 @@ export function OnboardingLia({ podeEditar }: { podeEditar: boolean }) {
   }
 
   async function liberar() {
-    if (await enviar({ concluir: true })) window.location.href = "/dashboard/hoje";
+    if (await enviar({ concluir: true })) window.location.href = e?.mesAberto ? "/dashboard/hoje" : "/dashboard/mes/abrir";
   }
 
   if (!e) return <div className="min-h-screen grid place-items-center bg-[#f0f4f8] text-sm text-slate-500">{erro || "A Lia está preparando o seu assistente…"}</div>;
@@ -107,7 +107,7 @@ export function OnboardingLia({ podeEditar }: { podeEditar: boolean }) {
           {e.concluido ? (
             <>
               <p className="text-lg font-bold text-green-700">Tudo pronto! 🎉</p>
-              <p className="text-sm text-slate-600 mt-1">Ao liberar, a tela Hoje abre e o Victor começa a buscar empresas na sua região assim que a Smarter confirmar a conexão da sua unidade.</p>
+              <p className="text-sm text-slate-600 mt-1">Ao liberar, eu te levo para abrir o mês (2 minutos) e depois o Victor começa a buscar empresas na sua região assim que a Smarter confirmar a conexão da sua unidade.</p>
               {podeEditar && <button disabled={busy} onClick={liberar} className="mt-4 rounded-xl bg-[#f5c400] px-6 py-3 text-sm font-black text-[#0f2a5e] disabled:opacity-50">Liberar meu sistema</button>}
             </>
           ) : (

@@ -39,3 +39,14 @@ describe("statusPassos", () => {
     expect(s.passos.find(p => p.id === "prospeccao")?.feito).toBe(false);
   });
 });
+
+describe("abrir_mes", () => {
+  const base = { franchise: { endereco: "Rua A, 10", cep: "24000-000", cidade: "Niterói", uf: "RJ", whatsapp: "21999990000" }, regioes: [{ cidade: "Niterói" }], alizoMapeada: false };
+  const todos = Object.fromEntries([...PASSOS_MANUAIS].map(id => [id, true]));
+  it("não bloqueia a liberação e marca feito quando o mês está aberto", () => {
+    const sem = statusPassos({ ...base, passosManuais: todos, mesAberto: false });
+    expect(sem.concluido).toBe(true);
+    expect(sem.passos.find(p => p.id === "abrir_mes")?.feito).toBe(false);
+    expect(statusPassos({ ...base, passosManuais: todos, mesAberto: true }).passos.find(p => p.id === "abrir_mes")?.feito).toBe(true);
+  });
+});

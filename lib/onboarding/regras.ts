@@ -40,7 +40,7 @@ export function regiaoDoDia(regioes: Regiao[], agora: Date): Regiao | null {
 
 // ───────────── Passos do assistente ─────────────
 export type PassoId =
-  | "tour_hoje" | "dados_unidade" | "regiao" | "tour_empresas" | "tour_crm" | "tour_vagas" | "tour_contratos" | "tour_financeiro" | "prospeccao";
+  | "tour_hoje" | "dados_unidade" | "regiao" | "tour_empresas" | "tour_crm" | "tour_vagas" | "tour_contratos" | "tour_financeiro" | "abrir_mes" | "prospeccao";
 
 export interface Passo {
   id: PassoId; titulo: string; lia: string; obrigatorio: boolean;
@@ -73,6 +73,9 @@ export const PASSOS: Passo[] = [
   { id: "tour_financeiro", tipo: "manual", obrigatorio: false, titulo: "Conhecer o Financeiro",
     lia: "Aqui ficam a taxa de gestão e os repasses. Dê uma olhada com calma depois do primeiro contrato.",
     acao: { rotulo: "Abrir Financeiro", href: "/dashboard/financeiro" } },
+  { id: "abrir_mes", tipo: "automatico", obrigatorio: false, titulo: "Abrir o mês e definir as metas",
+    lia: "Todo mês você abre o mês informando suas metas (empresas, leads, contratos, vagas e estudantes) e suas contas a pagar. Assim que você liberar o sistema, eu te levo direto a essa tela para fazer a primeira abertura — leva 2 minutos e é o que mantém o sistema liberado.",
+    acao: { rotulo: "Abrir o mês", href: "/dashboard/mes/abrir" } },
   { id: "prospeccao", tipo: "automatico", obrigatorio: false, titulo: "Sales (Victor) conectado e prospectando",
     lia: "Quando a unidade está conectada à Alizo e a região está definida, o Sales começa a buscar empresas sozinho. Esse passo é ativado pela Smarter e não bloqueia o seu acesso." },
 ];
@@ -82,6 +85,8 @@ export interface FatosOnboarding {
   regioes: Regiao[];
   passosManuais: Record<string, unknown> | null | undefined;
   alizoMapeada: boolean;
+  /** O mês atual já foi aberto pela unidade (MonthOpening). */
+  mesAberto?: boolean;
 }
 
 export interface PassoStatus extends Passo { feito: boolean; detalhe?: string }
@@ -101,6 +106,7 @@ export function statusPassos(fatos: FatosOnboarding): { passos: PassoStatus[]; c
     let feito = false; let detalhe: string | undefined;
     if (p.id === "dados_unidade") { const falta = dadosUnidadeFaltando(fatos.franchise); feito = falta.length === 0; if (!feito) detalhe = "Falta: " + falta.join(", "); }
     else if (p.id === "regiao") { feito = fatos.regioes.length > 0; if (!feito) detalhe = "Nenhuma região cadastrada ainda."; }
+    else if (p.id === "abrir_mes") { feito = !!fatos.mesAberto; if (!feito) detalhe = "Você faz isso logo depois de liberar o sistema."; }
     else if (p.id === "prospeccao") { feito = fatos.alizoMapeada && fatos.regioes.length > 0; if (!feito) detalhe = fatos.alizoMapeada ? "Defina a região." : "Aguardando a conexão da unidade com a Alizo (feita pela Smarter)."; }
     else feito = manual[p.id] === true;
     return { ...p, feito, detalhe };

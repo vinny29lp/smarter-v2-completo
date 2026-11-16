@@ -18,8 +18,12 @@ async function carregar(franchiseId: string) {
   if (!f) return null;
   const mapa = await prisma.alizoUnidade.findUnique({ where: { franchiseKey: franchiseId } }).catch(() => null);
   const regioes = normalizarRegioes(f.regioesAtuacao);
+  const hoje = new Date();
+  const abertura = await prisma.monthOpening.findUnique({
+    where: { franchiseId_mes_ano: { franchiseId, mes: hoje.getMonth() + 1, ano: hoje.getFullYear() } }, select: { id: true },
+  }).catch(() => null);
   const st = statusPassos({
-    franchise: f, regioes, passosManuais: (f.onboardingPassos as any) || {}, alizoMapeada: !!mapa,
+    franchise: f, regioes, passosManuais: (f.onboardingPassos as any) || {}, alizoMapeada: !!mapa, mesAberto: !!abertura,
   });
   return { f, st, regioes };
 }
@@ -36,10 +40,11 @@ export async function GET() {
     const c = await carregar(franchiseId);
     if (!c) return NextResponse.json({ error: "Unidade não encontrada" }, { status: 404 });
     const { f, st, regioes } = c;
+    const mesAberto = !!st.passos.find(p => p.id === "abrir_mes")?.feito;
     return NextResponse.json({
       unidade: { nome: f.name, responsavel: f.responsavel, endereco: f.endereco, cep: f.cep, cidade: f.cidade, uf: f.uf, whatsapp: f.whatsapp, telefone: f.telefone },
       regioes, obrigatorio: !!f.onboardingObrigatorio, concluidoEm: f.onboardingConcluidoEm,
-      podeEditar: role === "FRANQUEADO", ...st,
+      podeEditar: role === "FRANQUEADO", mesAberto, ...st,
     });
   } catch (e) { return handleApiError(e, "ONBOARDING_GET"); }
 }
