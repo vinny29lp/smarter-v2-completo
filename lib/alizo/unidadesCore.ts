@@ -6,6 +6,15 @@
 import { AlizoError } from "./client";
 import { payloadUnidade, franquiaDeveOperar, classificarErro, statusAposErro, erroSeguro, type FranquiaParaAlizo, type ClasseErro } from "./unidadesRegras";
 
+/** A Alizo devolve `is_active` e `template_version` numérico; aceitamos as duas grafias e sempre guardamos texto. */
+export function lerAtiva(u: any): boolean | undefined {
+  const v = u?.is_active ?? u?.active;
+  return typeof v === "boolean" ? v : undefined;
+}
+export function lerVersao(v: unknown): string | null {
+  return v === null || v === undefined || v === "" ? null : String(v);
+}
+
 export interface FranquiaRow extends FranquiaParaAlizo { status?: string | null; acessoBloqueado?: boolean | null }
 export interface RepoAlizo {
   getFranquia(id: string): Promise<FranquiaRow | null>;
@@ -15,9 +24,9 @@ export interface RepoAlizo {
   marcar(id: string, d: { status: "pending" | "synced" | "error" | "disabled"; erro: string | null; templateVersion?: string | null }): Promise<void>;
 }
 export interface ClienteUnidades {
-  unidadePorExternalId(externalId: string): Promise<{ units: Array<{ id: string; name?: string; active?: boolean; template_version?: string | null; external_id?: string | null }> }>;
-  criarUnidade(p: any): Promise<{ duplicate?: boolean; unit: { id: string; name?: string; active?: boolean; template_version?: string | null } }>;
-  atualizarUnidade(id: string, p: Record<string, unknown>): Promise<{ unit?: { active?: boolean; template_version?: string | null } } | any>;
+  unidadePorExternalId(externalId: string): Promise<{ units: Array<{ id: string; name?: string; active?: boolean; is_active?: boolean; template_version?: string | number | null; external_id?: string | null }> }>;
+  criarUnidade(p: any): Promise<{ duplicate?: boolean; unit: { id: string; name?: string; active?: boolean; is_active?: boolean; template_version?: string | number | null } }>;
+  atualizarUnidade(id: string, p: Record<string, unknown>): Promise<{ unit?: { active?: boolean; is_active?: boolean; template_version?: string | number | null } } | any>;
   desativarUnidade(id: string): Promise<any>;
   reativarUnidade(id: string): Promise<any>;
 }
@@ -40,7 +49,7 @@ export async function sincronizarFranquiaCore(d: { repo: RepoAlizo; client: Clie
     if (mapa) {
       unitId = mapa.alizoUnitId;
       const r = await d.client.atualizarUnidade(unitId, payloadUnidade(f) as any);
-      ativa = r?.unit?.active; versao = r?.unit?.template_version;
+      ativa = lerAtiva(r?.unit); versao = lerVersao(r?.unit?.template_version);
     } else {
       // 1) já existe na Alizo com este external_id? (nunca por nome)
       const achadas = (await d.client.unidadePorExternalId(f.id)).units.filter(u => !u.external_id || u.external_id === f.id);
@@ -58,7 +67,7 @@ export async function sincronizarFranquiaCore(d: { repo: RepoAlizo; client: Clie
         await d.repo.marcar(f.id, { status: "error", erro: msg });
         return { ok: false, classe: "conflito_vinculo", mensagem: msg, auth: false };
       }
-      unitId = unit.id; ativa = unit.active; versao = unit.template_version;
+      unitId = unit.id; ativa = lerAtiva(unit); versao = lerVersao(unit.template_version);
       await d.repo.salvarMapa(f.id, unitId, unit.name || f.name);
     }
 

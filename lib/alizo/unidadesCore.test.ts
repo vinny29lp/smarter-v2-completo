@@ -98,3 +98,14 @@ describe("backfillCore", () => {
     expect(r.comErro).toBe(1);
   });
 });
+
+import { lerAtiva, lerVersao } from "./unidadesCore";
+describe("formato real da Alizo", () => {
+  it("template_version numérico vira texto e is_active é lido", () => {
+    expect(lerVersao(1)).toBe("1");
+    expect(lerVersao(null)).toBeNull();
+    expect(lerAtiva({ is_active: false })).toBe(false);
+    expect(lerAtiva({ active: true })).toBe(true);
+    expect(lerAtiva({})).toBeUndefined();
+  });
+});

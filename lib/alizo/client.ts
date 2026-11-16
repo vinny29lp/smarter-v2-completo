@@ -37,7 +37,7 @@ export interface AlizoOpcoes {
 
 export interface AlizoUnidadeApi {
   id: string; name: string; slug?: string; city?: string | null; state?: string | null; external_id?: string | null;
-  whatsapp_phone?: string | null; timezone?: string; active?: boolean; status?: string; template_version?: string | null;
+  whatsapp_phone?: string | null; timezone?: string; active?: boolean; is_active?: boolean; status?: string; template_version?: string | number | null;
 }
 
 /** Estado do WhatsApp: a Alizo só é confiável quando devolve `connected` — QR lido não basta. */
