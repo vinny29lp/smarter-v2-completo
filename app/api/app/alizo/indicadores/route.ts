@@ -77,7 +77,7 @@ export async function GET() {
         prisma.alizoEvento.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true, tipo: true } }),
       ]);
       status = {
-        chaveConfigurada: !!(process.env.ALIZO_PARTNER_API_KEY || process.env.ALIZO_PARTNER_API_TOKEN),
+        chaveConfigurada: !!(process.env.ALIZO_PARTNER_API_KEY || process.env.ALIZO_PARTNER_API_TOKEN || process.env.SUPPORT_PARTNER_API_TOKEN),
         webhookConfigurado: !!process.env.ALIZO_WEBHOOK_SECRET,
         gatilhoLeadsAtivo: process.env.ALIZO_GATILHO_LEADS_ATIVO === "true",
         recrutadorAtivo: recrutadorAtivo(),

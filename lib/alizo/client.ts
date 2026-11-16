@@ -119,7 +119,7 @@ export class AlizoClient {
   units() { return this.req<{ units: Array<{ id: string; slug: string; name: string; city: string; state: string; whatsapp_phone: string | null; timezone: string; external_id?: string | null }> }>("GET", "/units"); }
 
   /** Criação idempotente de unidade (pedido à Alizo — docs/pedido-alizo-unidades-whatsapp.md). Enquanto o endpoint não existir, a Alizo responde 404/405. */
-  criarUnidade(p: { external_id: string; name: string; city?: string; state?: string; timezone?: string; contact_email?: string; contact_phone?: string; owner_name?: string; address?: Record<string, string> }) {
+  criarUnidade(p: { external_id: string; name: string; city?: string; state?: string; timezone?: string; contact_email?: string; contact_phone?: string; owner_name?: string; address?: string | Record<string, string> }) {
     return this.req<{ duplicate?: boolean; unit: { id: string; name?: string } }>("POST", "/units", p);
   }
 
@@ -152,7 +152,7 @@ export class AlizoClient {
     return this.req<any>("PUT", "/prospecting/profile", p);
   }
   perfilProspeccao(unit_id: string) { return this.req<any>("GET", "/prospecting/profile" + qs({ unit_id })); }
-  rodarProspeccao(unit_id: string) { return this.req<{ ok: boolean; captured: number; contacted: number; skipped?: number }>("POST", "/prospecting/run", { unit_id }); }
+  rodarProspeccao(unit_id: string, limit = 15) { return this.req<{ ok: boolean; captured: number; contacted: number; skipped?: number; leads?: any[] }>("POST", "/prospecting/run", { unit_id, limit }); }
 
   // ── Recrutador ──
   criarVaga(p: { unit_id: string; title: string; lead_id?: string; urgency?: string; hiring_deadline?: string; target_shortlist_size?: number; profile?: Record<string, unknown> }) {
@@ -225,7 +225,7 @@ function qs(q: Record<string, unknown>): string {
 
 /** Cliente configurado pelo ambiente, ou null (sem chave → integração desligada, chamadores fazem no-op). */
 export function criarAlizoClient(): AlizoClient | null {
-  const apiKey = process.env.ALIZO_PARTNER_API_KEY || process.env.ALIZO_PARTNER_API_TOKEN;
+  const apiKey = process.env.ALIZO_PARTNER_API_KEY || process.env.ALIZO_PARTNER_API_TOKEN || process.env.SUPPORT_PARTNER_API_TOKEN;
   if (!apiKey) {
     console.warn("[alizo] ALIZO_PARTNER_API_KEY/ALIZO_PARTNER_API_TOKEN ausente — integração desligada (no-op).");
     return null;

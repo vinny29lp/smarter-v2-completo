@@ -7,7 +7,8 @@ describe("unidadesRegras", () => {
   it("monta o payload com external_id permanente e endereço", () => {
     const p = payloadUnidade(f);
     expect(p.external_id).toBe("f1");
-    expect(p.address).toMatchObject({ street: "Rua A", number: "12", complement: "sala 3", district: "Centro", city: "Lorena", state: "SP", postal_code: "12345678", country: "BR" });
+    expect(p.address).toBe("Rua A, 12, sala 3 - Centro - 12.345-678");
+    expect(p).toMatchObject({ city: "Lorena", state: "SP", timezone: "America/Sao_Paulo" });
     expect(p.contact_phone).toBe("1239");
     expect(payloadUnidade(f).external_id).toBe(payloadUnidade(f).external_id);
   });

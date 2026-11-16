@@ -18,14 +18,18 @@ export function parseEndereco(endereco?: string | null) {
 
 /** Payload de POST/PUT /units. `external_id` = id permanente da franquia (nunca muda entre tentativas). */
 export function payloadUnidade(f: FranquiaParaAlizo) {
-  const e = parseEndereco(f.endereco);
+  // Contrato da Alizo: `address` é texto corrido; cidade/UF/fuso vão como campos próprios.
+  const partes = [(f.endereco || "").trim(), (f.cep || "").trim()].filter(Boolean);
   return {
     external_id: f.id,
     name: f.name,
     contact_email: f.email,
     contact_phone: f.whatsapp || f.telefone || "",
     owner_name: f.responsavel,
-    address: { ...e, city: f.cidade, state: f.uf, postal_code: (f.cep || "").replace(/\D/g, ""), country: "BR" },
+    address: partes.join(" - "),
+    city: f.cidade,
+    state: f.uf,
+    timezone: "America/Sao_Paulo",
   };
 }
 
