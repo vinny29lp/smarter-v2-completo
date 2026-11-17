@@ -28,7 +28,10 @@ export async function sincronizarRecrutador() {
   // 1) Vagas abertas ainda não espelhadas
   const vagas = await prisma.vacancy.findMany({
     where: { status: "ABERTA", alizoJobId: null, franchiseId: { in: franquias } },
-    select: { id: true, titulo: true, cursoRequerido: true, area: true, cidade: true, uf: true, nivel: true, requisitos: true, franchiseId: true },
+    select: {
+      id: true, titulo: true, cursoRequerido: true, area: true, cidade: true, uf: true, nivel: true, requisitos: true, franchiseId: true,
+      publicSlug: true, descricao: true, bolsa: true, auxTransporte: true, horario: true, diasSemana: true, modalidade: true, cargaHoraria: true, beneficios: true,
+    },
     take: MAX_VAGAS,
   });
   for (const v of vagas) {
