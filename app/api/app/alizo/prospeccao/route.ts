@@ -50,6 +50,7 @@ export async function POST(req: Request) {
     if (jaHoje) return NextResponse.json({ error: "O limite de prospecção de hoje já foi atingido. Nova execução amanhã." }, { status: 409 });
     const r: any = await prospeccaoRegional({ somenteFranquia: fid, max: 1 });
     if (!r.ok) return NextResponse.json({ error: "Configuração administrativa necessária." }, { status: 503 });
+    if (r.pausadas > 0) return NextResponse.json({ error: "A busca está pausada: há muitas empresas esperando o seu contato. Trate pelo menos 40 (contatar, marcar reunião, sem interesse ou venda) para liberar novas buscas." }, { status: 409 });
     if (r.unidades === 0) return NextResponse.json({ error: "A unidade ainda não está pronta para prospectar (assistente de primeiro acesso ou região pendente)." }, { status: 409 });
     return NextResponse.json({ ok: true, capturadas: r.capturados, erros: r.erros });
   } catch (e) { return handleApiError(e, "ALIZO_PROSPECCAO_POST"); }

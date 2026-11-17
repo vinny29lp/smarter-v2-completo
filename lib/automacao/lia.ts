@@ -17,7 +17,8 @@ import { esc, botao, templateLiaEmail, linksPorTipo, enderecoResposta, remetente
 import { proximoFollowup, mensagemFollowup, ETAPAS_FOLLOWUP, LIMITE_DIARIO_UNIDADE, MAX_FOLLOWUPS } from "./crmFollowup";
 import { reativacaoDevida, ativacaoPortalDevida, vagaPrecisaShortlist, lembreteEntrevistaDevido, MAX_REATIVACOES, MAX_AVISOS_PORTAL, MAX_CONVITES_ESTUDANTE_SEMANA, SCORE_MINIMO_CONVITE, TAMANHO_SHORTLIST } from "./engajamento";
 import { rankear } from "@/lib/matching/matching";
-import { TEXTO_CONTATO_HUMANO, pendenteContatoHumano, linkApresentacao } from "@/lib/crm/contatoHumano";
+import { TEXTO_CONTATO_HUMANO, MARCADOR_CONTATO_HUMANO, pendenteContatoHumano, linkApresentacao } from "@/lib/crm/contatoHumano";
+import { estadoPausa, textoLembreteSales, TIPO_PAUSA, TIPO_RETOMADA } from "@/lib/alizo/limiteProspeccao";
 import { semestralDevida, marcoFim, limiteDoisAnosAcumulado, pesquisaDevida, vagaParadaDevida, retornoEmpresaDevido, COBRANCA_ESCALA_UNIDADE, MAX_COBRANCAS_SEMESTRAL } from "./cicloRegras";
 import {
   diasEntre, marcoRenovacao, marcoAvaliacao, limiteDeDoisAnos,
@@ -443,6 +444,34 @@ async function avisarUnidades(ctx: Ctx) {
   return n;
 }
 
+
+/** Lembrete da Lia: empresas que o Sales trouxe estão no CRM esperando ligação/WhatsApp. No máx. 1 aviso a cada 2 dias por unidade. */
+async function lembrarContatoHumano(ctx: Ctx): Promise<number> {
+  if (ctx.dryRun) return 0;
+  const grupos = await prisma.crmLead.groupBy({
+    by: ["franchiseId"], _count: { _all: true },
+    where: { franchiseId: { not: null }, origem: "google_maps", situacao: "ativo", convertido: false, reuniaoAt: null, proximaAcao: { startsWith: MARCADOR_CONTATO_HUMANO } },
+  });
+  let n = 0;
+  const desde = new Date(ctx.agora.getTime() - 2 * 86_400_000);
+  for (const g of grupos) {
+    const fid = g.franchiseId!;
+    const ja = await prisma.automacaoEnvio.findFirst({ where: { tipo: "LEMBRETE_SALES_CRM", refId: fid, createdAt: { gte: desde } }, select: { id: true } });
+    if (ja) continue;
+    const usuarios = await prisma.user.findMany({ where: { franchiseId: fid, role: "FRANQUEADO", active: true }, select: { id: true } });
+    if (usuarios.length === 0) continue;
+    const ultima = await prisma.automacaoEnvio.findFirst({ where: { refId: fid, tipo: { in: [TIPO_PAUSA, TIPO_RETOMADA] } }, orderBy: { createdAt: "desc" }, select: { tipo: true, detalhe: true } });
+    const t = textoLembreteSales(g._count._all, !!estadoPausa(ultima));
+    await prisma.notification.createMany({
+      data: usuarios.map(u => ({ userId: u.id, titulo: t.titulo, mensagem: t.mensagem, tipo: "lia_automacao", link: "/dashboard/hoje" })),
+    });
+    await prisma.automacaoEnvio.create({
+      data: { tipo: "LEMBRETE_SALES_CRM", refId: fid, destinatario: "franqueado", canal: "interno", detalhe: `pendentes=${g._count._all}`, franchiseId: fid },
+    }).catch(() => {});
+    n++;
+  }
+  return n;
+}
 
 // ───────────────────────────── Prospecção: 1º contato por e-mail às empresas trazidas pelo Sales ─────────────────────────────
 const MAX_PROSPECCAO_POR_EXECUCAO = 40;
@@ -1139,9 +1168,10 @@ export async function rodarAutomacoesLia(opts: { dryRun?: boolean } = {}) {
   const vagasParadas = await vagasParadasERetorno(ctx);
   const pesquisas = await pesquisasPosEstagio(ctx);
   const unidadesAvisadas = await avisarUnidades(ctx);
+  const lembretesContatoHumano = await lembrarContatoHumano(ctx).catch((e: any) => { console.error("[lia] lembrete contato humano:", e?.message); return 0; });
   return {
     dryRun: ctx.dryRun,
     teto: TETO_ENVIOS_POR_EXECUCAO,
-    assinaturas, renovacoes: renov, semestrais, fim, avaliacoes: aval, crm, entrevistas, convites, portal, reativacao, relatorios, convenios, prospeccao, vagasParadas, pesquisas, unidadesAvisadas,
+    assinaturas, renovacoes: renov, semestrais, fim, avaliacoes: aval, crm, entrevistas, convites, portal, reativacao, relatorios, convenios, prospeccao, vagasParadas, pesquisas, unidadesAvisadas, lembretesContatoHumano,
   };
 }

@@ -6,7 +6,8 @@ import { avisarResposta } from "@/lib/lia/avisoResposta";
 import { prisma } from "@/lib/prisma";
 import { sincronizarRecrutador } from "./recrutador";
 import { ehOrigemSmarter } from "./origem";
-import { TEXTO_CONTATO_HUMANO } from "@/lib/crm/contatoHumano";
+import { TEXTO_CONTATO_HUMANO, MARCADOR_CONTATO_HUMANO } from "@/lib/crm/contatoHumano";
+import { decidirProspeccao, estadoPausa, detalhePausa, TIPO_PAUSA, TIPO_RETOMADA } from "./limiteProspeccao";
 import { normalizarRegioes, regiaoComoTexto, regiaoDoDia } from "@/lib/onboarding/regras";
 import { provisionarFranquiasPendentes } from "./provisionar";
 import { LIMITE_PROSPECCAO_DIA } from "./unidadesRegras";
@@ -320,7 +321,7 @@ export async function prospeccaoRegional(opts: { max?: number; agora?: Date; som
   const client = criarAlizoClient();
   if (!client) return { ok: false, motivo: "alizo_nao_configurado" };
   const agora = opts.agora ?? new Date();
-  const resumo = { unidades: 0, capturados: 0, erros: 0 };
+  const resumo = { unidades: 0, capturados: 0, erros: 0, pausadas: 0 };
   const mapa = await prisma.alizoUnidade.findMany({ where: { franchiseKey: { not: CHAVE_MATRIZ } } });
   if (mapa.length === 0) return { ok: true, ...resumo };
   const franquias: any[] = await prisma.franchise.findMany({
@@ -338,6 +339,28 @@ export async function prospeccaoRegional(opts: { max?: number; agora?: Date; som
     const regioes = normalizarRegioes(f.regioesAtuacao);
     const regiao = regiaoDoDia(regioes, agora);
     if (!liberada || !regiao) continue;
+    // Trava de custo: com 60 empresas do Sales esperando contato, não busca mais até a unidade tratar 40.
+    const pendentes = await prisma.crmLead.count({
+      where: { franchiseId: f.id, origem: "google_maps", situacao: "ativo", convertido: false, reuniaoAt: null, proximaAcao: { startsWith: MARCADOR_CONTATO_HUMANO } },
+    });
+    const ultimaTrava = await prisma.automacaoEnvio.findFirst({
+      where: { refId: f.id, tipo: { in: [TIPO_PAUSA, TIPO_RETOMADA] } }, orderBy: { createdAt: "desc" }, select: { tipo: true, detalhe: true },
+    });
+    const decisao = decidirProspeccao(pendentes, estadoPausa(ultimaTrava));
+    if (decisao.acao === "pausar" || decisao.acao === "bloqueada") {
+      if (decisao.acao === "pausar") {
+        await prisma.automacaoEnvio.create({
+          data: { tipo: TIPO_PAUSA, refId: f.id, destinatario: "alizo", canal: "interno", detalhe: detalhePausa(pendentes), franchiseId: f.id },
+        }).catch(() => {});
+      }
+      resumo.pausadas++;
+      continue;
+    }
+    if (decisao.acao === "retomar") {
+      await prisma.automacaoEnvio.create({
+        data: { tipo: TIPO_RETOMADA, refId: f.id, destinatario: "alizo", canal: "interno", detalhe: `pendentes=${pendentes}`, franchiseId: f.id },
+      }).catch(() => {});
+    }
     const unitId = mapa.find(m => m.franchiseKey === f.id)!.alizoUnitId;
     resumo.unidades++;
     let detalhe = "";
