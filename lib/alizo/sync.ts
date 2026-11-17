@@ -216,7 +216,12 @@ export async function sincronizarAlizo(opts: { horas?: number } = {}) {
   const desde = new Date(Date.now() - (opts.horas ?? 2) * 3_600_000).toISOString();
   const resumo = { importados: 0, ignorados: 0, eventos: 0, erros: 0, enviados: 0 };
 
-  const unidades = await prisma.alizoUnidade.findMany();
+  const todas = await prisma.alizoUnidade.findMany();
+  // Franquias bloqueadas/inativas têm a unidade desativada na Alizo (responde 404): não consulta leads delas.
+  const bloqueadas = new Set((await prisma.franchise.findMany({
+    where: { id: { in: todas.map(m => m.franchiseKey) }, OR: [{ acessoBloqueado: true }, { status: { not: "ATIVO" } }] }, select: { id: true },
+  })).map(f => f.id));
+  const unidades = todas.filter(u => !bloqueadas.has(u.franchiseKey));
   for (const u of unidades) {
     try {
       const franchiseId = u.franchiseKey === CHAVE_MATRIZ ? null : u.franchiseKey;
