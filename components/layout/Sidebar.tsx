@@ -73,6 +73,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard/configuracoes",label:"Configurações",icon:Settings},
     {href:"/dashboard/saude",label:"Saúde do Sistema",icon:HeartPulse},
     {href:"/dashboard/alizo",label:"Funcionários digitais 🤖",icon:Plug},
+    {href:"/dashboard/suporte-ti",label:"Suporte TI (Felipe) 🛠️",icon:HeartPulse},
     {href:"/dashboard/treinamentos",label:"Treinamentos 🎓",icon:BookOpen},
   ]],
   EMPRESA: [[]],

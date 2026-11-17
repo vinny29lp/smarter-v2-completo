@@ -914,12 +914,23 @@ model SupportCase {
   lastCheckedAt     DateTime? @db.Timestamptz(6)
   attemptCount      Int      @default(0)
   lastError         String?
+  // Felipe (TI) — acompanhamento local: NOVO | DIAGNOSTICADO | AGUARDANDO_APROVACAO | APROVADO | REJEITADO | RESOLVIDO
+  felipeStatus      String   @default("NOVO")
+  felipeRisk        String?  // BAIXO | MEDIO | ALTO (ver lib/support/felipe.ts)
+  felipeDiagnosis   String?
+  felipeProposal    String?
+  felipeChangeUrl   String?
+  felipeNotes       String?
+  felipeDecidedBy   String?
+  felipeDecidedAt   DateTime? @db.Timestamptz(6)
+  felipeUpdatedAt   DateTime? @db.Timestamptz(6)
   createdAt         DateTime @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@index([userId, createdAt])
   @@index([franchiseId])
   @@index([status])
+  @@index([felipeStatus])
   @@index([remoteStatus, lastCheckedAt])
   @@index([nextRetryAt])
   @@map("support_cases")
