@@ -17,7 +17,11 @@ export async function sincronizarRecrutador() {
   if (!client) return { ...resumo, ativo: false };
 
   const mapa = await prisma.alizoUnidade.findMany({ where: { NOT: { franchiseKey: "MATRIZ" } } });
-  const unidadePor = new Map(mapa.map(m => [m.franchiseKey, m.alizoUnitId]));
+  // Franquias bloqueadas/inativas ficam desativadas na Alizo (a unidade não aceita vaga): ignora-as.
+  const operando = new Set((await prisma.franchise.findMany({
+    where: { id: { in: mapa.map(m => m.franchiseKey) }, status: "ATIVO", acessoBloqueado: false }, select: { id: true },
+  })).map(f => f.id));
+  const unidadePor = new Map(mapa.filter(m => operando.has(m.franchiseKey)).map(m => [m.franchiseKey, m.alizoUnitId]));
   if (unidadePor.size === 0) return resumo;
   const franquias = Array.from(unidadePor.keys());
 
