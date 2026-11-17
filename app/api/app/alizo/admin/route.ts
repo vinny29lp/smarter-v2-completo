@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     if (acao === "verificar") { if (!(await existe())) return NextResponse.json({ error: "Franquia inválida." }, { status: 400 }); return NextResponse.json(await verificarVinculoAlizo(fid)); }
     if (acao === "sincronizar") { if (!(await existe())) return NextResponse.json({ error: "Franquia inválida." }, { status: 400 }); return NextResponse.json(await sincronizarFranquiaAlizo(fid)); }
     if (acao === "modelo") { if (!(await existe())) return NextResponse.json({ error: "Franquia inválida." }, { status: 400 }); return NextResponse.json(await reaplicarModeloAlizo(fid)); }
-    if (acao === "backfill") return NextResponse.json(await backfillAlizo());
+    if (acao === "backfill") return NextResponse.json(await backfillAlizo(50, Array.isArray(body.excluirIds) ? body.excluirIds.map(String).slice(0, 200) : []));
     if (acao === "reprocessar_eventos") return NextResponse.json(await reprocessarEventosFalhos());
     if (acao === "replay_webhook") {
       const client = criarAlizoClient();

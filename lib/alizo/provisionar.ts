@@ -57,10 +57,11 @@ export async function provisionarFranquiasPendentes(max = 10) {
 }
 
 /** Backfill de TODAS as franquias (idempotente); relatório sem dados sensíveis. */
-export async function backfillAlizo(max = 50) {
+export async function backfillAlizo(max = 50, excluirIds: string[] = []) {
   const client = criarAlizoClient();
   if (!client) return { ok: false as const, motivo: "alizo_nao_configurado" };
-  const ids = (await prisma.franchise.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } })).map(f => f.id);
+  const fora = new Set(excluirIds);
+  const ids = (await prisma.franchise.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } })).map(f => f.id).filter(id => !fora.has(id));
   return { ok: true as const, total: ids.length, ...(await backfillCore({ repo, client }, ids, max)) };
 }
 
