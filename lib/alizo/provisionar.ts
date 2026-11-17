@@ -17,6 +17,7 @@ const repo: RepoAlizo = {
   getMapa: async key => prisma.alizoUnidade.findUnique({ where: { franchiseKey: key }, select: { alizoUnitId: true } }),
   quemUsaUnidade: async u => (await prisma.alizoUnidade.findFirst({ where: { alizoUnitId: u }, select: { franchiseKey: true } }))?.franchiseKey ?? null,
   salvarMapa: async (key, unitId, nome) => { await prisma.alizoUnidade.upsert({ where: { franchiseKey: key }, create: { franchiseKey: key, alizoUnitId: unitId, nome }, update: {} }); },
+  apagarMapa: async key => { await prisma.alizoUnidade.deleteMany({ where: { franchiseKey: key } }); },
   marcar: async (id, d) => {
     await prisma.franchise.update({
       where: { id },

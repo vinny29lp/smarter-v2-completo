@@ -21,6 +21,8 @@ export interface RepoAlizo {
   getMapa(franchiseKey: string): Promise<{ alizoUnitId: string } | null>;
   quemUsaUnidade(alizoUnitId: string): Promise<string | null>;
   salvarMapa(franchiseKey: string, alizoUnitId: string, nome: string): Promise<void>;
+  /** Remove um vínculo local que aponta para unidade inexistente na Alizo (404). */
+  apagarMapa(franchiseKey: string): Promise<void>;
   marcar(id: string, d: { status: "pending" | "synced" | "error" | "disabled"; erro: string | null; templateVersion?: string | null }): Promise<void>;
 }
 export interface ClienteUnidades {
@@ -41,18 +43,24 @@ export async function sincronizarFranquiaCore(d: { repo: RepoAlizo; client: Clie
   const deveOperar = franquiaDeveOperar(f);
   try {
     let estado: "criada" | "vinculada" | "atualizada" = "atualizada";
-    let unitId: string;
+    let unitId = "";
     let ativa: boolean | undefined;
     let versao: string | null | undefined;
 
-    const mapa = await d.repo.getMapa(f.id);
+    let mapa = await d.repo.getMapa(f.id);
     if (mapa) {
       unitId = mapa.alizoUnitId;
-      const r = await d.client.atualizarUnidade(unitId, payloadUnidade(f) as any);
-      ativa = lerAtiva(r?.unit); versao = lerVersao(r?.unit?.template_version);
-    } else {
+      try {
+        const r = await d.client.atualizarUnidade(unitId, payloadUnidade(f) as any);
+        ativa = lerAtiva(r?.unit); versao = lerVersao(r?.unit?.template_version);
+      } catch (e: any) {
+        // Vínculo antigo apontando para unidade que não existe mais na Alizo: descarta e religa por external_id.
+        if (e instanceof AlizoError && e.status === 404) { await d.repo.apagarMapa(f.id); mapa = null; } else throw e;
+      }
+    }
+    if (!mapa) {
       // 1) já existe na Alizo com este external_id? (nunca por nome)
-      const achadas = (await d.client.unidadePorExternalId(f.id)).units.filter(u => !u.external_id || u.external_id === f.id);
+      const achadas = (await d.client.unidadePorExternalId(f.id)).units.filter(u => u.external_id === f.id);
       let unit = achadas[0];
       if (unit) {
         estado = "vinculada";

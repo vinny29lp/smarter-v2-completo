@@ -12,6 +12,7 @@ function mundo(franquias: any[], remoto: Array<{ id: string; external_id: string
     getMapa: async k => (mapa.has(k) ? { alizoUnitId: mapa.get(k)! } : null),
     quemUsaUnidade: async u => [...mapa.entries()].find(([, v]) => v === u)?.[0] ?? null,
     salvarMapa: async (k, u) => { mapa.set(k, u); },
+    apagarMapa: async k => { mapa.delete(k); },
     marcar: async (id, d) => { marcas.push({ id, ...d }); },
   };
   let n = 0;
@@ -107,5 +108,38 @@ describe("formato real da Alizo", () => {
     expect(lerAtiva({ is_active: false })).toBe(false);
     expect(lerAtiva({ active: true })).toBe(true);
     expect(lerAtiva({})).toBeUndefined();
+  });
+});
+
+describe("vínculo quebrado (404)", () => {
+  it("unidade antiga inexistente na Alizo: descarta o vínculo e religa por external_id", async () => {
+    const m = mundo([F("a")], [{ id: "u-certa", external_id: "a" }]);
+    m.mapa.set("a", "u-fantasma");
+    m.client.atualizarUnidade.mockRejectedValueOnce(new AlizoError(404, "Unidade não encontrada."));
+    const r = await sincronizarFranquiaCore(m, "a");
+    expect(r).toMatchObject({ ok: true, estado: "vinculada", alizoUnitId: "u-certa" });
+    expect(m.mapa.get("a")).toBe("u-certa");
+    expect(m.client.criarUnidade).not.toHaveBeenCalled();
+  });
+  it("sem unidade correspondente: cria uma nova", async () => {
+    const m = mundo([F("a")]);
+    m.mapa.set("a", "u-fantasma");
+    m.client.atualizarUnidade.mockRejectedValueOnce(new AlizoError(404, "x"));
+    const r = await sincronizarFranquiaCore(m, "a");
+    expect(r).toMatchObject({ ok: true, estado: "criada" });
+    expect(m.mapa.get("a")).not.toBe("u-fantasma");
+  });
+  it("403 continua sendo erro de acesso e mantém o vínculo", async () => {
+    const m = mundo([F("a")]);
+    m.mapa.set("a", "u1");
+    m.client.atualizarUnidade.mockRejectedValueOnce(new AlizoError(403, "sem escopo"));
+    const r = await sincronizarFranquiaCore(m, "a");
+    expect(r).toMatchObject({ ok: false, auth: true });
+    expect(m.mapa.get("a")).toBe("u1");
+  });
+  it("não liga unidade sem external_id (evita vínculo errado)", async () => {
+    const m = mundo([F("a")], [{ id: "outra", external_id: "" }]);
+    const r = await sincronizarFranquiaCore(m, "a");
+    expect(r).toMatchObject({ ok: true, estado: "criada" });
   });
 });
