@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deveContinuarConsultando, INTERVALO_QR_MS, type EstadoWhatsapp } from "@/lib/alizo/whatsappRegras";
+import { deveContinuarConsultando, estadoConfirmaAcao, INTERVALO_QR_MS, INTERVALO_CONFIRMACAO_MS, PRAZO_CONFIRMACAO_MS, type EstadoWhatsapp } from "@/lib/alizo/whatsappRegras";
 
 interface Estado { estado: EstadoWhatsapp; qr: string | null; expiraEm: string | null; telefone: string | null; provedor: string | null; ultimaAtividade: string | null }
 
@@ -22,6 +22,8 @@ export function WhatsappCard({ franchiseId }: { franchiseId?: string }) {
   const inicio = useRef<number>(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vivo = useRef(true);
+  // Ação (conectar/desconectar) ainda não confirmada pela Alizo: continua consultando sozinho, sem precisar atualizar a página.
+  const pendente = useRef<{ acao: "connect" | "reconnect" | "disconnect"; ate: number } | null>(null);
   const q = franchiseId ? `?franchiseId=${encodeURIComponent(franchiseId)}` : "";
 
   const consultar = useCallback(async () => {
@@ -29,12 +31,24 @@ export function WhatsappCard({ franchiseId }: { franchiseId?: string }) {
       const r = await fetch(`/api/app/alizo/whatsapp${q}`, { cache: "no-store" });
       const j = await r.json();
       if (!vivo.current) return;
-      if (!r.ok) { setMsg(j.error || "Não foi possível consultar agora."); setE(prev => prev ?? { estado: "error", qr: null, expiraEm: null, telefone: null, provedor: null, ultimaAtividade: null }); return; }
-      setMsg(""); setE(j);
+      const p = pendente.current;
+      const aguardando = !!p && Date.now() < p.ate;
+      if (!r.ok) {
+        if (aguardando) { timer.current = setTimeout(consultar, INTERVALO_CONFIRMACAO_MS); return; }
+        setMsg(j.error || "Não foi possível consultar agora."); setE(prev => prev ?? { estado: "error", qr: null, expiraEm: null, telefone: null, provedor: null, ultimaAtividade: null }); return;
+      }
+      setE(j);
+      if (p && estadoConfirmaAcao(p.acao, j.estado)) { pendente.current = null; setMsg(""); }
+      else if (aguardando) { timer.current = setTimeout(consultar, INTERVALO_CONFIRMACAO_MS); return; }
+      else setMsg("");
       if (deveContinuarConsultando(j.estado, inicio.current || Date.now(), Date.now())) {
         timer.current = setTimeout(consultar, INTERVALO_QR_MS);
       }
-    } catch { if (vivo.current) setMsg("Erro de conexão ao consultar o WhatsApp."); }
+    } catch {
+      if (!vivo.current) return;
+      if (pendente.current && Date.now() < pendente.current.ate) timer.current = setTimeout(consultar, INTERVALO_CONFIRMACAO_MS);
+      else setMsg("Erro de conexão ao consultar o WhatsApp.");
+    }
   }, [q]);
 
   useEffect(() => {
@@ -47,10 +61,26 @@ export function WhatsappCard({ franchiseId }: { franchiseId?: string }) {
     if (timer.current) clearTimeout(timer.current);
     try {
       const r = await fetch("/api/app/alizo/whatsapp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao, franchiseId }) });
-      const j = await r.json();
-      if (!r.ok) setMsg(j.error || "Não foi possível concluir.");
-      else { setE(j); inicio.current = Date.now(); if (deveContinuarConsultando(j.estado, inicio.current, Date.now())) timer.current = setTimeout(consultar, INTERVALO_QR_MS); }
-    } catch { setMsg("Erro de conexão."); }
+      const j = await r.json().catch(() => ({}));
+      inicio.current = Date.now();
+      pendente.current = { acao, ate: Date.now() + PRAZO_CONFIRMACAO_MS };
+      if (r.ok) {
+        setE(j);
+        if (estadoConfirmaAcao(acao, j.estado)) {
+          // Confirmado agora; ainda assim reconsulta (QR/estado final) quando necessário.
+          pendente.current = null;
+          if (deveContinuarConsultando(j.estado, inicio.current, Date.now())) timer.current = setTimeout(consultar, INTERVALO_QR_MS);
+        } else timer.current = setTimeout(consultar, INTERVALO_CONFIRMACAO_MS);
+      } else {
+        // A Alizo pode ter concluído mesmo sem responder a tempo: confirma o estado real em vez de deixar a tela desatualizada.
+        setMsg("Aguardando confirmação da Alizo…");
+        timer.current = setTimeout(consultar, INTERVALO_CONFIRMACAO_MS);
+      }
+    } catch {
+      pendente.current = { acao, ate: Date.now() + PRAZO_CONFIRMACAO_MS };
+      setMsg("Aguardando confirmação da Alizo…");
+      timer.current = setTimeout(consultar, INTERVALO_CONFIRMACAO_MS);
+    }
     setBusy(false);
   }
 

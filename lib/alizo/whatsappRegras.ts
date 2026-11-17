@@ -33,3 +33,11 @@ export function deveContinuarConsultando(estado: EstadoWhatsapp, inicioMs: numbe
   if (agoraMs - inicioMs > PRAZO_ACOMPANHAMENTO_MS) return false;
   return estado === "qr_pending" || estado === "unknown";
 }
+
+/** Estados que confirmam que a ação pedida foi concluída na Alizo. */
+export function estadoConfirmaAcao(acao: "connect" | "reconnect" | "disconnect", estado: EstadoWhatsapp): boolean {
+  if (acao === "disconnect") return estado === "disconnected";
+  return estado === "qr_pending" || estado === "connected";
+}
+export const PRAZO_CONFIRMACAO_MS = 90_000;
+export const INTERVALO_CONFIRMACAO_MS = 3_000;

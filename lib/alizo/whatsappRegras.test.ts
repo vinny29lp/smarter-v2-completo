@@ -27,3 +27,17 @@ describe("deveContinuarConsultando", () => {
     expect(deveContinuarConsultando("qr_pending", t0, t0 + PRAZO_ACOMPANHAMENTO_MS + 1)).toBe(false);
   });
 });
+
+import { estadoConfirmaAcao } from "./whatsappRegras";
+describe("estadoConfirmaAcao", () => {
+  it("desconectar só confirma com disconnected", () => {
+    expect(estadoConfirmaAcao("disconnect", "disconnected")).toBe(true);
+    expect(estadoConfirmaAcao("disconnect", "connected")).toBe(false);
+    expect(estadoConfirmaAcao("disconnect", "error")).toBe(false);
+  });
+  it("conectar/reconectar confirma com qr_pending ou connected", () => {
+    expect(estadoConfirmaAcao("connect", "qr_pending")).toBe(true);
+    expect(estadoConfirmaAcao("reconnect", "connected")).toBe(true);
+    expect(estadoConfirmaAcao("connect", "disconnected")).toBe(false);
+  });
+});

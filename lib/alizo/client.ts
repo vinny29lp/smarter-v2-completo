@@ -152,7 +152,8 @@ export class AlizoClient {
     return this.req<any>("PUT", "/prospecting/profile", p);
   }
   perfilProspeccao(unit_id: string) { return this.req<any>("GET", "/prospecting/profile" + qs({ unit_id })); }
-  rodarProspeccao(unit_id: string, limit = 15) { return this.req<{ ok: boolean; captured: number; contacted: number; skipped?: number; leads?: any[] }>("POST", "/prospecting/run", { unit_id, limit }); }
+  /** first_contact:false = só captura; o 1º contato é o e-mail da Lia e depois o contato humano do franqueado (nunca WhatsApp automático). */
+  rodarProspeccao(unit_id: string, limit = 15) { return this.req<{ ok: boolean; captured: number; contacted: number; skipped?: number; leads?: any[] }>("POST", "/prospecting/run", { unit_id, limit, first_contact: false }); }
 
   // ── Recrutador ──
   criarVaga(p: { unit_id: string; title: string; lead_id?: string; urgency?: string; hiring_deadline?: string; target_shortlist_size?: number; profile?: Record<string, unknown> }) {
