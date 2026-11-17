@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { AlizoError } from "./client";
-import { sincronizarFranquiaCore, backfillCore, type RepoAlizo, type ClienteUnidades } from "./unidadesCore";
+import { sincronizarFranquiaCore, backfillCore, vincularMatrizCore, type RepoAlizo, type ClienteUnidades } from "./unidadesCore";
 
 const F = (id: string, extra: any = {}) => ({ id, name: "Franquia " + id, responsavel: "R", email: "r@x.com", telefone: "1", cidade: "Lorena", uf: "SP", status: "ATIVO", acessoBloqueado: false, ...extra });
 
@@ -141,5 +141,28 @@ describe("vínculo quebrado (404)", () => {
     const m = mundo([F("a")], [{ id: "outra", external_id: "" }]);
     const r = await sincronizarFranquiaCore(m, "a");
     expect(r).toMatchObject({ ok: true, estado: "criada" });
+  });
+});
+
+describe("vincularMatrizCore", () => {
+  const mk = (mapaId: string | null, remoto: any[]) => {
+    const atualizar = vi.fn(async () => ({}));
+    return { atualizar, d: { repo: { getMapa: async () => (mapaId ? { alizoUnitId: mapaId } : null) }, client: { unidadePorExternalId: async (e: string) => ({ units: remoto.filter(u => u.external_id === e) }), atualizarUnidade: atualizar } } as any };
+  };
+  it("grava external_id MATRIZ na unidade mapeada", async () => {
+    const { d, atualizar } = mk("u1", []);
+    expect(await vincularMatrizCore(d)).toEqual({ ok: true, estado: "vinculada" });
+    expect(atualizar).toHaveBeenCalledWith("u1", { external_id: "MATRIZ" });
+  });
+  it("é idempotente quando já está ligada", async () => {
+    const { d, atualizar } = mk("u1", [{ id: "u1", external_id: "MATRIZ" }]);
+    expect(await vincularMatrizCore(d)).toEqual({ ok: true, estado: "ja_vinculada" });
+    expect(atualizar).not.toHaveBeenCalled();
+  });
+  it("não liga se outra unidade já usa MATRIZ, nem sem unidade mapeada", async () => {
+    const a = mk("u1", [{ id: "outra", external_id: "MATRIZ" }]);
+    expect(await vincularMatrizCore(a.d)).toMatchObject({ ok: false, motivo: "conflito" });
+    expect(a.atualizar).not.toHaveBeenCalled();
+    expect(await vincularMatrizCore(mk(null, []).d)).toMatchObject({ ok: false, motivo: "sem_unidade_matriz" });
   });
 });

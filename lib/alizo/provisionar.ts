@@ -6,7 +6,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { criarAlizoClient, AlizoError, mensagemAmigavel } from "./client";
-import { sincronizarFranquiaCore, backfillCore, type RepoAlizo, type ResultadoSync } from "./unidadesCore";
+import { sincronizarFranquiaCore, backfillCore, vincularMatrizCore, type RepoAlizo, type ResultadoSync } from "./unidadesCore";
 import { erroSeguro } from "./unidadesRegras";
 
 const repo: RepoAlizo = {
@@ -63,7 +63,9 @@ export async function backfillAlizo(max = 50, excluirIds: string[] = []) {
   if (!client) return { ok: false as const, motivo: "alizo_nao_configurado" };
   const fora = new Set(excluirIds);
   const ids = (await prisma.franchise.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } })).map(f => f.id).filter(id => !fora.has(id));
-  return { ok: true as const, total: ids.length, ...(await backfillCore({ repo, client }, ids, max)) };
+  const rel = await backfillCore({ repo, client }, ids, max);
+  const matriz = rel.abortado ? undefined : await vincularMatrizCore({ repo, client });
+  return { ok: true as const, total: ids.length, ...rel, matriz };
 }
 
 /** Verifica se o vínculo salvo bate com o que a Alizo conhece pelo external_id. */

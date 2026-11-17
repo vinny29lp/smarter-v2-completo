@@ -113,3 +113,28 @@ export async function backfillCore(d: { repo: RepoAlizo; client: ClienteUnidades
   }
   return rel;
 }
+
+/** external_id da unidade da Matriz (os webhooks já identificam a Matriz por "MATRIZ"). */
+export const EXTERNAL_ID_MATRIZ = "MATRIZ";
+
+export type ResultadoMatriz =
+  | { ok: true; estado: "ja_vinculada" | "vinculada" }
+  | { ok: false; motivo: "sem_unidade_matriz" | "conflito" | "erro"; mensagem: string; auth: boolean };
+
+/**
+ * Grava external_id="MATRIZ" na unidade da Matriz (já mapeada). Idempotente: se a Alizo já devolve a unidade
+ * pelo external_id, não faz PUT. Nunca cria unidade; só liga a existente.
+ */
+export async function vincularMatrizCore(d: { repo: Pick<RepoAlizo, "getMapa">; client: Pick<ClienteUnidades, "unidadePorExternalId" | "atualizarUnidade"> }): Promise<ResultadoMatriz> {
+  const mapa = await d.repo.getMapa(EXTERNAL_ID_MATRIZ);
+  if (!mapa) return { ok: false, motivo: "sem_unidade_matriz", mensagem: "Matriz sem unidade mapeada.", auth: false };
+  try {
+    const achadas = (await d.client.unidadePorExternalId(EXTERNAL_ID_MATRIZ)).units.filter(u => u.external_id === EXTERNAL_ID_MATRIZ);
+    if (achadas.some(u => u.id === mapa.alizoUnitId)) return { ok: true, estado: "ja_vinculada" };
+    if (achadas.length) return { ok: false, motivo: "conflito", mensagem: "Outra unidade já usa o external_id MATRIZ.", auth: false };
+    await d.client.atualizarUnidade(mapa.alizoUnitId, { external_id: EXTERNAL_ID_MATRIZ });
+    return { ok: true, estado: "vinculada" };
+  } catch (e: any) {
+    return { ok: false, motivo: "erro", mensagem: erroSeguro(e?.status ?? 0, e?.message), auth: e instanceof AlizoError && e.ehAutenticacao };
+  }
+}
