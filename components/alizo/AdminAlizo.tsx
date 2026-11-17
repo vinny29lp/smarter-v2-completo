@@ -26,6 +26,7 @@ export function AdminAlizo() {
       if (!r.ok) setMsg(j.error || "Falhou.");
       else if (acao === "backfill") setMsg(j.ok ? `Backfill: ${j.criadas} criada(s), ${j.vinculadas} vinculada(s), ${j.jaSincronizadas} já sincronizada(s), ${j.comErro} com erro${j.abortado ? " (interrompido: acesso à Alizo recusado)" : ""}.` : "Integração não configurada.");
       else if (acao === "reprocessar_eventos") setMsg(`Eventos reprocessados: ${j.ok} ok, ${j.falharam} ainda com falha.`);
+      else if (acao === "excluir_vagas_teste") setMsg(j.ok ? `Vagas de teste: ${j.encontradas} encontrada(s), ${j.excluidas} excluída(s), ${j.erros} com erro.` : (j.motivo || "Não foi possível concluir."));
       else if (acao === "verificar") setMsg(j.ok ? (j.confere ? "Vínculo confere com a Alizo." : j.existeNaAlizo ? "Existe na Alizo, mas o vínculo local difere." : "Não existe na Alizo ainda.") : (j.motivo || "Não foi possível verificar."));
       else setMsg(j.ok === false ? (j.mensagem || j.motivo || "Não foi possível concluir.") : "Concluído.");
       await carregar();
@@ -41,6 +42,7 @@ export function AdminAlizo() {
         <div className="flex flex-wrap gap-2">
           <button disabled={!!busy} onClick={() => agir("backfill", { excluirIds: ignorar })} className="rounded-lg bg-[#0f2a5e] px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">{ignorar.length ? `Vincular todas (menos ${ignorar.length} ignorada${ignorar.length > 1 ? "s" : ""})` : "Vincular todas as franquias"}</button>
           <button disabled={!!busy || d.eventosFalhos === 0} onClick={() => agir("reprocessar_eventos")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50">Reprocessar eventos com falha ({d.eventosFalhos})</button>
+          <button disabled={!!busy} onClick={() => agir("excluir_vagas_teste")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50">Excluir vagas de teste da Alizo</button>
         </div>
       </div>
       <p className="mt-1 text-xs text-slate-500">

@@ -1,7 +1,7 @@
 /**
  * Super Admin (FRANQUEADORA) — painel de saúde e operação da integração Alizo.
  * GET  → situação de cada franquia (vínculo, status, último erro, versão do modelo) + eventos que falharam + webhooks.
- * POST { acao: "verificar" | "sincronizar" | "modelo" | "backfill" | "reprocessar_eventos" | "replay_webhook", ... }
+ * POST { acao: "verificar" | "sincronizar" | "modelo" | "backfill" | "reprocessar_eventos" | "excluir_vagas_teste" | "replay_webhook", ... }
  */
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +10,7 @@ import { contextoAlizo } from "@/lib/alizo/acesso";
 import { criarAlizoClient, mensagemAmigavel } from "@/lib/alizo/client";
 import { sincronizarFranquiaAlizo, backfillAlizo, verificarVinculoAlizo, reaplicarModeloAlizo } from "@/lib/alizo/provisionar";
 import { reprocessarEventosFalhos } from "@/lib/alizo/sync";
+import { selecionarVagasTeste } from "@/lib/alizo/vagasTeste";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -51,6 +52,18 @@ export async function POST(req: Request) {
     if (acao === "modelo") { if (!(await existe())) return NextResponse.json({ error: "Franquia inválida." }, { status: 400 }); return NextResponse.json(await reaplicarModeloAlizo(fid)); }
     if (acao === "backfill") return NextResponse.json(await backfillAlizo(50, Array.isArray(body.excluirIds) ? body.excluirIds.map(String).slice(0, 200) : []));
     if (acao === "reprocessar_eventos") return NextResponse.json(await reprocessarEventosFalhos());
+    if (acao === "excluir_vagas_teste") {
+      const client = criarAlizoClient();
+      if (!client) return NextResponse.json({ ok: false, motivo: "Integração não configurada." });
+      try {
+        const jobs = (await client.listarVagas({ limit: 200 })).jobs || [];
+        const vinculados = new Set((await prisma.vacancy.findMany({ where: { alizoJobId: { not: null } }, select: { alizoJobId: true } })).map(v => v.alizoJobId as string));
+        const alvo = selecionarVagasTeste(jobs, vinculados);
+        let excluidas = 0, erros = 0;
+        for (const j of alvo) { try { await client.excluirVaga(j.id); excluidas++; } catch { erros++; } }
+        return NextResponse.json({ ok: true, encontradas: alvo.length, excluidas, erros });
+      } catch (e) { return NextResponse.json({ error: mensagemAmigavel(e) }, { status: 502 }); }
+    }
     if (acao === "replay_webhook") {
       const client = criarAlizoClient();
       const since = String(body.since || "");

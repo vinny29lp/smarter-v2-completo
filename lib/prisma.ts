@@ -11,9 +11,10 @@ const globalForPrisma = globalThis as unknown as {
 function buildDatasourceUrl(): string | undefined {
   const url = process.env.DATABASE_URL;
   if (!url) return url;
-  // connection_limit=3 permite que Promise.all com múltiplas queries rode sem timeout
-  // Supabase free tier suporta até 20 conexões diretas; 3 por serverless function é seguro
-  const poolSize = process.env.PRISMA_POOL_SIZE || "3";
+  // A URL já usa o pooler do Supabase (porta 6543, pgbouncer). Com limite 3, os painéis que disparam várias
+  // consultas em paralelo (Promise.all) estouravam P2024 ("Timed out fetching a new connection"). 8 resolve
+  // sem sobrecarregar o pooler; PRISMA_POOL_SIZE continua sobrescrevendo.
+  const poolSize = process.env.PRISMA_POOL_SIZE || "8";
   // Aumenta o pool_timeout para 30s (padrão 15s era muito curto para queries paralelas)
   const poolTimeout = process.env.PRISMA_POOL_TIMEOUT || "30";
   // Adiciona connection_limit e pool_timeout se não presentes
