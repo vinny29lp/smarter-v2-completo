@@ -321,7 +321,7 @@ export async function prospeccaoRegional(opts: { max?: number; agora?: Date; som
   const client = criarAlizoClient();
   if (!client) return { ok: false, motivo: "alizo_nao_configurado" };
   const agora = opts.agora ?? new Date();
-  const resumo = { unidades: 0, capturados: 0, erros: 0, pausadas: 0 };
+  const resumo = { unidades: 0, capturados: 0, erros: 0, pausadas: 0, aguardandoSales: 0 };
   const mapa = await prisma.alizoUnidade.findMany({ where: { franchiseKey: { not: CHAVE_MATRIZ } } });
   if (mapa.length === 0) return { ok: true, ...resumo };
   const franquias: any[] = await prisma.franchise.findMany({
@@ -372,6 +372,17 @@ export async function prospeccaoRegional(opts: { max?: number; agora?: Date; som
       if ((r.captured || 0) > LIMITE_PROSPECCAO_DIA) console.warn(`[alizo-prospeccao] unidade devolveu ${r.captured} (> ${LIMITE_PROSPECCAO_DIA}/dia)`);
       detalhe = `Prospecção em ${regiaoComoTexto(regiao, f.uf)}: ${r.captured ?? 0} capturadas`;
     } catch (e: any) {
+      if (e?.status === 409) {
+        // Sales Rep ainda não contratado/ativo na Alizo: NÃO gasta a tentativa do dia (tenta de novo no próximo ciclo)
+        // e não ocupa vaga no limite por rodada. Registra no máx. 1 aviso por dia para auditoria.
+        resumo.unidades--; resumo.aguardandoSales++;
+        console.warn("[alizo-prospeccao] aguardando ativação do Sales na Alizo:", f.name, String(e?.message || "").slice(0, 100));
+        const jaAvisou = await prisma.automacaoEnvio.findFirst({ where: { tipo: "ALIZO_PROSPECCAO_AGUARDA", refId: f.id, createdAt: { gte: inicioDia } }, select: { id: true } });
+        if (!jaAvisou) await prisma.automacaoEnvio.create({
+          data: { tipo: "ALIZO_PROSPECCAO_AGUARDA", refId: f.id, destinatario: "alizo", canal: "interno", detalhe: `Aguardando ativação do Sales na Alizo (409): ${String(e?.message || "").slice(0, 120)}`, franchiseId: f.id },
+        }).catch(() => {});
+        continue;
+      }
       resumo.erros++;
       detalhe = `ERRO na prospecção (${e?.status ?? "rede"}): ${String(e?.message || "").slice(0, 120)}`;
       console.error("[alizo-prospeccao] unidade falhou:", e?.status, e?.message);
