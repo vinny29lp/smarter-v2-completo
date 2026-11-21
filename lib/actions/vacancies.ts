@@ -31,6 +31,8 @@ export async function getVacancies(
   companyId?: string,
   page = 1,
   limit = 50,
+  /** Filtro por unidade: só vale para a Franqueadora (as unidades continuam vendo apenas as próprias vagas). */
+  unidadeId?: string,
 ) {
   const take = Math.min(100, Math.max(1, limit));
   const skip = (Math.max(1, page) - 1) * take;
@@ -38,6 +40,7 @@ export async function getVacancies(
   const isFranqueadora = franchiseId === "FRANQUEADORA";
   const where = {
     ...(franchiseId && !isFranqueadora ? { franchiseId } : {}),
+    ...(isFranqueadora && unidadeId ? { franchiseId: unidadeId } : {}),
     ...(companyId   ? { companyId }   : {}),
   };
   const [vagas, total] = await Promise.all([
@@ -46,6 +49,7 @@ export async function getVacancies(
       include: {
         // select em vez de include completo — evita objetos de empresa desnecessários
         company: { select: { id: true, name: true, cidade: true, uf: true } },
+        franchise: { select: { id: true, name: true } },
         _count: { select: { applications: true } },
       },
       orderBy: { createdAt: "desc" },

@@ -12,6 +12,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { contratosSemCoberturaGestao } from "@/lib/financeiro/cobrancaGestaoMensal";
 import { MARCADOR_CONTATO_HUMANO } from "@/lib/crm/contatoHumano";
 
@@ -20,13 +21,10 @@ export const dynamic = "force-dynamic";
 const DIAS = (d: Date) => Math.floor((Date.now() - d.getTime()) / 86_400_000);
 const addDias = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
 
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const role        = session.user.role;
-    const franchiseId = (session.user as any).franchiseId as string | undefined;
+// Cache de 60 s POR PERFIL+UNIDADE: este painel faz ~59 consultas; com 30 unidades abrindo a tela o tempo todo,
+// repetir isso a cada requisição esgota as conexões do banco. A chave do cache inclui role e franchiseId
+// (argumentos da função), então uma unidade nunca recebe o resultado de outra.
+async function calcularAlertas(role: string | undefined, franchiseId: string | undefined) {
     const isMaster    = role === "FRANQUEADORA" || role === "EQUIPE";
 
     // Filtro base por unidade (FRANQUEADO/FUNCIONARIO vêem só a sua)
@@ -281,7 +279,7 @@ export async function GET() {
     const atencao = vagasSemCandidatos.length + contratosVencendo.length + contratosPendentes1Mes.length + avaliacoesDevidas.length + leadsCrmVencidos.length + liaFeedbackBugs.length + solicitacoesVagaPendentes.length + candidaturasParadas.length;
     const info    = franquiaLeadsParados.length + liaFeedbackGeral.length;
 
-    return NextResponse.json({
+    return {
       alertas: {
         contratosVencendo:           contratosVencendo.map(c => ({ ...c, diasRestantes: c.dataFim ? Math.ceil((new Date(c.dataFim).getTime() - hoje.getTime()) / 86_400_000) : 0 })),
         contratosVencidosSemFinalizar,
@@ -305,7 +303,18 @@ export async function GET() {
         avaliacoesVencidasRede,
       },
       totais: { critico, atencao, info, total: critico + atencao + info },
-    });
+    };
+}
+
+const alertasEmCache = unstable_cache(calcularAlertas, ["alertas-v1"], { revalidate: 60, tags: ["alertas"] });
+
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const role        = session.user.role;
+    const franchiseId = (session.user as any).franchiseId as string | undefined;
+    return NextResponse.json(await alertasEmCache(role, franchiseId));
   } catch (e: any) {
     console.error("[alertas]", e?.message);
     return NextResponse.json({ error: "Erro ao carregar alertas" }, { status: 500 });

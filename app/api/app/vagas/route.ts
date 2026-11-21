@@ -19,6 +19,7 @@ export async function GET(req: Request) {
       session.user?.companyId,
       page,
       limit,
+      session.user.role === "FRANQUEADORA" ? (searchParams.get("unidade") || undefined) : undefined,
     );
     return NextResponse.json(result);
   } catch (err: any) {

@@ -5,8 +5,13 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { VagaInscricaoButton } from "./VagaInscricaoButton";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
-export default async function EstudanteVagas() {
+// Paginação: sem limite a página carregava TODAS as vagas abertas da rede (1,4 MB já com 450 vagas).
+const POR_PAGINA = 30;
+
+export default async function EstudanteVagas({ searchParams }: { searchParams?: { pagina?: string } }) {
+  const pagina = Math.max(1, parseInt(searchParams?.pagina || "1") || 1);
   const session = await getServerSession(authOptions);
 
   // Garante que a sessão existe e pertence a um estudante com perfil vinculado.
@@ -35,12 +40,15 @@ export default async function EstudanteVagas() {
     );
   }
 
-  const [vagas, student, candidaturas] = await Promise.all([
+  const [vagas, totalVagas, student, candidaturas] = await Promise.all([
     prisma.vacancy.findMany({
       where: { status: "ABERTA" },
       include: { company: { select: { name: true, cidade: true, uf: true } } },
       orderBy: { createdAt: "desc" },
+      skip: (pagina - 1) * POR_PAGINA,
+      take: POR_PAGINA,
     }),
+    prisma.vacancy.count({ where: { status: "ABERTA" } }),
     prisma.student.findUnique({ where: { id: studentId }, select: { discResult: true, curso: true } }),
     prisma.application.findMany({ where: { studentId }, select: { vacancyId: true } }),
   ]);
@@ -58,7 +66,7 @@ export default async function EstudanteVagas() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-black text-slate-800">Vagas Abertas</h1>
-        <p className="text-slate-500 text-sm mt-1">{vagas.length} vagas disponíveis</p>
+        <p className="text-slate-500 text-sm mt-1">{totalVagas} vagas disponíveis</p>
       </div>
       {vagas.length === 0 ? (
         <Card className="p-12 text-center"><p className="text-4xl mb-3">💼</p><p className="text-slate-400 text-sm">Nenhuma vaga aberta no momento.</p></Card>
@@ -97,6 +105,13 @@ export default async function EstudanteVagas() {
               </Card>
             );
           })}
+        </div>
+      )}
+      {totalVagas > POR_PAGINA && (
+        <div className="flex items-center justify-center gap-3 mt-6 text-sm">
+          {pagina > 1 && <Link href={`/portal-estudante/vagas?pagina=${pagina - 1}`} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">← Anterior</Link>}
+          <span className="text-slate-500">Página {pagina} de {Math.ceil(totalVagas / POR_PAGINA)}</span>
+          {pagina * POR_PAGINA < totalVagas && <Link href={`/portal-estudante/vagas?pagina=${pagina + 1}`} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Próxima →</Link>}
         </div>
       )}
     </div>

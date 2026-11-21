@@ -4,35 +4,63 @@ import { getVacancies } from "@/lib/actions/vacancies";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 
-export default async function VagasPage() {
+const POR_PAGINA = 40;
+
+export default async function VagasPage({ searchParams }: { searchParams?: { unidade?: string; pagina?: string } }) {
   const session = await getServerSession(authOptions);
+  const ehFranqueadora = session?.user?.role === "FRANQUEADORA";
+  const pagina = Math.max(1, parseInt(searchParams?.pagina || "1") || 1);
+  // Só a Franqueadora filtra por unidade; as unidades veem apenas as próprias vagas (getVacancies já restringe).
+  const unidade = ehFranqueadora ? (searchParams?.unidade || "") : "";
 
   let vagas: Awaited<ReturnType<typeof getVacancies>>["vagas"] = [];
+  let total = 0, totalPages = 1, abertas = 0;
+  let unidades: { id: string; name: string }[] = [];
   try {
-    const result = await getVacancies(
-      session?.user?.franchiseId,
-      session?.user?.companyId
-    );
-    vagas = result.vagas;
+    const [result, lista, qtdAbertas] = await Promise.all([
+      getVacancies(session?.user?.franchiseId, session?.user?.companyId, pagina, POR_PAGINA, unidade || undefined),
+      ehFranqueadora ? prisma.franchise.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }) : Promise.resolve([]),
+      prisma.vacancy.count({
+        where: {
+          status: "ABERTA",
+          ...(ehFranqueadora ? (unidade ? { franchiseId: unidade } : {}) : { franchiseId: session?.user?.franchiseId || "-" }),
+          ...(session?.user?.companyId ? { companyId: session.user.companyId } : {}),
+        },
+      }),
+    ]);
+    vagas = result.vagas; total = result.total; totalPages = result.totalPages; abertas = qtdAbertas; unidades = lista;
   } catch (err) {
     console.error("[dashboard/vagas] erro ao carregar vagas:", err);
   }
-
-  const abertas = vagas.filter(v => v.status === "ABERTA").length;
+  const hrefPagina = (n: number) => `/dashboard/vagas?${new URLSearchParams({ ...(unidade ? { unidade } : {}), pagina: String(n) })}`;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-slate-800">Vagas</h1>
-          <p className="text-slate-500 text-sm mt-1">{abertas} abertas • {vagas.length} total</p>
+          <p className="text-slate-500 text-sm mt-1">{abertas} abertas • {total} total</p>
         </div>
         <Link href="/dashboard/vagas/nova"
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f2a5e] text-white rounded-xl font-semibold text-sm hover:bg-[#1a3d8f] transition-colors">
           + Nova Vaga
         </Link>
       </div>
+
+      {ehFranqueadora && (
+        <form method="get" className="mb-5 flex items-center gap-2">
+          <label htmlFor="unidade" className="text-sm font-semibold text-slate-600">Unidade</label>
+          <select id="unidade" name="unidade" defaultValue={unidade}
+            className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white text-slate-700 min-w-[220px]">
+            <option value="">Todas as unidades</option>
+            {unidades.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+          <button type="submit" className="px-4 py-2 bg-[#0f2a5e] text-white rounded-xl font-semibold text-sm hover:bg-[#1a3d8f]">Filtrar</button>
+          {unidade && <Link href="/dashboard/vagas" className="text-sm text-blue-500 hover:underline">Limpar</Link>}
+        </form>
+      )}
 
       {vagas.length === 0 ? (
         <Card className="p-12 text-center">
@@ -49,6 +77,9 @@ export default async function VagasPage() {
                 <div className="flex-1">
                   <p className="font-bold text-slate-800">{v.titulo}</p>
                   <p className="text-sm text-slate-500 mt-0.5">{v.company.name} • {v.cidade && v.uf ? `${v.cidade}/${v.uf}` : "—"}</p>
+                  {ehFranqueadora && (v as any).franchise?.name && (
+                    <p className="text-xs text-indigo-600 font-semibold mt-0.5">🏢 {(v as any).franchise.name}</p>
+                  )}
                 </div>
                 <Badge variant={v.status === "ABERTA" ? "green" : v.status === "PAUSADA" ? "yellow" : "gray"}>
                   {v.status}
@@ -73,6 +104,14 @@ export default async function VagasPage() {
               </Link>
             </Card>
           ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-6 text-sm">
+          {pagina > 1 && <Link href={hrefPagina(pagina - 1)} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">← Anterior</Link>}
+          <span className="text-slate-500">Página {pagina} de {totalPages}</span>
+          {pagina < totalPages && <Link href={hrefPagina(pagina + 1)} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Próxima →</Link>}
         </div>
       )}
     </div>

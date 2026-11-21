@@ -45,11 +45,12 @@ async function getFinanceiro(franchiseId?: string) {
       // Saídas próprias pagas no mês (excluindo Franquia)
       prisma.financial.aggregate({ where: { franchiseId: null, status: "PAGO", tipo: "saida", NOT: { categoria: "Franquia" }, cancelado: false, paidAt: { gte: inicioMes } }, _sum: { valor: true } }),
       // A Receber: entradas próprias pendentes
-      prisma.financial.aggregate({ where: { franchiseId: null, status: "PENDENTE", tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
+      // A Receber / Contas a Pagar incluem VENCIDO: dívida em atraso continua a receber/pagar (antes sumia do card ao virar VENCIDO).
+      prisma.financial.aggregate({ where: { franchiseId: null, status: { in: ["PENDENTE", "VENCIDO"] }, tipo: "entrada", cancelado: false }, _sum: { valor: true } }),
       // A Receber: cobranças de Franquia pendentes (qualquer tipo)
-      prisma.financial.aggregate({ where: { categoria: "Franquia", status: "PENDENTE", cancelado: false }, _sum: { valor: true } }),
+      prisma.financial.aggregate({ where: { categoria: "Franquia", status: { in: ["PENDENTE", "VENCIDO"] }, cancelado: false }, _sum: { valor: true } }),
       // Contas a Pagar: saídas próprias pendentes (excluindo Franquia)
-      prisma.financial.aggregate({ where: { franchiseId: null, status: "PENDENTE", tipo: "saida", NOT: { categoria: "Franquia" }, cancelado: false }, _sum: { valor: true } }),
+      prisma.financial.aggregate({ where: { franchiseId: null, status: { in: ["PENDENTE", "VENCIDO"] }, tipo: "saida", NOT: { categoria: "Franquia" }, cancelado: false }, _sum: { valor: true } }),
       // Caixa: total receitas (entradas próprias + franquias coletadas)
       prisma.financial.aggregate({ where: { OR: [{ franchiseId: null, tipo: "entrada" }, { categoria: "Franquia" }], status: "PAGO", cancelado: false }, _sum: { valor: true } }),
       // Caixa: total despesas (saídas próprias, sem Franquia)
@@ -73,9 +74,9 @@ async function getFinanceiro(franchiseId?: string) {
     // Saídas pagas no mês + Franquia paga (qualquer tipo)
     prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", cancelado: false, paidAt: { gte: inicioMes }, OR: [{ tipo: "saida" }, { categoria: "Franquia" }] }, _sum: { valor: true } }),
     // A Receber: entradas pendentes — exclui Franquia
-    prisma.financial.aggregate({ where: { franchiseId, status: "PENDENTE", tipo: "entrada", NOT: { categoria: "Franquia" }, cancelado: false }, _sum: { valor: true } }),
+    prisma.financial.aggregate({ where: { franchiseId, status: { in: ["PENDENTE", "VENCIDO"] }, tipo: "entrada", NOT: { categoria: "Franquia" }, cancelado: false }, _sum: { valor: true } }),
     // Contas a Pagar: saídas pendentes + Franquia pendente (qualquer tipo)
-    prisma.financial.aggregate({ where: { franchiseId, status: "PENDENTE", cancelado: false, OR: [{ tipo: "saida" }, { categoria: "Franquia" }] }, _sum: { valor: true } }),
+    prisma.financial.aggregate({ where: { franchiseId, status: { in: ["PENDENTE", "VENCIDO"] }, cancelado: false, OR: [{ tipo: "saida" }, { categoria: "Franquia" }] }, _sum: { valor: true } }),
     // Caixa total: entradas pagas (sem Franquia)
     prisma.financial.aggregate({ where: { franchiseId, status: "PAGO", tipo: "entrada", NOT: { categoria: "Franquia" }, cancelado: false }, _sum: { valor: true } }),
     // Caixa total: saídas pagas + Franquia paga

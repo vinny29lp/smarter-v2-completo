@@ -57,6 +57,20 @@ export async function arquivarEmpresa(tx: Tx, companyId: string, excluidoPor: st
   });
 }
 
+/** Vaga excluída pelo ciclo automático (60 dias aberta + 30 pausada sem movimento): guarda a vaga e as candidaturas. */
+export async function arquivarVaga(tx: Tx, vacancyId: string, excluidoPor: string) {
+  const vacancy = await tx.vacancy.findUnique({ where: { id: vacancyId } });
+  if (!vacancy) return null;
+  const applications = await tx.application.findMany({ where: { vacancyId } });
+  return tx.lixeira.create({
+    data: {
+      entidade: "VAGA", entidadeId: vacancyId, nome: vacancy.titulo, franchiseId: vacancy.franchiseId,
+      excluidoPor, expiraEm: expiraEm(),
+      dados: JSON.parse(JSON.stringify({ vacancy, applications })),
+    },
+  });
+}
+
 export async function restaurarDaLixeira(lixeiraId: string): Promise<{ ok: true } | { ok: false; erro: string; status: number }> {
   const item = await prisma.lixeira.findUnique({ where: { id: lixeiraId } });
   if (!item) return { ok: false, erro: "Item não encontrado.", status: 404 };
@@ -80,6 +94,17 @@ export async function restaurarDaLixeira(lixeiraId: string): Promise<{ ok: true 
         await tx.financial.createMany({ data: R(d.financials), skipDuplicates: true });
         await tx.application.createMany({ data: R(d.applications), skipDuplicates: true });
         await tx.discTest.createMany({ data: R(d.discTests), skipDuplicates: true });
+      } else if (item.entidade === "VAGA") {
+        const [vaga] = R([d.vacancy]);
+        const empresa = await tx.company.findUnique({ where: { id: vaga.companyId }, select: { id: true } });
+        if (!empresa) throw new Error("A empresa desta vaga não existe mais — não é possível restaurar.");
+        const jaExiste = await tx.vacancy.findUnique({ where: { id: vaga.id }, select: { id: true } });
+        if (jaExiste) throw new Error("Esta vaga já existe — não é possível restaurar.");
+        // Volta PAUSADA e sem vínculo com a Alizo (a vaga de lá foi removida); a unidade decide se reabre.
+        await tx.vacancy.create({ data: { ...vaga, status: "PAUSADA", alizoJobId: null, updatedAt: new Date() } });
+        const candidaturas = R(d.applications || []);
+        const alunos = new Set((await tx.student.findMany({ where: { id: { in: candidaturas.map((a: any) => a.studentId) } }, select: { id: true } })).map(a => a.id));
+        await tx.application.createMany({ data: candidaturas.filter((a: any) => alunos.has(a.studentId)), skipDuplicates: true });
       } else {
         const ja = await tx.company.findFirst({ where: { OR: [{ id: d.company.id }, { cnpj: d.company.cnpj }] } });
         if (ja) throw new Error("Já existe uma empresa com este CNPJ — não é possível restaurar.");

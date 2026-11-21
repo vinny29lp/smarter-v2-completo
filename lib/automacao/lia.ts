@@ -25,7 +25,14 @@ import {
   deveLembrarAssinatura, normalizarEmail, emailValido, MAX_LEMBRETES_ASSINATURA, IDADE_MAX_DOC_DIAS,
 } from "./regras";
 
-export const TETO_ENVIOS_POR_EXECUCAO = 120;
+/**
+ * Envio em REMESSAS: no máximo 60 e-mails por execução; o cron roda 2x (12:00 e 12:05 UTC = intervalo de 5 min),
+ * somando os mesmos 120/dia sem estourar o limite de 60 s da função (envio é sequencial). Tudo que não coube
+ * numa remessa é pego pela seguinte, porque cada envio fica registrado em automacao_envios.
+ */
+export const TETO_ENVIOS_POR_EXECUCAO = 60;
+/** Tempo máximo gasto enviando por execução (a função da Vercel é cortada em 60 s). */
+export const ORCAMENTO_MS_ENVIOS = 48_000;
 const MAX_DOCS_AUTENTIQUE_POR_EXECUCAO = 40;
 
 const _raw = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "";
@@ -54,6 +61,7 @@ interface Ctx {
   dryRun: boolean;
   agora: Date;
   restante: { n: number };
+  iniciouEm: number;
   optOut: Set<string>;
   vistos: Set<string>;
   porUnidade: Map<string, Record<Contador, number>>;
@@ -88,6 +96,8 @@ async function enviar(ctx: Ctx, r: Resultado, p: {
     return false;
   }
   if (ctx.restante.n <= 0) return false;
+  // Estourou o tempo da remessa: para de enviar (a próxima remessa continua de onde parou).
+  if (!ctx.dryRun && Date.now() - ctx.iniciouEm > ORCAMENTO_MS_ENVIOS) { ctx.restante.n = 0; return false; }
   ctx.vistos.add(chave);
   if (r.amostra.length < 8) r.amostra.push(p.detalhe);
   if (ctx.dryRun) { ctx.restante.n--; r.enviados++; return true; }
@@ -769,7 +779,7 @@ export async function convidarParaVagaAgora(vagaId: string): Promise<{ convidado
   if (!v.publicSlug) return { convidados: 0, elegiveis: 0, semLink: true };
   const optOut = new Set((await prisma.contatoOptOut.findMany({ select: { email: true } })).map(o => normalizarEmail(o.email)));
   const agora = new Date();
-  const ctx: Ctx = { dryRun: false, agora, restante: { n: 30 }, optOut, vistos: new Set(), porUnidade: new Map() };
+  const ctx: Ctx = { dryRun: false, agora, restante: { n: 30 }, iniciouEm: Date.now(), optOut, vistos: new Set(), porUnidade: new Map() };
   const convitesRecentes = await prisma.automacaoEnvio.findMany({
     where: { tipo: "CONVITE_VAGA", createdAt: { gte: new Date(agora.getTime() - 7 * 86_400_000) }, NOT: { detalhe: { startsWith: "duplicado" } } },
     select: { destinatario: true },
@@ -1147,6 +1157,7 @@ export async function rodarAutomacoesLia(opts: { dryRun?: boolean } = {}) {
     dryRun: !!opts.dryRun,
     agora: new Date(),
     restante: { n: TETO_ENVIOS_POR_EXECUCAO },
+    iniciouEm: Date.now(),
     optOut,
     vistos: new Set(),
     porUnidade: new Map(),

@@ -38,6 +38,14 @@
     {
       "path": "/api/cron/alizo-sync",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/lia-automacoes",
+      "schedule": "5 12 * * *"
+    },
+    {
+      "path": "/api/cron/vagas-ciclo",
+      "schedule": "30 9 * * *"
     }
   ]
 }

@@ -1,4 +1,6 @@
 import { getVacancy } from "@/lib/actions/vacancies";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
@@ -16,6 +18,10 @@ const discColor: Record<string,string> = {
 export default async function VagaDetailPage({ params }: { params: { id: string } }) {
   const vaga = await getVacancy(params.id);
   if (!vaga) notFound();
+  // Cada unidade só abre as próprias vagas (a Franqueadora abre todas).
+  const sessao = await getServerSession(authOptions);
+  if (!sessao) notFound();
+  if (sessao.user.role !== "FRANQUEADORA" && vaga.franchiseId !== sessao.user.franchiseId) notFound();
 
   return (
     <div>
