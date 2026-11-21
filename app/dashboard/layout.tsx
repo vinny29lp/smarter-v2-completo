@@ -39,7 +39,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
       // Erro de DB não pode derrubar o dashboard de toda a rede — segue sem bloquear
       console.error("[layout] Erro ao checar bloqueio:", (e as any)?.message);
     }
+    // Treinamento inicial: franquia nova só entra após aprovação no quiz (≥ 8 de 10).
+    // Checagem separada: se a coluna ainda não existir no banco, não derruba o bloqueio acima.
+    let quizPendente = false;
+    try {
+      const q: any = await prisma.franchise.findUnique({ where: { id: franchiseId }, select: { quizObrigatorio: true, quizAprovadoEm: true } as any });
+      quizPendente = !!q?.quizObrigatorio && !q?.quizAprovadoEm;
+    } catch (e) {
+      console.error("[layout] Erro ao checar quiz:", (e as any)?.message);
+    }
     if (bloqueada) redirect("/bloqueado");
+    if (quizPendente) redirect("/treinamento-inicial");
     if (onboardingPendente) redirect("/onboarding");
   }
 

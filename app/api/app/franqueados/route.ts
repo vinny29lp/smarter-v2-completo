@@ -105,6 +105,8 @@ export async function POST(req: Request) {
           })(),
           // Franquia nova só destrava o sistema ao concluir o assistente de primeiro acesso.
           onboardingObrigatorio: true,
+          // ...e só após o treinamento inicial com quiz (≥ 8 de 10).
+          quizObrigatorio: true,
         } as any,
       });
       const u = await tx.user.create({

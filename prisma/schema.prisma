@@ -84,6 +84,10 @@ model Franchise {
   onboardingObrigatorio Boolean    @default(false) // true = sistema só destrava ao concluir o assistente
   onboardingPassos      Json?      // { tour_hoje: true, ... } confirmações manuais do franqueado
   onboardingConcluidoEm DateTime?  @db.Timestamptz(6)
+  // ─── Treinamento inicial: quiz de 10 perguntas (mín. 8 acertos) libera o sistema ───
+  quizObrigatorio       Boolean    @default(false)
+  quizAprovadoEm        DateTime?  @db.Timestamptz(6)
+  quizTentativas        TreinamentoTentativa[]
   alizoSyncStatus      String               @default("pending") // pending | synced | error | disabled
   alizoSyncedAt        DateTime?            @db.Timestamptz(6)
   alizoLastError       String?
@@ -1372,4 +1376,19 @@ model Lixeira {
   @@index([entidade, restauradoEm])
   @@index([expiraEm])
   @@map("lixeira")
+}
+
+model TreinamentoTentativa {
+  id          String    @id @default(cuid())
+  franchiseId String
+  userId      String?
+  acertos     Int
+  total       Int
+  aprovado    Boolean
+  respostas   Json?     // [{ id, escolha }] — só ids e índices, sem texto
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+
+  @@index([franchiseId, createdAt])
+  @@map("treinamento_tentativas")
 }
