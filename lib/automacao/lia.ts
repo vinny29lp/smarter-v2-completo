@@ -483,6 +483,36 @@ async function lembrarContatoHumano(ctx: Ctx): Promise<number> {
   return n;
 }
 
+/** Quinta-feira: unidade abaixo do ritmo das 10 visitas/semana recebe aviso (notificação + e-mail). 1 por unidade por semana. */
+async function avisarRitmoVisitas(ctx: Ctx): Promise<number> {
+  if (ctx.dryRun) return 0;
+  const { deveAvisarVisitas, inicioSemana, META_VISITAS_SEMANA } = await import("@/lib/trilha/regras");
+  const unidades = await prisma.franchise.findMany({
+    where: { status: "ATIVO", OR: [{ onboardingConcluidoEm: { not: null } }, { onboardingObrigatorio: false }] } as any,
+    select: { id: true, name: true },
+  });
+  const semIni = inicioSemana(ctx.agora);
+  const visitas = await prisma.visitaEmpresa.groupBy({ by: ["franchiseId"], where: { visitadaEm: { gte: semIni } }, _count: { _all: true } });
+  const v = new Map(visitas.map(x => [x.franchiseId, x._count._all]));
+  let n = 0;
+  for (const u of unidades) {
+    const feitas = v.get(u.id) ?? 0;
+    if (!deveAvisarVisitas(ctx.agora, feitas)) continue;
+    const ja = await prisma.automacaoEnvio.findFirst({ where: { tipo: "LEMBRETE_VISITAS", refId: u.id, createdAt: { gte: semIni } }, select: { id: true } });
+    if (ja) continue;
+    const usuarios = await prisma.user.findMany({ where: { franchiseId: u.id, role: "FRANQUEADO", active: true }, select: { id: true, name: true, email: true } });
+    if (usuarios.length === 0) continue;
+    await prisma.notification.createMany({
+      data: usuarios.map(x => ({ userId: x.id, titulo: `🎯 ${feitas} de ${META_VISITAS_SEMANA} visitas nesta semana`, mensagem: "A meta é visitar 10 empresas por semana. Ainda dá tempo até sexta: registre cada visita na Trilha.", tipo: "lia_automacao", link: "/dashboard/trilha" })),
+    });
+    const { enviarAvisoRitmoVisitas } = await import("@/lib/email");
+    for (const x of usuarios) await enviarAvisoRitmoVisitas({ email: x.email, nome: x.name || "", nomeUnidade: u.name, feitas, meta: META_VISITAS_SEMANA }).catch(() => false);
+    await prisma.automacaoEnvio.create({ data: { tipo: "LEMBRETE_VISITAS", refId: u.id, destinatario: "franqueado", canal: "interno", detalhe: `visitas=${feitas}`, franchiseId: u.id } }).catch(() => {});
+    n++;
+  }
+  return n;
+}
+
 // ───────────────────────────── Prospecção: 1º contato por e-mail às empresas trazidas pelo Sales ─────────────────────────────
 const MAX_PROSPECCAO_POR_EXECUCAO = 40;
 const MAX_PROSPECCAO_POR_UNIDADE = 15;
@@ -1180,8 +1210,10 @@ export async function rodarAutomacoesLia(opts: { dryRun?: boolean } = {}) {
   const pesquisas = await pesquisasPosEstagio(ctx);
   const unidadesAvisadas = await avisarUnidades(ctx);
   const lembretesContatoHumano = await lembrarContatoHumano(ctx).catch((e: any) => { console.error("[lia] lembrete contato humano:", e?.message); return 0; });
+  const avisosRitmoVisitas = await avisarRitmoVisitas(ctx).catch((e: any) => { console.error("[lia] ritmo de visitas:", e?.message); return 0; });
   return {
     dryRun: ctx.dryRun,
+    avisosRitmoVisitas,
     teto: TETO_ENVIOS_POR_EXECUCAO,
     assinaturas, renovacoes: renov, semestrais, fim, avaliacoes: aval, crm, entrevistas, convites, portal, reativacao, relatorios, convenios, prospeccao, vagasParadas, pesquisas, unidadesAvisadas, lembretesContatoHumano,
   };

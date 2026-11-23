@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { inicioSemana, visitasEsperadas, semaforoSemana, statusMarcos, semaforoGeral } from "./regras";
+import { inicioSemana, visitasEsperadas, semaforoSemana, statusMarcos, semaforoGeral, deveAvisarVisitas } from "./regras";
 
 // 2026-11-25 é quarta-feira.
 const quarta = new Date("2026-11-25T15:00:00Z");
@@ -31,5 +31,11 @@ describe("trilha dos 30 contratos", () => {
     expect(m[2].status).toBe("no_prazo");
     expect(semaforoGeral("verde", m)).toBe("vermelho");
     expect(semaforoGeral("amarelo", statusMarcos(10, 0))).toBe("amarelo");
+  });
+  it("aviso da Lia: só quinta e só abaixo do ritmo", () => {
+    const quinta = new Date("2026-11-26T12:00:00Z");
+    expect(deveAvisarVisitas(quinta, 2)).toBe(true);
+    expect(deveAvisarVisitas(quinta, 6)).toBe(false);
+    expect(deveAvisarVisitas(quarta, 0)).toBe(false);
   });
 });

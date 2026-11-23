@@ -54,3 +54,9 @@ export function semaforoGeral(semana: Semaforo, marcos: { status: StatusMarco }[
 }
 
 export const diasEntre = (a: Date, b: Date) => Math.floor((b.getTime() - a.getTime()) / DIA);
+
+/** Aviso semanal da Lia: toda quinta-feira (BRT), se a unidade está abaixo do ritmo das 10 visitas. */
+export function deveAvisarVisitas(agora: Date, visitas: number): boolean {
+  const dow = (new Date(agora.getTime() + BRT).getUTCDay() + 6) % 7; // seg=0 … qui=3
+  return dow === 3 && semaforoSemana(visitas, agora) !== "verde";
+}

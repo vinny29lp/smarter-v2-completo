@@ -3,7 +3,9 @@ import { inicioSemana, semaforoSemana, statusMarcos, semaforoGeral, diasEntre, M
 
 export async function metricasUnidade(franchiseId: string, agora = new Date()) {
   const semIni = inicioSemana(agora);
-  const f = await prisma.franchise.findUnique({ where: { id: franchiseId }, select: { name: true, createdAt: true, onboardingConcluidoEm: true } });
+  const f = await prisma.franchise.findUnique({ where: { id: franchiseId }, select: { name: true, createdAt: true, onboardingConcluidoEm: true, quizObrigatorio: true } as any }) as any;
+  // Marcos de 1/5/10/30 contratos valem só para unidades NOVAS (criadas pela jornada com quiz); as antigas ficam só com o ritmo semanal.
+  const comMarcos = !!f?.quizObrigatorio;
   const [contratos, visitasSemana, visitasTotal, captadas, contatadas, propostas, empresas, recentes] = await Promise.all([
     prisma.contract.count({ where: { franchiseId, status: "ATIVO" } }),
     prisma.visitaEmpresa.count({ where: { franchiseId, visitadaEm: { gte: semIni } } }),
@@ -16,12 +18,12 @@ export async function metricasUnidade(franchiseId: string, agora = new Date()) {
   ]);
   const base = f?.onboardingConcluidoEm ?? f?.createdAt ?? agora;
   const dias = Math.max(0, diasEntre(base, agora));
-  const marcos = statusMarcos(dias, contratos);
+  const marcos = comMarcos ? statusMarcos(dias, contratos) : [];
   const semana = semaforoSemana(visitasSemana, agora);
   return {
     nome: f?.name ?? "", contratos, metaContratos: META_CONTRATOS, visitasSemana, metaVisitas: META_VISITAS_SEMANA, visitasTotal,
     funil: { captadas, contatadas, visitas: visitasTotal, propostas, contratos, empresas },
-    diasDeOperacao: dias, marcos, semanaSemaforo: semana, semaforo: semaforoGeral(semana, marcos) as Semaforo, recentes,
+    diasDeOperacao: dias, comMarcos, marcos, semanaSemaforo: semana, semaforo: semaforoGeral(semana, marcos) as Semaforo, recentes,
   };
 }
 
@@ -40,7 +42,7 @@ export async function painelRede(agora = new Date()) {
   const unidades = (franquias as any[]).map(f => {
     const n = c.get(f.id) ?? 0, vs = v.get(f.id) ?? 0;
     const dias = Math.max(0, diasEntre(f.onboardingConcluidoEm ?? f.createdAt, agora));
-    const marcos = statusMarcos(dias, n);
+    const marcos = f.quizObrigatorio ? statusMarcos(dias, n) : [];
     const ultimo = l.get(f.id) ?? null;
     return {
       id: f.id, nome: f.name, contratos: n, visitasSemana: vs, dias,

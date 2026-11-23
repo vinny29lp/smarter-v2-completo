@@ -693,3 +693,13 @@ export async function enviarManualImplantacao(params: {
   `;
   return sendMail(params.email, `Contrato assinado — manual de implantação da unidade ${params.nomeUnidade}`, base("Sua franquia começa agora", corpo));
 }
+
+// ── Lia: ritmo semanal de visitas (aviso interno ao franqueado) ──
+export async function enviarAvisoRitmoVisitas(params: { email: string; nome: string; nomeUnidade: string; feitas: number; meta: number }): Promise<boolean> {
+  const faltam = Math.max(0, params.meta - params.feitas);
+  const corpo = `
+    <p style="color:#475569">Olá, <strong>${params.nome}</strong>! Aqui é a Lia, da unidade <strong>${params.nomeUnidade}</strong>.</p>
+    <p style="color:#475569">Nesta semana você registrou <strong>${params.feitas} de ${params.meta}</strong> visitas a empresas. Faltam ${faltam} para a meta. Ainda dá tempo: reserve um período entre hoje e sexta, visite as empresas que o Victor trouxe e registre cada visita na Trilha.</p>
+    <a href="${APP_URL}/dashboard/trilha" class="btn">Abrir a Trilha dos 30 contratos →</a>`;
+  return sendMail(params.email, `Lia: ${params.feitas} de ${params.meta} visitas nesta semana`, baseInterno("Ritmo de visitas da semana", corpo));
+}

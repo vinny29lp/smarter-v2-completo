@@ -60,7 +60,7 @@ export default async function TrilhaPage() {
       <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100">
         <div className="flex justify-between text-sm font-bold text-slate-700"><span>Contratos ativos</span><span>{m.contratos} de {m.metaContratos}</span></div>
         <div className="mt-2 h-3 rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-[#0f2a5e]" style={{ width: `${pct}%` }} /></div>
-        {proximo && <p className="mt-2 text-xs text-slate-500">Próximo marco: <b>{proximo.rotulo}</b> {proximo.status === "atrasado" ? "— prazo passou, vamos recuperar." : `— faltam ${proximo.diasRestantes} dias.`}</p>}
+        {proximo && m.comMarcos && <p className="mt-2 text-xs text-slate-500">Próximo marco: <b>{proximo.rotulo}</b> {proximo.status === "atrasado" ? "— prazo passou, vamos recuperar." : `— faltam ${proximo.diasRestantes} dias.`}</p>}
       </div>
 
       <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100">
@@ -76,10 +76,10 @@ export default async function TrilhaPage() {
         <p className="mt-3 text-[11px] text-slate-400">Se há muita empresa captada e poucas visitas, o gargalo é o contato humano. Se há muitas visitas e poucas propostas, revise a apresentação.</p>
       </div>
 
-      <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100">
+      {m.comMarcos && <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100">
         <h3 className="text-sm font-bold text-slate-700">Marcos</h3>
         <ul className="mt-2 space-y-1.5 text-sm">{m.marcos.map(x => <li key={x.dias} className="flex justify-between"><span>{x.status === "atingido" ? "✅" : x.status === "atrasado" ? "⚠️" : "⬜"} {x.rotulo}</span><span className="text-xs text-slate-500">{x.status === "atingido" ? "atingido" : x.status === "atrasado" ? "atrasado" : `em ${x.diasRestantes} dias`}</span></li>)}</ul>
-      </div>
+      </div>}
 
       {m.recentes.length > 0 && <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-100"><h3 className="text-sm font-bold text-slate-700">Últimas visitas</h3>
         <ul className="mt-2 space-y-1 text-sm">{m.recentes.map(r => <li key={r.id} className="flex justify-between"><span>{r.empresa} <span className="text-xs text-slate-400">· {RES[r.resultado] || r.resultado}</span></span><span className="text-xs text-slate-400">{new Date(r.visitadaEm).toLocaleDateString("pt-BR")}</span></li>)}</ul></div>}
