@@ -1,5 +1,16 @@
 /** Gera o PDF do contrato de franquia com a identidade visual da Smarter (capa, logo, marca d'água, rodapé e paginação). */
 import PDFDocument from "pdfkit";
+// @ts-ignore — pdfkit 0.21: sem tipos para o registro de fontes
+import { registerStdFonts } from "pdfkit";
+// @ts-ignore
+import Helvetica from "pdfkit/standard-fonts/Helvetica";
+// @ts-ignore
+import HelveticaBold from "pdfkit/standard-fonts/HelveticaBold";
+// @ts-ignore
+import HelveticaOblique from "pdfkit/standard-fonts/HelveticaOblique";
+
+// Fontes padrão importadas de forma explícita: na Vercel o pdfkit não consegue lê-las do disco (erro "Cannot load the standard font").
+(registerStdFonts as any)(Helvetica, HelveticaBold, HelveticaOblique);
 import { paragrafosContrato, localEData, cpfFormatado, type DadosContrato } from "./contratoTemplate";
 import { LOGO_PNG_B64, ICONE_PNG_B64 } from "./identidadeVisual";
 import { ASSINATURA_SMARTER_B64 } from "./assinaturaSmarter";

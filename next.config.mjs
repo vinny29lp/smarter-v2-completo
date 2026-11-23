@@ -1,7 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // pdfkit lê fontes (.afm) do disco em tempo de execução: não pode ser empacotado
-  experimental: { serverComponentsExternalPackages: ["pdfkit"] },
+  // pdfkit lê arquivos próprios (fontes, perfil ICC) do disco: não pode ser empacotado e seus arquivos precisam ir junto da função.
+  experimental: {
+    serverComponentsExternalPackages: ["pdfkit"],
+    outputFileTracingIncludes: {
+      "/api/public/franquia/contrato/[token]": ["./node_modules/pdfkit/js/**/*"],
+      "/api/app/franquia-crm/[id]/contrato-pdf": ["./node_modules/pdfkit/js/**/*"],
+      "/api/app/franquia-crm/[id]/jornada": ["./node_modules/pdfkit/js/**/*"],
+    },
+  },
   // ESLint: sem config file → Next.js pula ESLint na build automaticamente
   // TypeScript: prisma generate roda antes de next build (ver package.json "build")
   // portanto os tipos gerados estão sempre atualizados antes do tsc
