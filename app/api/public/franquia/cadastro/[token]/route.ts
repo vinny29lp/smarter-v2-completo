@@ -3,14 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIpFromRequest } from "@/lib/rate-limit";
 import { validarCadastro } from "@/lib/franquia/cadastro";
+import { linkValido } from "@/lib/franquia/link";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request, { params }: { params: { token: string } }) {
   const ip = getClientIpFromRequest(req);
   if (!checkRateLimit(ip, "franquia_cadastro", 10, 60_000)) return NextResponse.json({ error: "Muitas tentativas. Aguarde e tente novamente." }, { status: 429 });
-  const lead = await prisma.franquiaLead.findUnique({ where: { tokenPublico: params.token }, select: { id: true, situacao: true, contratoDocId: true, nomeCompleto: true } });
+  const lead = await prisma.franquiaLead.findUnique({ where: { tokenPublico: params.token }, select: { id: true, situacao: true, contratoDocId: true, nomeCompleto: true, linkExpiraEm: true } });
   if (!lead || lead.situacao === "perdido") return NextResponse.json({ error: "Link inválido." }, { status: 404 });
+  if (!linkValido(lead.linkExpiraEm)) return NextResponse.json({ error: "Este link expirou. Peça um novo ao seu consultor." }, { status: 410 });
   if (lead.contratoDocId) return NextResponse.json({ error: "O contrato já foi enviado. Fale com a Smarter para qualquer ajuste." }, { status: 409 });
   const v = validarCadastro(await req.json().catch(() => null));
   if (!v.ok) return NextResponse.json({ error: v.erro }, { status: 400 });

@@ -41,6 +41,7 @@ interface Lead {
   tokenPublico: string | null; visualizacoes: number; apresentacaoAbertaEm: string | null; cofBaixadaEm: string | null;
   cadastroEm: string | null; contratoDocId: string | null; contratoEnviadoEm: string | null; contratoAssinadoEm: string | null;
   franchiseId: string | null; manualEnviadoEm: string | null;
+  linkExpiraEm?: string | null; cadastro?: any; contratoRegiao?: string | null; contratoFormaPagamento?: string | null;
   notas: { id: string; texto: string; tipo: string; createdAt: string }[];
   tarefas: { id: string; descricao: string; dueAt: string | null; done: boolean; createdAt: string }[];
 }

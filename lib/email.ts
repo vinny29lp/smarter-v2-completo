@@ -680,6 +680,7 @@ export async function enviarManualImplantacao(params: {
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Recebemos o seu contrato assinado. <strong>Bem-vindo(a) à rede Smarter Estágios!</strong></p>
     <p style="color:#475569;font-size:14px">A unidade <strong>${params.nomeUnidade}</strong> já foi criada. Antes de usar o sistema você precisa concluir o <strong>treinamento inicial</strong> e acertar pelo menos <strong>8 de 10</strong> perguntas do quiz. O passo a passo completo está no manual de implantação:</p>
     <a href="${params.manualUrl}" class="btn">Abrir o Manual de Implantação →</a>
+    <p style="color:#475569;font-size:13px;margin-top:12px">Seu contrato assinado em PDF também está disponível para baixar e guardar na página do manual.</p>
     <div class="box">
       <div class="label">Seu acesso ao sistema</div>
       <div style="margin-top:8px">

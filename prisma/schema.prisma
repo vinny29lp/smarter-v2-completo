@@ -974,6 +974,9 @@ model FranquiaLead {
   contratoAssinadoEm  DateTime? @db.Timestamptz(6)
   franchiseId         String?             // unidade criada após a assinatura
   manualEnviadoEm     DateTime? @db.Timestamptz(6)
+  linkExpiraEm        DateTime? @db.Timestamptz(6) // material (apresentação + COF + cadastro) expira 30 dias após o envio ao lead
+  contratoRegiao      String?   // "Região de ..." da cláusula 3.1.3 (editável por lead)
+  contratoFormaPagamento String? // forma de pagamento da taxa negociada (editável por lead)
   createdAt     DateTime       @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
   notas         FranquiaNota[]

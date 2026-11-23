@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { linkValido } from "@/lib/franquia/link";
 
 export const metadata: Metadata = { title: "Franquia Smarter Estágios | Seu material", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
 export default async function MaterialFranquia({ params }: { params: { token: string } }) {
-  const lead = await prisma.franquiaLead.findUnique({ where: { tokenPublico: params.token }, select: { id: true, nomeCompleto: true, situacao: true, contratoDocId: true, apresentacaoAbertaEm: true } });
+  const lead = await prisma.franquiaLead.findUnique({ where: { tokenPublico: params.token }, select: { id: true, nomeCompleto: true, situacao: true, contratoDocId: true, apresentacaoAbertaEm: true, linkExpiraEm: true } });
   if (!lead || lead.situacao === "perdido") notFound();
+  if (!linkValido(lead.linkExpiraEm) && !lead.contratoDocId) return <Expirado />;
   await prisma.franquiaLead.update({
     where: { id: lead.id },
     data: { visualizacoes: { increment: 1 }, ...(lead.apresentacaoAbertaEm ? {} : { apresentacaoAbertaEm: new Date() }) },
   }).catch(() => {});
-  const temCof = (process.env.FRANQUIA_COF_URL || "").startsWith("https://");
+  const temCof = true;
   const nome = lead.nomeCompleto.split(" ")[0];
 
   return (
@@ -31,7 +33,19 @@ export default async function MaterialFranquia({ params }: { params: { token: st
           : <div className="rounded-2xl bg-white p-5 border border-slate-200"><p className="font-black text-[#0f2a5e]">2. COF</p><p className="mt-1 text-sm text-slate-600">O seu consultor enviará a COF por e-mail.</p></div>}
         {!lead.contratoDocId
           ? <Passo n={3} titulo="Quero avançar: cadastro de fechamento" texto="Preencha seus dados e os da unidade. Com eles a Smarter prepara o contrato de franquia para assinatura eletrônica." href={`/franquia/cadastro/${params.token}`} rotulo="Preencher cadastro" destaque />
-          : <div className="rounded-2xl bg-green-50 p-5 border border-green-200 text-sm text-green-800">✅ Seu contrato já foi enviado para assinatura. Confira o seu e-mail.</div>}
+          : <div className="rounded-2xl bg-green-50 p-5 border border-green-200 text-sm text-green-800">✅ Seu contrato já foi enviado para assinatura. Confira o seu e-mail.
+              <a href={`/api/public/franquia/contrato/${params.token}`} className="mt-3 block w-fit rounded-xl bg-[#0f2a5e] px-5 py-2.5 text-sm font-black text-white">Baixar o contrato em PDF</a></div>}
+      </div>
+    </main>
+  );
+}
+
+function Expirado() {
+  return (
+    <main className="min-h-screen bg-[#f0f4f8] flex items-center justify-center p-6 font-sans">
+      <div className="max-w-md rounded-2xl bg-white p-8 text-center border border-slate-200">
+        <p className="text-4xl">⏳</p><h1 className="mt-2 text-xl font-black text-[#0f2a5e]">Este link expirou</h1>
+        <p className="mt-2 text-sm text-slate-600">Por segurança, o material da franquia fica disponível por 30 dias após o envio. Fale com o seu consultor Smarter para receber um novo link.</p>
       </div>
     </main>
   );

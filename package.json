@@ -19,11 +19,13 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "@supabase/supabase-js": "^2.45.0",
+    "@types/pdfkit": "^0.17.7",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.11.0",
     "next": "14.2.35",
     "next-auth": "^4.24.14",
+    "pdfkit": "^0.21.0",
     "prisma": "^5.22.0",
     "react": "^18",
     "react-dom": "^18",

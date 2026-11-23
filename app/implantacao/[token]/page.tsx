@@ -32,6 +32,7 @@ export default async function Manual({ params }: { params: { token: string } }) 
             <div><p className="font-bold text-slate-800">{p.t}</p><p className="mt-1 text-sm text-slate-600">{p.d}</p></div>
           </div>
         ))}
+        <a href={`/api/public/franquia/contrato/${params.token}`} className="block rounded-xl bg-white border border-slate-300 py-3 text-center font-bold text-[#0f2a5e]">📄 Baixar meu contrato de franquia (PDF)</a>
         <a href="/login" className="block rounded-xl bg-[#0f2a5e] py-3 text-center font-black text-white">Entrar no sistema</a>
       </div>
     </main>
