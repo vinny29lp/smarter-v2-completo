@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { JornadaCard } from "./JornadaCard";
 import {
   FRANQUIA_PIPELINE,
   FRANQUIA_ETAPAS_ORDER,
@@ -37,6 +38,9 @@ interface Lead {
   ultimoContato: string | null;
   etapaChangedAt: string | null;
   valorInvestimento: number | null;
+  tokenPublico: string | null; visualizacoes: number; apresentacaoAbertaEm: string | null; cofBaixadaEm: string | null;
+  cadastroEm: string | null; contratoDocId: string | null; contratoEnviadoEm: string | null; contratoAssinadoEm: string | null;
+  franchiseId: string | null; manualEnviadoEm: string | null;
   notas: { id: string; texto: string; tipo: string; createdAt: string }[];
   tarefas: { id: string; descricao: string; dueAt: string | null; done: boolean; createdAt: string }[];
 }
@@ -245,6 +249,8 @@ export default function FranquiaLeadPage() {
               )}
             </div>
           </div>
+
+          <JornadaCard lead={lead} onChange={load} />
 
           {/* Mover Etapa */}
           {lead.situacao === "ativo" && (

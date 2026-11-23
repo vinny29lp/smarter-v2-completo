@@ -46,6 +46,10 @@
     {
       "path": "/api/cron/vagas-ciclo",
       "schedule": "30 9 * * *"
+    },
+    {
+      "path": "/api/cron/franquia-contratos",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

@@ -56,6 +56,22 @@ export const FRANQUIA_PIPELINE: Record<string, FranquiaStageConfig> = {
     emoji: "📋",
     descricao: "Proposta formal enviada. Aguardando aprovação e assinatura.",
   },
+  cadastro_recebido: {
+    label: "Cadastro Recebido",
+    slaDias: 3,
+    color: "#14b8a6",
+    bgColor: "#ccfbf1",
+    emoji: "📝",
+    descricao: "O candidato preencheu o cadastro de fechamento. Ação: conferir os dados e enviar o contrato.",
+  },
+  contrato_enviado: {
+    label: "Contrato Enviado",
+    slaDias: 5,
+    color: "#ea580c",
+    bgColor: "#ffedd5",
+    emoji: "✍️",
+    descricao: "Contrato de franquia enviado ao Autentique. Aguardando a assinatura.",
+  },
   fechado: {
     label: "Contrato Assinado",
     slaDias: 0,
@@ -72,6 +88,8 @@ export const FRANQUIA_ETAPAS_ORDER = [
   "apresentacao",
   "due_diligence",
   "proposta",
+  "cadastro_recebido",
+  "contrato_enviado",
   "fechado",
 ] as const;
 
@@ -82,6 +100,8 @@ export const FRANQUIA_PROB: Record<string, number> = {
   apresentacao: 0.30,
   due_diligence: 0.55,
   proposta: 0.80,
+  cadastro_recebido: 0.90,
+  contrato_enviado: 0.95,
   fechado: 1.00,
 };
 

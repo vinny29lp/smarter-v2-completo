@@ -162,7 +162,7 @@ export const partnerAtualizarLeadSchema = z.object({
 // acessa isso é de nível rede (franchiseId null em partner_api_tokens),
 // não amarrado a uma unidade. Ver lib/crm/franquia-pipeline.ts pro pipeline.
 
-export const FRANQUIA_LEAD_ETAPAS = ["novo_lead", "primeiro_contato", "apresentacao", "due_diligence", "proposta", "fechado"] as const;
+export const FRANQUIA_LEAD_ETAPAS = ["novo_lead", "primeiro_contato", "apresentacao", "due_diligence", "proposta", "cadastro_recebido", "contrato_enviado", "fechado"] as const;
 export const FRANQUIA_LEAD_SITUACOES = ["ativo", "vendido", "perdido"] as const;
 
 export const partnerAtualizarFranquiaLeadSchema = z.object({

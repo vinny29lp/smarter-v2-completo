@@ -671,3 +671,24 @@ export async function enviarMiniutaPropriaParaSmarter(params: {
     baseInterno("Minuta própria — IES aguarda contato", corpo),
   );
 }
+
+// ── Franquia vendida: contrato assinado → manual de implantação + credenciais ──
+export async function enviarManualImplantacao(params: {
+  email: string; nome: string; nomeUnidade: string; senha: string; manualUrl: string;
+}): Promise<boolean> {
+  const corpo = `
+    <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nome}</strong>! Recebemos o seu contrato assinado. <strong>Bem-vindo(a) à rede Smarter Estágios!</strong></p>
+    <p style="color:#475569;font-size:14px">A unidade <strong>${params.nomeUnidade}</strong> já foi criada. Antes de usar o sistema você precisa concluir o <strong>treinamento inicial</strong> e acertar pelo menos <strong>8 de 10</strong> perguntas do quiz. O passo a passo completo está no manual de implantação:</p>
+    <a href="${params.manualUrl}" class="btn">Abrir o Manual de Implantação →</a>
+    <div class="box">
+      <div class="label">Seu acesso ao sistema</div>
+      <div style="margin-top:8px">
+        <div class="label">E-mail de login</div><div class="value">${params.email}</div>
+        <div class="label" style="margin-top:8px">Senha temporária</div><div class="value">${params.senha}</div>
+      </div>
+    </div>
+    <a href="${APP_URL}/login" class="btn">Entrar no sistema →</a>
+    <p style="color:#94a3b8;font-size:12px;margin-top:16px">Ao entrar, o sistema leva você direto ao treinamento. Troque a senha após o primeiro acesso.</p>
+  `;
+  return sendMail(params.email, `Contrato assinado — manual de implantação da unidade ${params.nomeUnidade}`, base("Sua franquia começa agora", corpo));
+}

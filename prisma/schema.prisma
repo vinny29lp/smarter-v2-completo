@@ -962,6 +962,18 @@ model FranquiaLead {
   retornoAt     DateTime?      @db.Timestamptz(6)
   etapaChangedAt DateTime?     @db.Timestamptz(6)
   valorInvestimento Float?     // valor negociado (taxa de franquia)
+  // ─── Jornada de fechamento (Fase 2): apresentação+COF, cadastro, contrato, implantação ───
+  tokenPublico        String?   @unique   // link /franquia/p/[token]
+  apresentacaoAbertaEm DateTime? @db.Timestamptz(6)
+  visualizacoes       Int       @default(0)
+  cofBaixadaEm        DateTime? @db.Timestamptz(6)
+  cadastro            Json?     // dados enviados no formulário de fechamento
+  cadastroEm          DateTime? @db.Timestamptz(6)
+  contratoDocId       String?   @unique   // documento no Autentique
+  contratoEnviadoEm   DateTime? @db.Timestamptz(6)
+  contratoAssinadoEm  DateTime? @db.Timestamptz(6)
+  franchiseId         String?             // unidade criada após a assinatura
+  manualEnviadoEm     DateTime? @db.Timestamptz(6)
   createdAt     DateTime       @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
   notas         FranquiaNota[]
