@@ -1404,3 +1404,19 @@ model TreinamentoTentativa {
   @@index([franchiseId, createdAt])
   @@map("treinamento_tentativas")
 }
+
+/// Visita/apresentação presencial a uma empresa (meta: 10 por semana por unidade).
+model VisitaEmpresa {
+  id          String   @id @default(cuid())
+  franchiseId String
+  userId      String?
+  crmLeadId   String?
+  empresa     String
+  resultado   String   @default("apresentou") // apresentou | proposta | agendou | sem_interesse
+  observacao  String?
+  visitadaEm  DateTime @default(now()) @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([franchiseId, visitadaEm])
+  @@map("visitas_empresa")
+}

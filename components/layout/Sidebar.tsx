@@ -50,6 +50,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard",label:"Dashboard",icon:LayoutDashboard},
     {href:"/dashboard/hoje",label:"Hoje ☀️",icon:Calendar},
     {href:"/dashboard/crescimento",label:"Crescimento 📈",icon:LineChart},
+    {href:"/dashboard/trilha",label:"Trilha 30 contratos 🎯",icon:Star},
     {href:"/dashboard/resultados",label:"Resultados 📊",icon:LineChart},
     {href:"/dashboard/franqueados",label:"Franqueados",icon:Users},
     {href:"/dashboard/lixeira",label:"Lixeira 🗑️",icon:Shield},
@@ -82,6 +83,7 @@ const navByRole: Record<string, {href:string;label:string;icon:any;badge?:number
     {href:"/dashboard",label:"Dashboard",icon:LayoutDashboard},
     {href:"/dashboard/hoje",label:"Hoje ☀️",icon:Calendar},
     {href:"/dashboard/mes",label:"Mês Atual",icon:Calendar},
+    {href:"/dashboard/trilha",label:"Trilha 30 contratos 🎯",icon:Star},
     {href:"/dashboard/resultados",label:"Resultados 📊",icon:LineChart},
   ],[
     {href:"/dashboard/empresas",label:"Empresas",icon:Building2},
