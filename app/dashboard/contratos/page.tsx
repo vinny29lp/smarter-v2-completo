@@ -26,6 +26,7 @@ export default function ContratosPage() {
   const [page, setPage]           = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal]         = useState(0);
+  const [totais, setTotais]       = useState<Record<string, number>>({});
 
   const carregarContratos = (p: number = 1) => {
     setLoading(true);
@@ -40,6 +41,7 @@ export default function ContratosPage() {
         setContratos(d.contratos || []);
         setTotalPages(d.totalPages || 1);
         setTotal(d.total || 0);
+        setTotais(d.totaisPorStatus || {});
         setLoading(false);
       })
       .catch(e => { setFetchError(e.message || "Erro ao carregar contratos."); setLoading(false); });
@@ -76,7 +78,7 @@ export default function ContratosPage() {
           <h1 className="text-2xl font-black text-slate-800">Contratos de Estágio</h1>
           <p className="text-slate-500 text-sm mt-1">
             {total} contratos no total •{" "}
-            {contratos.filter(c => c.status === "ATIVO").length} ativos nesta página
+            {totais.ATIVO ?? 0} ativos • {totais.PENDENTE ?? 0} pendentes (todas as páginas)
             {totalPages > 1 && ` • Página ${page} de ${totalPages}`}
           </p>
         </div>
@@ -88,6 +90,22 @@ export default function ContratosPage() {
             <Button>+ Novo Estágio</Button>
           </Link>
         </div>
+      </div>
+
+      {/* Métricas: totais de todas as páginas (não só a página aberta) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        {[
+          { l: "Ativos", v: totais.ATIVO ?? 0, c: "text-emerald-600" },
+          { l: "Pendentes", v: totais.PENDENTE ?? 0, c: "text-amber-600" },
+          { l: "Ativos + pendentes", v: (totais.ATIVO ?? 0) + (totais.PENDENTE ?? 0), c: "text-[#0f2a5e]" },
+          { l: "Total de contratos", v: total, c: "text-slate-700" },
+        ].map(m => (
+          <div key={m.l} className="rounded-2xl bg-white border border-slate-100 shadow-sm px-4 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{m.l}</p>
+            <p className={`text-2xl font-black ${m.c}`}>{loading ? "…" : m.v}</p>
+            <p className="text-[10px] text-slate-400">em todas as páginas</p>
+          </div>
+        ))}
       </div>
 
       {/* Filtros de Status */}

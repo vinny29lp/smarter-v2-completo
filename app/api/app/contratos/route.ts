@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     }
     // FRANQUEADORA e EQUIPE (franchiseId=undefined) vêem toda a rede
 
-    const [contratos, total] = await Promise.all([
+    const [contratos, total, grupos] = await Promise.all([
       prisma.contract.findMany({
         where,
         select: {
@@ -54,10 +54,14 @@ export async function GET(req: Request) {
         take: limit,
       }),
       prisma.contract.count({ where }),
+      // Totais por status de TODAS as páginas (mesmo escopo da listagem), para as métricas do topo.
+      prisma.contract.groupBy({ by: ["status"], where, _count: { _all: true } }),
     ]);
+    const totaisPorStatus: Record<string, number> = {};
+    for (const g of grupos) totaisPorStatus[g.status || "SEM_STATUS"] = g._count._all;
 
     return NextResponse.json(
-      { contratos, total, page, totalPages: Math.ceil(total / limit) },
+      { contratos, total, totaisPorStatus, page, totalPages: Math.ceil(total / limit) },
       { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
     );
   } catch (e: any) {
