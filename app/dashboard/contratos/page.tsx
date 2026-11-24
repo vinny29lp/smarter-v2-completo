@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card }  from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -29,11 +29,12 @@ export default function ContratosPage() {
   const [totais, setTotais]       = useState<Record<string, number>>({});
   const [totalGeral, setTotalGeral] = useState(0);
 
-  const carregarContratos = (p: number = 1, status: string = filtro) => {
+  const carregarContratos = (p: number = 1, status: string = filtro, termo: string = busca) => {
     setLoading(true);
     setFetchError("");
     const st = status && status !== "TODOS" ? `&status=${encodeURIComponent(status)}` : "";
-    fetch(`/api/app/contratos?page=${p}&limit=${LIMIT}${st}`, { cache: "no-store" })
+    const qs = termo.trim() ? `&q=${encodeURIComponent(termo.trim())}` : "";
+    fetch(`/api/app/contratos?page=${p}&limit=${LIMIT}${st}${qs}`, { cache: "no-store" })
       .then(r => {
         if (r.status === 401) throw new Error("Sessão expirada. Recarregue a página.");
         if (!r.ok) throw new Error(`Erro ao carregar contratos (${r.status}).`);
@@ -55,11 +56,20 @@ export default function ContratosPage() {
     carregarContratos(p);
   };
 
+  // Busca: espera o usuário parar de digitar e consulta o servidor (todas as páginas).
+  const primeiraBusca = useRef(true);
+  useEffect(() => {
+    if (primeiraBusca.current) { primeiraBusca.current = false; return; }
+    const t = setTimeout(() => { setPage(1); carregarContratos(1, filtro, busca); }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busca]);
+
   // Troca de filtro: busca no servidor, sempre voltando à página 1.
   const aplicarFiltro = (s: string) => {
     setFiltro(s);
     setPage(1);
-    carregarContratos(1, s);
+    carregarContratos(1, s, busca);
   };
 
   // Links da Lia (e de alertas) abrem a lista já filtrada: /dashboard/contratos?status=ATIVO
@@ -72,8 +82,8 @@ export default function ContratosPage() {
   // Detecta se há múltiplas unidades nos contratos (visão admin)
   const multiUnidade = contratos.some((c, _, arr) => c.franchise?.name && c.franchise?.name !== arr[0]?.franchise?.name);
 
-  const filtrados = contratos
-    .filter(c => !busca || c.student?.name?.toLowerCase().includes(busca.toLowerCase()) || c.company?.name?.toLowerCase().includes(busca.toLowerCase()) || c.numero?.includes(busca) || c.franchise?.name?.toLowerCase().includes(busca.toLowerCase()));
+  // Filtro de status e busca já vêm prontos do servidor (valem para todas as páginas).
+  const filtrados = contratos;
 
   const contPorStatus = (s: string) => totais[s] ?? 0;
 

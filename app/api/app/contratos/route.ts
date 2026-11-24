@@ -41,6 +41,18 @@ export async function GET(req: Request) {
     const statusParam = (searchParams.get("status") || "").toUpperCase();
     if (/^[A-Z_]{3,30}$/.test(statusParam)) where.status = statusParam;
 
+    // Busca no servidor (todas as páginas): estudante, empresa, nº do contrato ou unidade.
+    const q = (searchParams.get("q") || "").trim().slice(0, 80);
+    if (q) {
+      const has = { contains: q, mode: "insensitive" as const };
+      where.OR = [
+        { student: { name: has } },
+        { company: { name: has } },
+        { numero: has },
+        { franchise: { name: has } },
+      ];
+    }
+
     const [contratos, total, grupos] = await Promise.all([
       prisma.contract.findMany({
         where,
