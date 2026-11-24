@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -31,6 +31,10 @@ function AvaliacoesContent() {
   const [saving, setSaving]         = useState(false);
   const [msg, setMsg]               = useState("");
   const [erro, setErro]             = useState("");
+  // O formulário do link (?contrato=) abre UMA vez. Antes reabria a cada recarga da lista,
+  // inclusive logo depois de enviar: o usuário via o formulário vazio de novo, achava que
+  // não tinha salvado e enviava outra vez (avaliações duplicadas, "não dá baixa").
+  const focoAberto = useRef(false);
 
   const load = () => {
     setLoading(true);
@@ -46,9 +50,9 @@ function AvaliacoesContent() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    if (contratoFoco && contratos.length > 0) {
+    if (contratoFoco && contratos.length > 0 && !focoAberto.current) {
       const c = contratos.find((c: any) => c.id === contratoFoco);
-      if (c) openModal(c.id);
+      if (c) { focoAberto.current = true; openModal(c.id); }
     }
   }, [contratoFoco, contratos]);
 
@@ -88,7 +92,8 @@ function AvaliacoesContent() {
         setSaving(false);
         return;
       }
-      setMsg("Avaliação enviada! ✓");
+      focoAberto.current = true;
+      setMsg(data.jaRegistrada ? "Esta avaliação já estava registrada. Obrigado! ✓" : "Avaliação enviada! ✓");
       setAvalModal(null);
       load();
       setTimeout(() => setMsg(""), 3000);

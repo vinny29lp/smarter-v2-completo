@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { enviarAvaliacaoLink } from "@/lib/email";
 import { handleApiError } from "@/lib/api-response";
+import { tokenAvaliacao } from "@/lib/automacao/token";
 
 export async function POST(
   req: Request,
@@ -22,6 +23,10 @@ export async function POST(
   });
 
   if (!contract) return NextResponse.json({ error: "Contrato não encontrado" }, { status: 404 });
+  if (session.user.role === "EMPRESA" || session.user.role === "ESTUDANTE") return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (!["FRANQUEADORA", "EQUIPE"].includes(session.user.role || "") && (!session.user.franchiseId || contract.franchiseId !== session.user.franchiseId)) {
+    return NextResponse.json({ error: "Contrato não encontrado" }, { status: 404 });
+  }
 
   const emailDestino = contract.company.email;
   if (!emailDestino) {
@@ -43,6 +48,8 @@ export async function POST(
     nomeEstagiario: contract.student.name,
     contratoId: contract.id,
     loginUrl: appUrl,
+    // Mesmo link direto da Lia: abre sem login e dá baixa na hora. Só vale para estágio ATIVO.
+    linkDireto: contract.status === "ATIVO" ? `${appUrl}/avaliar?c=${contract.id}&t=${tokenAvaliacao(contract.id)}` : undefined,
   });
 
   if (!ok) {

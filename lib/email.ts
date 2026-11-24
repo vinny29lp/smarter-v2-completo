@@ -341,9 +341,11 @@ export async function enviarAvaliacaoLink(params: {
   nomeEstagiario: string;
   contratoId: string;
   loginUrl?: string;
+  /** Link direto (sem login) gerado pelo sistema; se ausente, cai no portal que exige login. */
+  linkDireto?: string;
 }): Promise<boolean> {
   const appUrl = params.loginUrl || APP_URL;
-  const link = `${appUrl}/portal-empresa/avaliacoes?contrato=${params.contratoId}`;
+  const link = params.linkDireto || `${appUrl}/portal-empresa/avaliacoes?contrato=${params.contratoId}`;
   const corpo = `
     <p style="color:#475569;margin-bottom:16px">Olá, <strong>${params.nomeEmpresa}</strong>!</p>
     <p style="color:#475569;margin-bottom:16px">Chegou a hora da <strong>Avaliação Semestral</strong> do(a) estagiário(a) <strong>${params.nomeEstagiario}</strong>, conforme previsto na <strong>Lei 11.788/2008</strong>.</p>
@@ -353,7 +355,7 @@ export async function enviarAvaliacaoLink(params: {
       <div class="label" style="margin-top:8px">O que você vai avaliar</div>
       <div style="color:#475569;font-size:13px;margin-top:4px">Pontualidade · Produtividade · Iniciativa · Comunicação · Aprendizado · Postura Profissional</div>
     </div>
-    <p style="color:#475569;font-size:13px">Acesse o portal abaixo para preencher a avaliação. O processo leva menos de 3 minutos.</p>
+    <p style="color:#475569;font-size:13px">Use o botão abaixo para preencher a avaliação. Não precisa de senha e leva menos de 3 minutos.</p>
     <a href="${link}" class="btn">Preencher Avaliação →</a>
     <p style="color:#94a3b8;font-size:11px;margin-top:16px">Se o botão não funcionar, copie e cole este link no navegador:<br>${link}</p>
   `;
