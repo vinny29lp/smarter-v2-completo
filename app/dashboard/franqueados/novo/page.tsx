@@ -108,7 +108,7 @@ export default function NovoFranqueadoPage() {
                 {["basico","completo","premium"].map(p=><option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>)}
               </select>
             </div>
-            <Input label="Mensalidade (R$)" type="number" value={form.mensalidade} onChange={e=>set("mensalidade",e.target.value)} placeholder="250"/>
+            <Input label="Mensalidade do sistema desta unidade (R$)" type="number" value={form.mensalidade} onChange={e=>set("mensalidade",e.target.value)} placeholder="250"/>
           </div>
         </Card>
         <Card className="p-6">

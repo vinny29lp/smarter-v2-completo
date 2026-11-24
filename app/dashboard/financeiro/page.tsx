@@ -845,7 +845,7 @@ export default function FinanceiroPage() {
           </div>
           <div className="px-5 py-3 bg-blue-50 border-t border-blue-100">
             <p className="text-xs text-blue-700 font-medium">
-              💡 <strong>Como é calculado:</strong> R$ 250,00 (sistema) + R$ 13,00 × estagiários ativos. Pagamento em dia = rede forte!
+              💡 <strong>Como é calculado:</strong> mensalidade do sistema da unidade + R$ 13,00 × estagiários ativos. Pagamento em dia = rede forte!
             </p>
           </div>
         </Card>

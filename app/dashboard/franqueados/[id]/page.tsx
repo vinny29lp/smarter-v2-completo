@@ -194,7 +194,7 @@ export default function FranqueadoDetailPage() {
             <div className="flex items-center justify-between py-2 mt-1">
               <div>
                 <p className="text-sm font-medium text-slate-700">Cobrar Mensalidade</p>
-                <p className="text-[11px] text-slate-400">R$250/mês no fechamento do dia 23</p>
+                <p className="text-[11px] text-slate-400">{fmt(data.mensalidade ?? 200)}/mês no fechamento do dia 23</p>
               </div>
               <button
                 onClick={() => action({action:"toggle_mensalidade"}).then(()=>setMsg((data.cobrarMensalidade??true)?"Mensalidade desativada":"Mensalidade ativada!"))}
@@ -415,7 +415,7 @@ export default function FranqueadoDetailPage() {
 
       <Modal open={editModal} onClose={()=>setEditModal(false)} title="Editar Dados da Franquia" size="lg">
         <div className="grid grid-cols-2 gap-3">
-          {[["name","Nome"],["razaoSocial","Razão Social"],["cnpj","CNPJ (14 dígitos, só números)"],["cpf","CPF do Responsável"],["responsavel","Responsável"],["email","E-mail"],["telefone","Telefone"],["endereco","Endereço"],["cep","CEP (8 dígitos)"],["cidade","Cidade"],["uf","UF"],["mensalidade","Mensalidade (R$)"],["diaVencimentoTaxa","Dia Venc. Taxa (1–28, fixo recorrente)"]].map(([k,l])=>(
+          {[["name","Nome"],["razaoSocial","Razão Social"],["cnpj","CNPJ (14 dígitos, só números)"],["cpf","CPF do Responsável"],["responsavel","Responsável"],["email","E-mail"],["telefone","Telefone"],["endereco","Endereço"],["cep","CEP (8 dígitos)"],["cidade","Cidade"],["uf","UF"],["mensalidade","Mensalidade do sistema desta unidade (R$)"],["diaVencimentoTaxa","Dia Venc. Taxa (1–28, fixo recorrente)"]].map(([k,l])=>(
             <Input key={k} label={l} value={editForm[k]||""} onChange={e=>setEditForm((p:any)=>({...p,[k]:e.target.value}))}/>
           ))}
           <div>
