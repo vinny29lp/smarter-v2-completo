@@ -194,7 +194,7 @@ export default function FranqueadoDetailPage() {
             <div className="flex items-center justify-between py-2 mt-1">
               <div>
                 <p className="text-sm font-medium text-slate-700">Cobrar Mensalidade</p>
-                <p className="text-[11px] text-slate-400">R$200/mês no fechamento do dia 23</p>
+                <p className="text-[11px] text-slate-400">R$250/mês no fechamento do dia 23</p>
               </div>
               <button
                 onClick={() => action({action:"toggle_mensalidade"}).then(()=>setMsg((data.cobrarMensalidade??true)?"Mensalidade desativada":"Mensalidade ativada!"))}
