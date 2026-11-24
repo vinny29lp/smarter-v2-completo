@@ -35,6 +35,12 @@ export async function GET(req: Request) {
     }
     // FRANQUEADORA e EQUIPE (franchiseId=undefined) vêem toda a rede
 
+    // Filtro de status no servidor (vale para todas as páginas). Totais por status e total geral
+    // ignoram o filtro, para os cartões do topo continuarem mostrando a rede inteira.
+    const escopo = { ...where };
+    const statusParam = (searchParams.get("status") || "").toUpperCase();
+    if (/^[A-Z_]{3,30}$/.test(statusParam)) where.status = statusParam;
+
     const [contratos, total, grupos] = await Promise.all([
       prisma.contract.findMany({
         where,
@@ -55,13 +61,13 @@ export async function GET(req: Request) {
       }),
       prisma.contract.count({ where }),
       // Totais por status de TODAS as páginas (mesmo escopo da listagem), para as métricas do topo.
-      prisma.contract.groupBy({ by: ["status"], where, _count: { _all: true } }),
+      prisma.contract.groupBy({ by: ["status"], where: escopo, _count: { _all: true } }),
     ]);
     const totaisPorStatus: Record<string, number> = {};
     for (const g of grupos) totaisPorStatus[g.status || "SEM_STATUS"] = g._count._all;
 
     return NextResponse.json(
-      { contratos, total, totaisPorStatus, page, totalPages: Math.ceil(total / limit) },
+      { contratos, total, totalGeral: Object.values(totaisPorStatus).reduce((a, b) => a + b, 0), totaisPorStatus, page, totalPages: Math.ceil(total / limit) },
       { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
     );
   } catch (e: any) {

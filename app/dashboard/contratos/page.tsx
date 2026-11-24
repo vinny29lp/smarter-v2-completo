@@ -27,11 +27,13 @@ export default function ContratosPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal]         = useState(0);
   const [totais, setTotais]       = useState<Record<string, number>>({});
+  const [totalGeral, setTotalGeral] = useState(0);
 
-  const carregarContratos = (p: number = 1) => {
+  const carregarContratos = (p: number = 1, status: string = filtro) => {
     setLoading(true);
     setFetchError("");
-    fetch(`/api/app/contratos?page=${p}&limit=${LIMIT}`, { cache: "no-store" })
+    const st = status && status !== "TODOS" ? `&status=${encodeURIComponent(status)}` : "";
+    fetch(`/api/app/contratos?page=${p}&limit=${LIMIT}${st}`, { cache: "no-store" })
       .then(r => {
         if (r.status === 401) throw new Error("Sessão expirada. Recarregue a página.");
         if (!r.ok) throw new Error(`Erro ao carregar contratos (${r.status}).`);
@@ -42,6 +44,7 @@ export default function ContratosPage() {
         setTotalPages(d.totalPages || 1);
         setTotal(d.total || 0);
         setTotais(d.totaisPorStatus || {});
+        setTotalGeral(d.totalGeral || 0);
         setLoading(false);
       })
       .catch(e => { setFetchError(e.message || "Erro ao carregar contratos."); setLoading(false); });
@@ -49,27 +52,30 @@ export default function ContratosPage() {
 
   const irParaPagina = (p: number) => {
     setPage(p);
-    setFiltro("TODOS");
-    setBusca("");
     carregarContratos(p);
   };
 
-  useEffect(() => { carregarContratos(1); }, []);
+  // Troca de filtro: busca no servidor, sempre voltando à página 1.
+  const aplicarFiltro = (s: string) => {
+    setFiltro(s);
+    setPage(1);
+    carregarContratos(1, s);
+  };
 
   // Links da Lia (e de alertas) abrem a lista já filtrada: /dashboard/contratos?status=ATIVO
   useEffect(() => {
     const st = new URLSearchParams(window.location.search).get("status");
     if (st) setFiltro(st);
+    carregarContratos(1, st || "TODOS");
   }, []);
 
   // Detecta se há múltiplas unidades nos contratos (visão admin)
   const multiUnidade = contratos.some((c, _, arr) => c.franchise?.name && c.franchise?.name !== arr[0]?.franchise?.name);
 
   const filtrados = contratos
-    .filter(c => filtro === "TODOS" || c.status === filtro)
     .filter(c => !busca || c.student?.name?.toLowerCase().includes(busca.toLowerCase()) || c.company?.name?.toLowerCase().includes(busca.toLowerCase()) || c.numero?.includes(busca) || c.franchise?.name?.toLowerCase().includes(busca.toLowerCase()));
 
-  const contPorStatus = (s: string) => contratos.filter(c => c.status === s).length;
+  const contPorStatus = (s: string) => totais[s] ?? 0;
 
   return (
     <div>
@@ -77,7 +83,7 @@ export default function ContratosPage() {
         <div>
           <h1 className="text-2xl font-black text-slate-800">Contratos de Estágio</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {total} contratos no total •{" "}
+            {totalGeral} contratos no total •{" "}
             {totais.ATIVO ?? 0} ativos • {totais.PENDENTE ?? 0} pendentes (todas as páginas)
             {totalPages > 1 && ` • Página ${page} de ${totalPages}`}
           </p>
@@ -98,7 +104,7 @@ export default function ContratosPage() {
           { l: "Ativos", v: totais.ATIVO ?? 0, c: "text-emerald-600" },
           { l: "Pendentes", v: totais.PENDENTE ?? 0, c: "text-amber-600" },
           { l: "Ativos + pendentes", v: (totais.ATIVO ?? 0) + (totais.PENDENTE ?? 0), c: "text-[#0f2a5e]" },
-          { l: "Total de contratos", v: total, c: "text-slate-700" },
+          { l: "Total de contratos", v: totalGeral, c: "text-slate-700" },
         ].map(m => (
           <div key={m.l} className="rounded-2xl bg-white border border-slate-100 shadow-sm px-4 py-3">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{m.l}</p>
@@ -110,13 +116,13 @@ export default function ContratosPage() {
 
       {/* Filtros de Status */}
       <div className="flex gap-2 mb-4 flex-wrap">
-        <button onClick={() => setFiltro("TODOS")}
+        <button onClick={() => aplicarFiltro("TODOS")}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${filtro==="TODOS"?"bg-[#0f2a5e] text-white":"bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-          Todos ({contratos.length})
+          Todos ({totalGeral})
         </button>
         {Object.entries(STATUS_LABELS).map(([s, l]) => (
           contPorStatus(s) > 0 && (
-            <button key={s} onClick={() => setFiltro(s)}
+            <button key={s} onClick={() => aplicarFiltro(s)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${filtro===s?"bg-[#0f2a5e] text-white":"bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
               {l} ({contPorStatus(s)})
             </button>
