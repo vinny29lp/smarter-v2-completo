@@ -1,7 +1,7 @@
 /**
  * POST /api/app/financeiro/fechar-mes
  * Calcula e gera cobranças mensais para cada franqueado:
- *   - R$200 mensalidade (se cobrarMensalidade = true)
+ *   - R$250 mensalidade (se cobrarMensalidade = true)
  *   - R$13 por contrato ATIVO (ativado até o dia 23 do mês)
  * Só disponível no dia 23+ do mês (ou com ?force=true para testes)
  *

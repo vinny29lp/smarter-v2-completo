@@ -94,7 +94,7 @@ export async function fecharMes(force: boolean) {
     const ativos = f.contracts.length;
     const taxaAdmin = ativos * 13;
     const cobrarMens = f.cobrarMensalidade ?? true;
-    const mensalidade = cobrarMens ? (f.mensalidade ?? 200) : 0;
+    const mensalidade = cobrarMens ? (f.mensalidade ?? 250) : 0;
     const total = mensalidade + taxaAdmin;
 
     if (total === 0) {
@@ -110,7 +110,7 @@ export async function fecharMes(force: boolean) {
     const diaVenc = Math.min(Math.max((f as any).diaVencimentoTaxa ?? 10, 1), 28);
     const vencimento = new Date(Date.UTC(comp.ano, comp.mes0, diaVenc));
 
-    // Monta descrição detalhada: "Sistema R$200 + 3 estag. (R$39) — Unidade X — agosto 2026"
+    // Monta descrição detalhada: "Sistema R$250 + 3 estag. (R$39) — Unidade X — agosto 2026"
     const partes: string[] = [];
     if (cobrarMens && mensalidade > 0)
       partes.push(`Sistema R$${mensalidade.toFixed(0).replace(".", ",")}`);
@@ -192,7 +192,7 @@ export async function previewFechamento() {
   const preview = franchises.map(f => {
     const ativos = f.contracts.length;
     const taxaAdmin = ativos * 13;
-    const mensalidade = (f.cobrarMensalidade ?? true) ? (f.mensalidade ?? 200) : 0;
+    const mensalidade = (f.cobrarMensalidade ?? true) ? (f.mensalidade ?? 250) : 0;
     const total = mensalidade + taxaAdmin;
     const diaVenc = Math.min(Math.max((f as any).diaVencimentoTaxa ?? 10, 1), 28);
     return {

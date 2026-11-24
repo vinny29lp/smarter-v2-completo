@@ -18,7 +18,7 @@ export default function NovoFranqueadoPage() {
     name:"", razaoSocial:"", cnpj:"", cpf:"", dataNasc:"",
     responsavel:"", email:"",
     emailLogin:"", telefone:"", cidade:"", uf:"", endereco:"", cep:"",
-    mensalidade:"200", plano:"completo", senha:"",
+    mensalidade:"250", plano:"completo", senha:"",
   });
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
   const [regioes, setRegioes] = useState<Regiao[]>([{ cidade: "", uf: "" }]);
@@ -78,7 +78,7 @@ export default function NovoFranqueadoPage() {
           </div>
           <div className="flex gap-3 justify-center">
             <Button variant="secondary" onClick={() => router.push("/dashboard/franqueados")}>Ver Lista</Button>
-            <Button onClick={() => { setSucesso(null); setForm({name:"",razaoSocial:"",cnpj:"",cpf:"",dataNasc:"",responsavel:"",email:"",emailLogin:"",telefone:"",cidade:"",uf:"",endereco:"",cep:"",mensalidade:"200",plano:"completo",senha:""}); }}>
+            <Button onClick={() => { setSucesso(null); setForm({name:"",razaoSocial:"",cnpj:"",cpf:"",dataNasc:"",responsavel:"",email:"",emailLogin:"",telefone:"",cidade:"",uf:"",endereco:"",cep:"",mensalidade:"250",plano:"completo",senha:""}); }}>
               + Novo Franqueado
             </Button>
           </div>
@@ -108,7 +108,7 @@ export default function NovoFranqueadoPage() {
                 {["basico","completo","premium"].map(p=><option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>)}
               </select>
             </div>
-            <Input label="Mensalidade (R$)" type="number" value={form.mensalidade} onChange={e=>set("mensalidade",e.target.value)} placeholder="200"/>
+            <Input label="Mensalidade (R$)" type="number" value={form.mensalidade} onChange={e=>set("mensalidade",e.target.value)} placeholder="250"/>
           </div>
         </Card>
         <Card className="p-6">

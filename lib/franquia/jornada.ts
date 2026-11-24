@@ -45,7 +45,7 @@ export async function ativarFranquiaPorLead(leadId: string): Promise<{ ok: boole
           name: c.nomeUnidade, razaoSocial: c.razaoSocial, cnpj: c.cnpj || null, cpf: c.cpf,
           dataNasc: c.dataNasc ? new Date(c.dataNasc) : null,
           responsavel: c.nome, email: c.email, telefone: c.telefone, cidade: c.cidade, uf: c.uf, endereco: c.endereco, cep: c.cep,
-          mensalidade: 200, plano: "completo",
+          mensalidade: 250, plano: "completo",
           regioesAtuacao: normalizarRegioes(regioesDoCadastro(c)) as any,
           onboardingObrigatorio: true, quizObrigatorio: true,
         } as any,

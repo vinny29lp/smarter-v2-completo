@@ -96,7 +96,7 @@ export async function POST(req: Request) {
           dataNasc: body.dataNasc ? new Date(body.dataNasc) : null,
           responsavel: body.responsavel, email: body.email, telefone: body.telefone,
           cidade: body.cidade, uf: body.uf, endereco: body.endereco, cep: body.cep,
-          mensalidade: parseFloat(body.mensalidade) || 200,
+          mensalidade: parseFloat(body.mensalidade) || 250,
           plano: body.plano || "completo",
           // Região onde o Sales prospecta; sem nada informado, usa a cidade da unidade.
           regioesAtuacao: (() => {
