@@ -1,5 +1,6 @@
 "use server";
 import { prisma } from "@/lib/prisma";
+import { garantirValorMinimo } from "@/lib/financeiro/valorMinimo";
 import { revalidatePath } from "next/cache";
 import { competenciaDeData } from "@/lib/financeiro/competencia";
 
@@ -41,7 +42,7 @@ export async function criarOuAtualizarLancamentoContrato({
   companyName?: string;
   numero?: string | null;
 }) {
-  if (!valorEmpresa || valorEmpresa <= 0) return null;
+  valorEmpresa = garantirValorMinimo(valorEmpresa);
 
   const diaVenc = vencimento || 5;
   const vencimentoAt = calcVencimentoAt(diaVenc);
@@ -205,7 +206,7 @@ export async function createContract(data: any) {
     studentId, companyId, franchiseId,
     ...(institutionId ? { institutionId } : {}),
     bolsa, remunerado, vencimento, dataInicio, dataFim,
-    ...(valorEmpresa !== null && valorEmpresa !== undefined ? { valorEmpresa } : {}),
+    valorEmpresa: garantirValorMinimo(valorEmpresa),
     ...(auxTransporte !== null && auxTransporte !== undefined ? { auxTransporte } : {}),
     ...(beneficios ? { beneficios } : {}),
     ...(atividades ? { atividades } : {}),
@@ -311,7 +312,7 @@ export async function updateContract(id: string, data: any) {
 
   const safeUpdate = {
     ...(bolsa !== undefined ? { bolsa } : {}),
-    ...(valorEmpresa !== undefined ? { valorEmpresa } : {}),
+    ...(valorEmpresa !== undefined ? { valorEmpresa: garantirValorMinimo(valorEmpresa) } : {}),
     ...(auxTransporte !== undefined ? { auxTransporte } : {}),
     ...(beneficios !== undefined ? { beneficios } : {}),
     ...(vencimento !== undefined ? { vencimento } : {}),

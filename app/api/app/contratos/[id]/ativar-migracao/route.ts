@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { garantirValorMinimo } from "@/lib/financeiro/valorMinimo";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
@@ -29,10 +30,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // ── Garantir lançamento financeiro ──────────────────────────────────────
   // Cria ou atualiza o lançamento em "A Receber" ao ativar o estágio.
   // Funciona como fallback para contratos que não geraram o lançamento na criação.
-  if (contrato.valorEmpresa && contrato.valorEmpresa > 0) {
+  {
     await criarOuAtualizarLancamentoContrato({
       contractId: params.id,
-      valorEmpresa: contrato.valorEmpresa,
+      valorEmpresa: garantirValorMinimo(contrato.valorEmpresa),
       vencimento: contrato.vencimento,
       franchiseId: contrato.franchiseId,
       companyId: contrato.companyId,

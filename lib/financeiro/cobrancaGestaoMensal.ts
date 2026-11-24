@@ -45,6 +45,7 @@
 import { prisma } from "@/lib/prisma";
 import { competenciaDoFechamento, processInBatches } from "./fechar-mes";
 import { competenciaDeData } from "./competencia";
+import { garantirValorMinimo } from "./valorMinimo";
 
 export { competenciaDeData };
 
@@ -63,7 +64,7 @@ export async function gerarCobrancasGestaoMensal(force: boolean) {
 
   // Contratos ativos com Taxa de Gestão configurada (valorEmpresa > 0)
   const contratos = await prisma.contract.findMany({
-    where: { status: "ATIVO", valorEmpresa: { gt: 0 } },
+    where: { status: "ATIVO" }, // inclui valor vazio/zero: cobra o mínimo de R$13 (seguro)
     include: { company: { select: { name: true } } },
   });
 
@@ -105,7 +106,7 @@ export async function gerarCobrancasGestaoMensal(force: boolean) {
         data: {
           descricao,
           tipo: "entrada",
-          valor: c.valorEmpresa as number,
+          valor: garantirValorMinimo(c.valorEmpresa),
           categoria: "Empresa",
           status: "PENDENTE",
           competencia: comp.chave,
@@ -120,7 +121,7 @@ export async function gerarCobrancasGestaoMensal(force: boolean) {
       return {
         contrato: c.numero,
         empresa,
-        valor: c.valorEmpresa,
+        valor: garantirValorMinimo(c.valorEmpresa),
         vencimento: vencimento.toLocaleDateString("pt-BR", { timeZone: "UTC" }),
         lancamentoId: lancamento.id,
       };
@@ -183,7 +184,7 @@ export async function contratosSemCoberturaGestao(franchiseId?: string) {
   const mesAtual = competenciaDeData(hoje);
   const mesSeguinte = competenciaDoFechamento(hoje).chave;
 
-  const where: any = { status: "ATIVO", valorEmpresa: { gt: 0 } };
+  const where: any = { status: "ATIVO" };
   if (franchiseId) where.franchiseId = franchiseId;
 
   const contratos = await prisma.contract.findMany({
@@ -209,7 +210,7 @@ export async function contratosSemCoberturaGestao(franchiseId?: string) {
       contractId: c.id,
       numero: c.numero,
       empresa: c.company?.name || "Empresa",
-      valor: c.valorEmpresa,
+      valor: garantirValorMinimo(c.valorEmpresa),
       franchiseId: c.franchiseId,
     }));
 }
@@ -219,7 +220,7 @@ export async function previewCobrancaGestao() {
   const comp = competenciaDoFechamento(hoje);
 
   const contratos = await prisma.contract.findMany({
-    where: { status: "ATIVO", valorEmpresa: { gt: 0 } },
+    where: { status: "ATIVO" },
     include: { company: { select: { name: true } } },
   });
 
@@ -238,7 +239,7 @@ export async function previewCobrancaGestao() {
     contractId: c.id,
     numero: c.numero,
     empresa: c.company?.name || "Empresa",
-    valor: c.valorEmpresa,
+    valor: garantirValorMinimo(c.valorEmpresa),
     diaVencimento: Math.min(Math.max(c.vencimento ?? 5, 1), 28),
     jaGerado: jaFechadosSet.has(c.id),
   }));

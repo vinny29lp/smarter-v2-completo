@@ -786,7 +786,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
             </div>
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Valor Empresa (R$)</label>
-              <input type="number" step="0.01" value={editForm.valorEmpresa} onChange={e => setF("valorEmpresa", e.target.value)}
+              <input type="number" step="0.01" min="13" value={editForm.valorEmpresa} onChange={e => setF("valorEmpresa", e.target.value)}
                 className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" placeholder="0.00"/>
             </div>
             <div>
