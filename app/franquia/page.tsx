@@ -90,6 +90,14 @@ export default function FranquiaPage({ searchParams }: { searchParams: { w?: str
         </div>
       </section>
 
+      {/* OPORTUNIDADE */}
+      <section className="bg-[#FAA419] text-[#0A1A40]">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-5 py-6 text-center md:flex-row md:justify-between md:text-left">
+          <p className="text-lg md:text-xl font-extrabold" style={{ fontFamily: "var(--f-display)" }}>Condição especial: taxa de franquia Home Office de <s className="opacity-60">R$ 17.000</s> por <span className="text-2xl md:text-3xl">R$ 6.000</span></p>
+          <a href="#investimento" className="rounded-xl bg-[#0A1A40] px-5 py-2.5 text-sm font-black text-white print:hidden">Ver tudo o que está incluído</a>
+        </div>
+      </section>
+
       {/* ESPELHO / SIM-SET */}
       <Secao id="espelho" kicker="Você já percebeu que..." titulo="Toda empresa precisa de gente nova. Poucas têm tempo de fazer isso direito.">
         <div className="grid gap-4 md:grid-cols-3">
@@ -204,29 +212,41 @@ export default function FranquiaPage({ searchParams }: { searchParams: { w?: str
       </Secao>
 
       {/* SIMULADOR */}
-      <Secao id="simulador" escuro kicker="Faça a conta com a sua cabeça" titulo="Simule receita, LTV e payback com as suas próprias premissas." sub="Mexa nos controles. Os custos da Smarter já estão embutidos: R$ 400 de sistema por mês e R$ 13 por estagiário ativo.">
+      <Secao id="simulador" escuro kicker="Faça a conta com a sua cabeça" titulo="Simule receita, LTV e payback com as suas próprias premissas." sub="Mexa nos controles. Os custos da Smarter já estão embutidos: R$ 250 de sistema por mês e R$ 13 por estagiário ativo.">
         <Simulador />
       </Secao>
 
       {/* INVESTIMENTO */}
-      <Secao id="investimento" papel kicker="Investimento" titulo="Comece enxuto. Cresça no seu ritmo." sub="Valores de tabela da COF vigente. Condições promocionais e formas de pagamento são apresentadas pelo seu consultor.">
-        <div className="grid gap-5 md:grid-cols-2">
-          {[["Home Office", "R$ 17.000", "Taxa de franquia", "Investimento total estimado de R$ 27.300 a R$ 42.500, incluindo equipamentos, regularização, ferramentas, marketing inicial e capital de giro recomendado.", false], ["Escritório", "R$ 25.000", "Taxa de franquia", "Investimento total estimado de R$ 60.000 a R$ 93.000, incluindo adequação do espaço, mobiliário, caução e capital de giro recomendado.", true]].map(([n, v, l, d, e]) => (
-            <div key={String(n)} className={`rounded-[2rem] p-8 border ${e ? "bg-white border-[#E5E3DA]" : "bg-[#102657] text-white border-[#102657]"}`}>
-              {!e && <span className="rounded-full bg-[#FAA419] px-3 py-1 text-[11px] font-black uppercase tracking-widest text-[#0A1A40]">Porta de entrada mais leve</span>}
-              <p className="mt-3 text-xl font-extrabold" style={{ fontFamily: "var(--f-display)" }}>{n}</p>
-              <p className="mt-2 text-5xl font-extrabold" style={{ fontFamily: "var(--f-display)" }}>{v}</p>
-              <p className={`text-sm font-bold ${e ? "text-[#D08609]" : "text-[#FAA419]"}`}>{l}</p>
-              <p className={`mt-4 text-sm ${e ? "text-[#5B6079]" : "text-white/75"}`}>{d}</p>
+      <Secao id="investimento" papel kicker="Oportunidade" titulo="Uma taxa de entrada muito mais leve para um negócio com método, marca e tecnologia." sub="Condição promocional para o modelo Home Office, formalizada em proposta comercial, conforme a COF. Fale com o consultor para garantir esta condição.">
+        <div className="grid gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-2 rounded-[2rem] bg-[#102657] p-8 text-white shadow-2xl">
+            <span className="rounded-full bg-[#FAA419] px-3 py-1 text-[11px] font-black uppercase tracking-widest text-[#0A1A40]">Home Office · condição promocional</span>
+            <p className="mt-5 text-sm text-white/60">Taxa de franquia de tabela <s>R$ 17.000</s></p>
+            <p className="mt-1 text-6xl md:text-7xl font-extrabold text-[#FAA419]" style={{ fontFamily: "var(--f-display)" }}>R$ 6.000</p>
+            <p className="mt-2 text-sm font-bold">Cerca de 65% abaixo do valor de tabela.</p>
+            <p className="mt-5 rounded-2xl bg-white/10 p-4 text-sm text-white/85">No cenário de exemplo do simulador (30 contratos ativos, R$ 140 por estagiário), a taxa equivale a menos de 2 meses de resultado bruto. Exemplo ilustrativo, sem garantia.</p>
+            <p className="mt-4 text-xs text-white/55">Pagamento à vista ou em até 12x no cartão, com entrada mínima de 40%. Investimento total estimado nesta condição: R$ 16.300 a R$ 31.500, incluindo equipamentos, regularização, ferramentas, marketing inicial e capital de giro recomendado.</p>
+          </div>
+          <div className="lg:col-span-3 rounded-[2rem] border border-[#E5E3DA] bg-white p-8">
+            <p className="text-xl font-extrabold text-[#102657]" style={{ fontFamily: "var(--f-display)" }}>Tudo isso vem incluído na sua unidade</p>
+            <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+              {[["Marca consolidada", "Smarter Estágios, operando desde 2021."], ["Sistema próprio completo", "Vagas, candidatos, contratos, documentos, avaliações e indicadores em um só lugar."], ["Equipe digital: Victor e Lia", "Comercial e RH trabalhando ao seu lado, sem taxa adicional específica."], ["Treinamento inicial", "100% digital, com avaliação, mais 3 meses de trilha guiada."], ["Implantação guiada", "Manual, configuração inicial e suporte de abertura."], ["Rota dos 30 contratos", "Metas de referência, painel de ritmo e avisos da Lia."], ["Contrato e COF", "Assinatura eletrônica e todas as regras às claras, antes de assinar."], ["Seguro de acidentes pessoais", "Para os estagiários ativos, já coberto no valor por estagiário."]].map(([t, d]) => (
+                <li key={t} className="flex gap-3"><span className="mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-full bg-[#14B870] text-[11px] font-black text-white">✓</span><span><b className="block text-sm text-[#102657]">{t}</b><span className="text-xs text-[#5B6079]">{d}</span></span></li>
+              ))}
+            </ul>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {["Sem royalties", "Sem taxa de publicidade", "Sem taxa anual de evento"].map(t => (
+                <div key={t} className="rounded-xl bg-[#F4F1E8] p-3 text-center text-xs font-black text-[#102657]">{t}</div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {[["R$ 400/mês", "taxa de sistema"], ["R$ 13/mês", "por estagiário ativo, já com seguro de acidentes pessoais"], ["Pagamento", "À vista ou até 12x no cartão, com entrada mínima de 40%"]].map(([a, b]) => (
+          {[["R$ 250/mês", "taxa de sistema"], ["R$ 13/mês", "por estagiário ativo, já com seguro de acidentes pessoais"], ["Modelo Escritório", "taxa de tabela de R$ 25.000, para quem prefere sala própria"]].map(([a, b]) => (
             <div key={a} className="rounded-2xl border border-[#E5E3DA] bg-white p-5"><p className="text-xl font-extrabold text-[#102657]" style={{ fontFamily: "var(--f-display)" }}>{a}</p><p className="mt-1 text-sm text-[#5B6079]">{b}</p></div>
           ))}
         </div>
-        <p className="mt-4 text-[11px] text-[#5B6079]">Valores sujeitos a reajuste anual pelo INPC, conforme a COF. Estimativas de investimento variam com as escolhas e a região de cada franqueado.</p>
+        <p className="mt-4 text-[11px] text-[#5B6079]">A condição promocional é uma campanha formalizada por proposta comercial ou aditivo, conforme a COF, e pode ser alterada ou encerrada pela Franqueadora. Valores mensais sujeitos a reajuste anual pelo INPC. Estimativas de investimento variam com as escolhas e a região de cada franqueado.</p>
       </Secao>
 
       {/* PARA QUEM */}
@@ -259,7 +279,7 @@ export default function FranquiaPage({ searchParams }: { searchParams: { w?: str
       {/* CTA */}
       <section className="bg-[#FAA419] text-[#0A1A40]">
         <div className="mx-auto max-w-4xl px-5 py-16 text-center">
-          <h2 className="text-3xl md:text-5xl font-extrabold leading-tight" style={{ fontFamily: "var(--f-display)" }}>Daqui a 12 meses, você vai ter uma carteira de empresas ou só a vontade de ter começado?</h2>
+          <h2 className="text-3xl md:text-5xl font-extrabold leading-tight" style={{ fontFamily: "var(--f-display)" }}>Daqui a 12 meses, você vai ter uma carteira de empresas ou só a vontade de ter começado? A condição de R$ 6.000 está aberta agora.</h2>
           <p className="mx-auto mt-4 max-w-2xl text-base md:text-lg font-semibold">O próximo passo é simples: ler a COF, tirar as dúvidas com o consultor e, se fizer sentido, preencher o cadastro de fechamento. A decisão é sua, e o roteiro já está pronto.</p>
           {waLink && <a href={waLink} className="mt-8 inline-block rounded-2xl bg-[#0A1A40] px-9 py-4 text-lg font-black text-white print:hidden">Falar com {vendedor || "um consultor"}</a>}
         </div>

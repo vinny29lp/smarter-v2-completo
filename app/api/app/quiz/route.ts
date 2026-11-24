@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { handleApiError } from "@/lib/api-response";
 import { sortearPerguntas, semGabarito, corrigir, MIN_ACERTOS } from "@/lib/treinamentos/quiz";
+import { statusUniversidade, universidadeConfigurada } from "@/lib/universidade";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,15 @@ async function contexto() {
   if (!["FRANQUEADO", "FUNCIONARIO"].includes(role) || !franchiseId || franchiseId === "FRANQUEADORA") {
     return { erro: NextResponse.json({ error: "Forbidden" }, { status: 403 }) } as const;
   }
-  return { role, franchiseId, userId: (session.user as any).id as string | undefined } as const;
+  return { role, franchiseId, userId: (session.user as any).id as string | undefined, email: session.user.email || "" } as const;
+}
+
+/** A prova final só abre depois de concluir todos os módulos da universidade (quando o SSO está configurado). */
+async function universidadeLiberada(email: string, obrigatorio: boolean): Promise<boolean> {
+  if (!obrigatorio) return true;
+  if (!universidadeConfigurada()) return true; // sem integração configurada, não trava a unidade
+  const st = await statusUniversidade(email);
+  return !!st?.concluido;
 }
 
 export async function GET() {
@@ -28,9 +37,11 @@ export async function GET() {
     const c = await contexto(); if ("erro" in c) return c.erro;
     const f: any = await prisma.franchise.findUnique({ where: { id: c.franchiseId }, select: { quizObrigatorio: true, quizAprovadoEm: true } as any });
     const tentativas = await prisma.treinamentoTentativa.count({ where: { franchiseId: c.franchiseId } });
+    const uni = await universidadeLiberada(c.email, !!f?.quizObrigatorio);
     return NextResponse.json({
       obrigatorio: !!f?.quizObrigatorio, aprovadoEm: f?.quizAprovadoEm ?? null, minAcertos: MIN_ACERTOS, tentativas,
-      perguntas: c.role === "FRANQUEADO" ? sortearPerguntas().map(semGabarito) : [],
+      universidadeConcluida: uni,
+      perguntas: c.role === "FRANQUEADO" && uni ? sortearPerguntas().map(semGabarito) : [],
     });
   } catch (e) { return handleApiError(e, "QUIZ_GET"); }
 }
@@ -39,6 +50,10 @@ export async function POST(req: Request) {
   try {
     const c = await contexto(); if ("erro" in c) return c.erro;
     if (c.role !== "FRANQUEADO") return NextResponse.json({ error: "Somente o franqueado responde ao quiz." }, { status: 403 });
+    const f: any = await prisma.franchise.findUnique({ where: { id: c.franchiseId }, select: { quizObrigatorio: true } as any });
+    if (!(await universidadeLiberada(c.email, !!f?.quizObrigatorio))) {
+      return NextResponse.json({ error: "Conclua todos os módulos da Universidade Smarter antes da prova final." }, { status: 403 });
+    }
     const body = await req.json().catch(() => ({}));
     const r = corrigir(body?.respostas);
     if (!r) return NextResponse.json({ error: "Respostas inválidas." }, { status: 400 });
