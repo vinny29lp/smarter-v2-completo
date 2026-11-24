@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { validarValorMinimo } from "@/lib/financeiro/valorMinimo";
 import { useRouter } from "next/navigation";
 import { createContract } from "@/lib/actions/contracts";
 import { Input } from "@/components/ui/Input";
@@ -142,6 +143,8 @@ export function ContratoForm({ franchiseId }: Props) {
       setError(`⚠️ Carga horária semanal (${chTotal.toFixed(1)}h) excede o limite legal de 30h/semana (Lei 11.788/2008, art. 10). Ajuste os horários ou os dias da semana.`);
       setEtapa(2); return;
     }
+    const erroValor = validarValorMinimo(form.valorEmpresa);
+    if (erroValor) { setError("⚠️ " + erroValor); setEtapa(2); return; }
     if (!form.supervisorNome) { setError("Informe o Supervisor da Empresa (obrigatório pela Lei 11.788/2008)."); return; }
     if (!form.apoliceSeguro) { setError("Informe a Apólice de Seguro (obrigatório pela Lei 11.788/2008)."); return; }
     if (menorDeIdade && !nomeResponsavel.trim()) { setError("Informe o Nome do Responsável Legal do estagiário menor de idade."); return; }
@@ -328,7 +331,7 @@ export function ContratoForm({ franchiseId }: Props) {
             {remunerado && (
               <Input label="Bolsa (R$) *" type="number" value={form.bolsa} onChange={e => set("bolsa", e.target.value)} placeholder="1500" />
             )}
-            <Input label="Valor cobrado Empresa (R$)" type="number" value={form.valorEmpresa} onChange={e => set("valorEmpresa", e.target.value)} placeholder="1800" />
+            <Input label="Valor cobrado Empresa (R$) — mínimo R$ 13,00" type="number" min="13" value={form.valorEmpresa} onChange={e => set("valorEmpresa", e.target.value)} placeholder="1800" />
             <Input label="Auxílio Transporte (R$)" type="number" value={form.auxTransporte} onChange={e => set("auxTransporte", e.target.value)} placeholder="200" />
             <Input label="Benefícios" value={form.beneficios} onChange={e => set("beneficios", e.target.value)} placeholder="Auxílio Transporte" />
             <Input label="Data de Início *" type="date" value={form.dataInicio} onChange={e => set("dataInicio", e.target.value)} />

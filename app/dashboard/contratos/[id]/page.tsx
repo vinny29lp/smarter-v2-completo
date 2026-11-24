@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { validarValorMinimo } from "@/lib/financeiro/valorMinimo";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -202,6 +203,8 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
         return;
       }
     }
+    const erroValor = validarValorMinimo(editForm.valorEmpresa);
+    if (erroValor) { setActionMsg("❌ " + erroValor); return; }
     setSaving(true); setActionMsg(null);
     // Fora do modo personalizado, salva os campos do formulário como sempre.
     // No modo personalizado, os blocos substituem diasSemana/horário/CH —
@@ -785,7 +788,7 @@ export default function ContratoDetailPage({ params }: { params: { id: string } 
                 className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e] disabled:bg-slate-100 disabled:text-slate-400" placeholder="0.00"/>
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Valor Empresa (R$)</label>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Valor Empresa (R$) — mínimo R$ 13,00</label>
               <input type="number" step="0.01" min="13" value={editForm.valorEmpresa} onChange={e => setF("valorEmpresa", e.target.value)}
                 className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0f2a5e]" placeholder="0.00"/>
             </div>

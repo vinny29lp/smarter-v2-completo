@@ -1,6 +1,6 @@
 "use server";
 import { prisma } from "@/lib/prisma";
-import { garantirValorMinimo } from "@/lib/financeiro/valorMinimo";
+import { garantirValorMinimo, validarValorMinimo } from "@/lib/financeiro/valorMinimo";
 import { revalidatePath } from "next/cache";
 import { competenciaDeData } from "@/lib/financeiro/competencia";
 
@@ -202,11 +202,14 @@ export async function createContract(data: any) {
     ...rest  // descartamos campos extras
   } = data;
 
+  const erroValorCriar = validarValorMinimo(valorEmpresa);
+  if (erroValorCriar) throw new Error(erroValorCriar);
+
   const safeData = {
     studentId, companyId, franchiseId,
     ...(institutionId ? { institutionId } : {}),
     bolsa, remunerado, vencimento, dataInicio, dataFim,
-    valorEmpresa: garantirValorMinimo(valorEmpresa),
+    valorEmpresa,
     ...(auxTransporte !== null && auxTransporte !== undefined ? { auxTransporte } : {}),
     ...(beneficios ? { beneficios } : {}),
     ...(atividades ? { atividades } : {}),
@@ -310,9 +313,14 @@ export async function updateContract(id: string, data: any) {
     apoliceSeguro, seguradora, tipoEstagio, modalidade, status, numero,
   } = data;
 
+  if (valorEmpresa !== undefined) {
+    const erroValorEditar = validarValorMinimo(valorEmpresa);
+    if (erroValorEditar) throw new Error(erroValorEditar);
+  }
+
   const safeUpdate = {
     ...(bolsa !== undefined ? { bolsa } : {}),
-    ...(valorEmpresa !== undefined ? { valorEmpresa: garantirValorMinimo(valorEmpresa) } : {}),
+    ...(valorEmpresa !== undefined ? { valorEmpresa } : {}),
     ...(auxTransporte !== undefined ? { auxTransporte } : {}),
     ...(beneficios !== undefined ? { beneficios } : {}),
     ...(vencimento !== undefined ? { vencimento } : {}),

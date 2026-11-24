@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { garantirValorMinimo } from "@/lib/financeiro/valorMinimo";
+import { validarValorMinimo } from "@/lib/financeiro/valorMinimo";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getContract, criarOuAtualizarLancamentoContrato } from "@/lib/actions/contracts";
@@ -98,7 +98,11 @@ export async function PATCH(
   // Converte campos numéricos — string vazia vira null, string/number vira Float
   const toFloat = (v: any) => (v === "" || v === null || v === undefined) ? null : Number(v);
   if (data.bolsa         !== undefined) data.bolsa         = Math.max(0, toFloat(data.bolsa) ?? 0);
-  if (data.valorEmpresa  !== undefined) data.valorEmpresa  = garantirValorMinimo(toFloat(data.valorEmpresa)); // nunca abaixo de R$13 (seguro)
+  if (data.valorEmpresa  !== undefined) {
+    const erroValor = validarValorMinimo(data.valorEmpresa); // nunca abaixo de R$13 (seguro)
+    if (erroValor) return NextResponse.json({ error: erroValor }, { status: 400 });
+    data.valorEmpresa = toFloat(data.valorEmpresa);
+  }
   if (data.auxTransporte !== undefined) data.auxTransporte = toFloat(data.auxTransporte);
   if (data.chDiaria   !== undefined) data.chDiaria  = data.chDiaria   === "" ? null : parseInt(String(data.chDiaria));
   if (data.chSemanal  !== undefined) data.chSemanal = data.chSemanal  === "" ? null : parseInt(String(data.chSemanal));
