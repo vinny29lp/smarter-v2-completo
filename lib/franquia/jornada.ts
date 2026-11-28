@@ -74,14 +74,24 @@ export async function ativarFranquiaPorLead(leadId: string): Promise<{ ok: boole
   return { ok: true };
 }
 
+/** True quando o signatário com o e-mail do franqueado já assinou (rejeição não conta). */
+export function assinouFranqueado(signers: { email?: string; signed: boolean; rejected?: boolean }[], email: string): boolean {
+  const e = email.trim().toLowerCase();
+  return !!e && signers.some(x => (x.email || "").trim().toLowerCase() === e && x.signed && !x.rejected);
+}
+
 /** Consulta o Autentique dos contratos pendentes e ativa os assinados. */
 export async function verificarContratosPendentes() {
-  const pend = await prisma.franquiaLead.findMany({ where: { contratoDocId: { not: null }, contratoAssinadoEm: null }, select: { id: true, contratoDocId: true }, take: 50 });
+  const pend = await prisma.franquiaLead.findMany({ where: { contratoDocId: { not: null }, contratoAssinadoEm: null }, select: { id: true, contratoDocId: true, email: true, cadastro: true }, take: 50 });
   const r = { verificados: pend.length, ativados: 0, erros: 0 };
   for (const l of pend) {
     try {
       const st = await buscarStatusAutentique(l.contratoDocId!);
-      if (st.allSigned) { const a = await ativarFranquiaPorLead(l.id); if (a.ok) r.ativados++; }
+      // Só o franqueado assina o contrato de franquia: ativa quando o e-mail do cadastro assinou,
+      // independentemente de outros signatários (ex.: conta da Smarter adicionada pelo Autentique).
+      const email = String((l.cadastro as any)?.email || l.email || "").trim().toLowerCase();
+      const franqueadoAssinou = assinouFranqueado(st.signers, email) || (!email && st.allSigned);
+      if (franqueadoAssinou) { const a = await ativarFranquiaPorLead(l.id); if (a.ok) r.ativados++; }
     } catch (e: any) { r.erros++; console.error("[franquia-contratos]", l.id, e?.message); }
   }
   return r;
